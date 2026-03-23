@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMPACT ERP — Clients</title>
+  <link rel="stylesheet" href="css/simpact.css">
+  <style>
+    .client-card {
+      background:var(--navy-mid); border:1px solid var(--navy-border);
+      border-radius:var(--radius-lg); padding:20px; cursor:pointer;
+      transition:var(--transition); position:relative; overflow:hidden;
+    }
+    .client-card:hover { border-color:var(--gold); transform:translateY(-2px); box-shadow:var(--shadow-gold); }
+    .client-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--gold),transparent); opacity:0; transition:opacity 0.2s; }
+    .client-card:hover::before { opacity:1; }
+    .cc-avatar { width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--navy-dark);flex-shrink:0; }
+    .cc-name  { font-size:14px;font-weight:600;color:var(--text-primary); }
+    .cc-sector{ font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-top:2px; }
+    .cc-stat  { text-align:center; }
+    .cc-stat .val { font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--gold); }
+    .cc-stat .lbl { font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.8px;font-family:'DM Mono',monospace; }
+  </style>
+</head>
+<body>
+<div class="erp-layout">
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-logo">S</div>
+      <div class="brand-text"><div class="brand-name">SIMPACT</div><div class="brand-sub">ERP v4.0</div></div>
+    </div>
+    <div class="topbar-center"><span style="font-size:13px;color:var(--text-muted)">Clients B2B</span></div>
+    <div class="topbar-right"><div class="user-chip" id="user-chip"></div></div>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section-label">Navigation</div>
+    <a href="dashboard.html" class="nav-item" data-page="dashboard"><span class="nav-icon">◈</span><span>Tableau de bord</span></a>
+    <a href="orders.html" class="nav-item" data-page="orders"><span class="nav-icon">📋</span><span>Commandes</span></a>
+    <a href="configurator.html" class="nav-item" data-page="configurator"><span class="nav-icon">⚙</span><span>Configurateur prix</span></a>
+    <a href="stock.html" class="nav-item" data-page="stock"><span class="nav-icon">📦</span><span>Stocks papier</span></a>
+    <div class="nav-separator"></div>
+    <a href="clients.html" class="nav-item" data-page="clients"><span class="nav-icon">🏛</span><span>Clients</span></a>
+    <a href="reporting.html" class="nav-item" data-page="reporting"><span class="nav-icon">📊</span><span>Reporting</span></a>
+    <div class="nav-separator"></div>
+    <a href="#" class="nav-item" onclick="SIMPACT_AUTH.logout()"><span class="nav-icon">⎋</span><span>Déconnexion</span></a>
+  </nav>
+
+  <main class="main-content page-enter">
+    <div class="page-header">
+      <div><div class="page-title">Clients B2B</div><div class="page-subtitle">Gestion des comptes clients — banques, assurances, institutions</div></div>
+      <div class="page-actions"><button class="btn btn-primary" onclick="openNewClientModal()">+ Nouveau client</button></div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid" id="clientKPIs" style="margin-bottom:24px"></div>
+
+    <!-- Recherche -->
+    <div style="display:flex;gap:10px;margin-bottom:20px">
+      <div style="position:relative;flex:1">
+        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:0.4">🔍</span>
+        <input type="text" class="form-control" style="padding-left:36px" placeholder="Rechercher un client…" oninput="filterClients(this.value)">
+      </div>
+      <select class="form-control" style="width:180px" id="sectorFilter" onchange="filterClients(document.querySelector('input[type=text]').value)">
+        <option value="">Tous les secteurs</option>
+        <option value="Banque">Banque</option>
+        <option value="Assurance">Assurance</option>
+        <option value="Industrie">Industrie</option>
+        <option value="Administration">Administration</option>
+      </select>
+    </div>
+
+    <!-- Grille clients -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px" id="clientGrid"></div>
+  </main>
+</div>
+
+<!-- Modal détail client -->
+<div id="detailModal" style="display:none" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:700px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title" id="detailTitle">—</div>
+      <button onclick="document.getElementById('detailModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div class="modal-body" id="detailBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('detailModal').style.display='none'">Fermer</button>
+      <button class="btn btn-primary" onclick="document.getElementById('detailModal').style.display='none';window.location.href='orders.html#new'">+ Nouvelle commande</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal nouveau client -->
+<div id="newClientModal" style="display:none" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:560px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title">Nouveau client</div>
+      <button onclick="document.getElementById('newClientModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Raison sociale</label><input type="text" class="form-control" id="nc-name" placeholder="ex: Banque Nationale Agricole"></div>
+      <div class="grid-2">
+        <div class="form-group"><label class="form-label">Secteur</label>
+          <select class="form-control" id="nc-sector"><option>Banque</option><option>Assurance</option><option>Industrie</option><option>Administration</option><option>Autre</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">Responsable contact</label><input type="text" class="form-control" id="nc-contact" placeholder="Nom & Prénom"></div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-control" id="nc-email" placeholder="print@client.tn"></div>
+        <div class="form-group"><label class="form-label">Téléphone</label><input type="text" class="form-control" id="nc-phone" placeholder="+216 71 000 000"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Adresse</label><input type="text" class="form-control" id="nc-address" placeholder="Adresse complète"></div>
+      <div class="grid-2">
+        <div class="form-group"><label class="form-label">MF / TVA</label><input type="text" class="form-control" id="nc-tva" placeholder="TN000000X"></div>
+        <div class="form-group"><label class="form-label">Remise accordée (%)</label><input type="number" class="form-control" id="nc-remise" placeholder="0" min="0" max="30"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('newClientModal').style.display='none'">Annuler</button>
+      <button class="btn btn-primary" onclick="saveNewClient()">Créer le client</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script>
+const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
+if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("clients"); }
+
+const SECTOR_COLORS = { Banque:"#4a9fd4", Assurance:"#3dba78", Industrie:"#c9a84c", Administration:"#e05050", Autre:"#7a9ab8" };
+const INITIALS = name => name.split(" ").filter(w=>w.length>2).slice(0,2).map(w=>w[0]).join("").toUpperCase() || "??";
+
+function renderKPIs(){
+  const clients= DB.getClients();
+  const orders = DB.getOrders();
+  const caTotal= orders.reduce((s,o)=>s+(o.priceHT||0),0);
+  document.getElementById("clientKPIs").innerHTML = [
+    {label:"Total clients",value:clients.length,unit:"",icon:"🏛",color:"blue"},
+    {label:"Banques",value:clients.filter(c=>c.sector==="Banque").length,unit:"",icon:"🏦",color:"gold"},
+    {label:"Assurances",value:clients.filter(c=>c.sector==="Assurance").length,unit:"",icon:"🛡",color:"green"},
+    {label:"CA moyen / client",value:(clients.length?caTotal/clients.length:0).toFixed(0),unit:"DT",icon:"💰",color:"orange"},
+  ].map(k=>`<div class="kpi-card ${k.color}"><div class="kpi-icon">${k.icon}</div><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}<span class="kpi-unit">${k.unit}</span></div></div>`).join("");
+}
+
+function renderGrid(clients){
+  const orders = DB.getOrders();
+  document.getElementById("clientGrid").innerHTML = clients.map(c=>{
+    const co = orders.filter(o=>o.clientId===c.id);
+    const ca = co.reduce((s,o)=>s+(o.priceHT||0),0);
+    const color = SECTOR_COLORS[c.sector]||"#7a9ab8";
+    return `
+    <div class="client-card" onclick="openDetail('${c.id}')">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+        <div class="cc-avatar" style="background:${color}20;border:1px solid ${color}40;color:${color}">${INITIALS(c.name)}</div>
+        <div>
+          <div class="cc-name">${c.name}</div>
+          <div class="cc-sector">${c.sector||"—"}</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:12px 0;border-top:1px solid var(--navy-border);border-bottom:1px solid var(--navy-border);margin-bottom:12px">
+        <div class="cc-stat"><div class="val">${co.length}</div><div class="lbl">Commandes</div></div>
+        <div class="cc-stat"><div class="val">${ca.toFixed(0)}</div><div class="lbl">CA (DT)</div></div>
+        <div class="cc-stat"><div class="val">${c.remise||0}%</div><div class="lbl">Remise</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;color:var(--text-muted)">${c.contact||"—"}</div>
+          <div style="font-size:11px;color:var(--text-dim);font-family:'DM Mono',monospace">${c.email||"—"}</div>
+        </div>
+        <span class="badge" style="background:${color}15;color:${color};border:1px solid ${color}30">${c.sector}</span>
+      </div>
+    </div>`;
+  }).join("") || `<div style="grid-column:1/-1;text-align:center;color:var(--text-dim);padding:40px">Aucun client trouvé</div>`;
+}
+
+function filterClients(q){
+  const sector = document.getElementById("sectorFilter").value;
+  let cl = DB.getClients();
+  if(sector) cl = cl.filter(c=>c.sector===sector);
+  if(q)      cl = cl.filter(c=>(c.name+c.contact+c.sector).toLowerCase().includes(q.toLowerCase()));
+  renderGrid(cl);
+}
+
+function openDetail(id){
+  const c = DB.getClient(id); if(!c) return;
+  const orders = DB.getOrders({clientId:id});
+  const ca = orders.reduce((s,o)=>s+(o.priceHT||0),0);
+  const color = SECTOR_COLORS[c.sector]||"#7a9ab8";
+  const SC={received:"badge-received",bat:"badge-bat",production:"badge-production",done:"badge-done",cancelled:"badge-cancelled"};
+  const SL={received:"Reçue",bat:"BAT",production:"Production",done:"Livré",cancelled:"Annulé"};
+  document.getElementById("detailTitle").innerHTML = `<span style="color:${color}">${INITIALS(c.name)}</span> <span style="margin-left:8px">${c.name}</span>`;
+  document.getElementById("detailBody").innerHTML = `
+    <div class="grid-2" style="margin-bottom:20px">
+      <div class="card"><div class="card-body">
+        <div class="card-title" style="margin-bottom:12px">Informations</div>
+        ${[["Contact",c.contact||"—"],["Email",c.email||"—"],["Téléphone",c.phone||"—"],
+           ["Adresse",c.address||"—"],["MF/TVA",c.tva||"—"],["Remise",c.remise+"% accordée"]
+        ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px">
+          <span style="color:var(--text-muted)">${k}</span><span style="color:var(--text-primary);text-align:right;max-width:60%">${v}</span>
+        </div>`).join("")}
+      </div></div>
+      <div class="card"><div class="card-body">
+        <div class="card-title" style="margin-bottom:12px">Activité</div>
+        <div style="text-align:center;padding:10px 0">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:42px;font-weight:600;color:var(--gold)">${ca.toFixed(0)}<span style="font-size:18px"> DT</span></div>
+          <div style="font-size:12px;color:var(--text-muted)">${orders.length} commande${orders.length!==1?"s":""} · panier moyen ${orders.length?(ca/orders.length).toFixed(0):0} DT</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px">
+          ${["done","production","bat","received"].map(s=>{
+            const n=orders.filter(o=>o.status===s).length;
+            return n?`<span class="badge badge-${s}">${n} ${SL[s]}</span>`:"";
+          }).join("")}
+        </div>
+      </div></div>
+    </div>
+    <div class="card"><div class="card-header"><div class="card-title">Historique des commandes</div></div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Réf.</th><th>Produit</th><th>Qté</th><th>Montant HT</th><th>Date</th><th>Statut</th></tr></thead>
+          <tbody>${orders.map(o=>`<tr>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold)">${o.id}</td>
+            <td>${o.product}</td>
+            <td style="font-family:'DM Mono',monospace">${(o.qty||0).toLocaleString("fr-FR")}</td>
+            <td style="font-family:'DM Mono',monospace;font-weight:600">${(o.priceHT||0).toFixed(2)} DT</td>
+            <td style="font-size:11px;color:var(--text-muted)">${new Date(o.createdAt).toLocaleDateString("fr-FR")}</td>
+            <td><span class="badge ${SC[o.status]||""}">${SL[o.status]||o.status}</span></td>
+          </tr>`).join("") || `<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:20px">Aucune commande</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  document.getElementById("detailModal").style.display="flex";
+}
+
+function openNewClientModal(){ document.getElementById("newClientModal").style.display="flex"; }
+
+function saveNewClient(){
+  const name = document.getElementById("nc-name").value.trim();
+  if(!name){ showToast("Nom requis","error"); return; }
+  const c = {
+    id: "c"+(Date.now()),
+    name, sector: document.getElementById("nc-sector").value,
+    contact: document.getElementById("nc-contact").value,
+    email:   document.getElementById("nc-email").value,
+    phone:   document.getElementById("nc-phone").value,
+    address: document.getElementById("nc-address").value,
+    tva:     document.getElementById("nc-tva").value,
+    remise:  parseInt(document.getElementById("nc-remise").value)||0,
+    userId: null,
+  };
+  DB.saveClient(c);
+  document.getElementById("newClientModal").style.display="none";
+  showToast(`Client "${name}" créé !`,"success");
+  renderKPIs(); filterClients("");
+}
+
+renderKPIs(); filterClients("");
+</script>
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMPACT ERP — Stocks</title>
+  <link rel="stylesheet" href="css/simpact.css">
+  <style>
+    .stock-card {
+      background: var(--navy-mid); border: 1px solid var(--navy-border);
+      border-radius: var(--radius-lg); padding: 18px;
+      position: relative; overflow: hidden;
+      cursor: pointer; transition: var(--transition);
+    }
+    .stock-card:hover { border-color: var(--gold); transform: translateY(-2px); }
+    .stock-card .sc-name { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+    .stock-card .sc-format { font-size: 11px; color: var(--text-muted); margin-bottom: 12px; font-family: 'DM Mono', monospace; }
+    .stock-card .sc-qty {
+      font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 600; line-height: 1;
+    }
+    .stock-card .sc-unit { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .stock-bar { height: 4px; background: var(--navy-dark); border-radius: 2px; margin-top: 12px; overflow: hidden; }
+    .stock-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+    .stock-card .sc-alert { position: absolute; top: 14px; right: 14px; font-size: 16px; }
+    .stock-card.danger  { border-color: rgba(224,80,80,0.4); }
+    .stock-card.warning { border-color: rgba(232,160,48,0.4); }
+
+    .mvt-row {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      border-radius: var(--radius-md); margin-bottom: 8px;
+      background: var(--navy-dark); border: 1px solid var(--navy-border);
+    }
+    .mvt-icon { font-size: 18px; flex-shrink: 0; }
+    .mvt-body { flex: 1; }
+    .mvt-title { font-size: 12px; color: var(--text-primary); font-weight: 500; }
+    .mvt-meta  { font-size: 10px; color: var(--text-muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+    .mvt-qty   { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 700; }
+    .mvt-qty.in  { color: var(--success); }
+    .mvt-qty.out { color: var(--danger); }
+  </style>
+</head>
+<body>
+<div class="erp-layout">
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-logo">S</div>
+      <div class="brand-text"><div class="brand-name">SIMPACT</div><div class="brand-sub">ERP v4.0</div></div>
+    </div>
+    <div class="topbar-center"><span style="font-size:13px;color:var(--text-muted)">Stocks Papier</span></div>
+    <div class="topbar-right"><div class="user-chip" id="user-chip"></div></div>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section-label">Navigation</div>
+    <a href="dashboard.html" class="nav-item" data-page="dashboard"><span class="nav-icon">◈</span><span>Tableau de bord</span></a>
+    <a href="orders.html" class="nav-item" data-page="orders"><span class="nav-icon">📋</span><span>Commandes</span></a>
+    <a href="configurator.html" class="nav-item" data-page="configurator"><span class="nav-icon">⚙</span><span>Configurateur prix</span></a>
+    <a href="stock.html" class="nav-item" data-page="stock"><span class="nav-icon">📦</span><span>Stocks papier</span></a>
+    <div class="nav-separator"></div>
+    <a href="clients.html" class="nav-item" data-page="clients"><span class="nav-icon">🏛</span><span>Clients</span></a>
+    <a href="reporting.html" class="nav-item" data-page="reporting"><span class="nav-icon">📊</span><span>Reporting</span></a>
+    <div class="nav-separator"></div>
+    <a href="#" class="nav-item" onclick="SIMPACT_AUTH.logout()"><span class="nav-icon">⎋</span><span>Déconnexion</span></a>
+  </nav>
+
+  <main class="main-content page-enter">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Stocks Papier</div>
+        <div class="page-subtitle">Inventaire et mouvements de stock en temps réel</div>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-secondary" onclick="openAddStockModal()">+ Nouveau support</button>
+        <button class="btn btn-primary" onclick="openMvtModal(null,'in')">📥 Entrée de stock</button>
+      </div>
+    </div>
+
+    <!-- KPIs stocks -->
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px" id="stockKPIs"></div>
+
+    <!-- Alertes -->
+    <div id="stockAlerts" style="margin-bottom:20px"></div>
+
+    <!-- Grille stocks -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px" id="stockGrid"></div>
+
+  </main>
+</div>
+
+<!-- Modal Mouvement -->
+<div id="mvtModal" style="display:none" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:500px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title" id="mvtTitle">Entrée de stock</div>
+      <button onclick="document.getElementById('mvtModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Support papier</label>
+        <select class="form-control" id="mvt-stock"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Type de mouvement</label>
+        <select class="form-control" id="mvt-type">
+          <option value="in">📥 Entrée (réception fournisseur)</option>
+          <option value="out">📤 Sortie (consommation production)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Quantité (feuilles)</label>
+        <input type="number" class="form-control" id="mvt-qty" placeholder="ex: 1000" min="1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note (optionnel)</label>
+        <input type="text" class="form-control" id="mvt-note" placeholder="ex: Commande Europapier #2024-045">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('mvtModal').style.display='none'">Annuler</button>
+      <button class="btn btn-primary" onclick="saveMvt()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Détail stock -->
+<div id="detailModal" style="display:none" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:560px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title" id="detailStockTitle">—</div>
+      <button onclick="document.getElementById('detailModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div class="modal-body" id="detailStockBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="openMvtModal(currentStockId,'in');document.getElementById('detailModal').style.display='none'">📥 Entrée</button>
+      <button class="btn btn-secondary" onclick="openMvtModal(currentStockId,'out');document.getElementById('detailModal').style.display='none'">📤 Sortie</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nouveau support -->
+<div id="addStockModal" style="display:none" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal" style="max-width:500px;width:95%">
+    <div class="modal-header">
+      <div class="modal-title">Nouveau support papier</div>
+      <button onclick="document.getElementById('addStockModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Nom du support</label><input type="text" class="form-control" id="as-name" placeholder="ex: Couché Brillant 250g"></div>
+      <div class="grid-2">
+        <div class="form-group"><label class="form-label">Format</label><input type="text" class="form-control" id="as-format" placeholder="ex: SRA3 (320×450mm)"></div>
+        <div class="form-group"><label class="form-label">Fournisseur</label><input type="text" class="form-control" id="as-supplier" placeholder="ex: Europapier"></div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label class="form-label">Stock initial (feuilles)</label><input type="number" class="form-control" id="as-qty" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">Seuil d'alerte (feuilles)</label><input type="number" class="form-control" id="as-alert" placeholder="1000"></div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label class="form-label">Prix/feuille (DT)</label><input type="number" class="form-control" id="as-price" step="0.001" placeholder="0.085"></div>
+        <div class="form-group"><label class="form-label">Grammage</label><input type="text" class="form-control" id="as-grammage" placeholder="ex: 135g"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('addStockModal').style.display='none'">Annuler</button>
+      <button class="btn btn-primary" onclick="addNewStock()">Créer</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script>
+const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
+if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("stock"); }
+
+let currentStockId = null;
+
+function renderAll(){
+  const stock = DB.getStock();
+  renderKPIs(stock); renderAlerts(stock); renderGrid(stock);
+}
+
+function renderKPIs(stock){
+  const totalSheets = stock.reduce((s,i)=>s+i.qty,0);
+  const totalValue  = stock.reduce((s,i)=>s+i.qty*(i.price||0),0);
+  const alerts      = stock.filter(s=>s.qty<=s.minAlert).length;
+  const ruptures    = stock.filter(s=>s.qty===0).length;
+  document.getElementById("stockKPIs").innerHTML = [
+    {label:"Total feuilles",value:totalSheets.toLocaleString("fr-FR"),unit:"",icon:"📄",color:"blue"},
+    {label:"Valeur du stock",value:totalValue.toFixed(0),unit:"DT",icon:"💰",color:"gold"},
+    {label:"Alertes actives",value:alerts,unit:"",icon:"⚠",color:"orange"},
+    {label:"Ruptures",value:ruptures,unit:"",icon:"🔴",color:ruptures>0?"":"green"},
+  ].map(k=>`
+    <div class="kpi-card ${k.color}">
+      <div class="kpi-icon">${k.icon}</div>
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}<span class="kpi-unit">${k.unit}</span></div>
+    </div>`).join("");
+}
+
+function renderAlerts(stock){
+  const alerts = stock.filter(s=>s.qty<=s.minAlert);
+  document.getElementById("stockAlerts").innerHTML = alerts.length ? alerts.map(s=>{
+    const pct = s.qty===0 ? 0 : (s.qty/s.minAlert*100).toFixed(0);
+    const type = s.qty===0?"danger":s.qty<s.minAlert*0.5?"danger":"warning";
+    return `<div class="alert alert-${type}" style="margin-bottom:8px">
+      ${type==="danger"?"🔴":"⚠"} <strong>${s.name}</strong> — 
+      ${s.qty===0?"RUPTURE DE STOCK":s.qty.toLocaleString("fr-FR")+" feuilles restantes (seuil: "+s.minAlert.toLocaleString("fr-FR")+")"} 
+      <button onclick="openMvtModal('${s.id}','in')" class="btn btn-sm btn-secondary" style="margin-left:auto;flex-shrink:0">Commander</button>
+    </div>`;
+  }).join("") : "";
+}
+
+function renderGrid(stock){
+  document.getElementById("stockGrid").innerHTML = stock.map(s=>{
+    const pct    = Math.min(s.qty/Math.max(s.minAlert*2,1)*100,100).toFixed(0);
+    const isLow  = s.qty<=s.minAlert;
+    const isEmpty= s.qty===0;
+    const barColor = isEmpty?"var(--danger)":isLow?"var(--warning)":"var(--success)";
+    const alertClass = isEmpty?"danger":isLow?"warning":"";
+    return `
+    <div class="stock-card ${alertClass}" onclick="openDetail('${s.id}')">
+      ${isLow ? `<div class="sc-alert">${isEmpty?"🔴":"⚠"}</div>` : ""}
+      <div class="sc-name">${s.name}</div>
+      <div class="sc-format">${s.format} · ${s.supplier}</div>
+      <div class="sc-qty" style="color:${barColor}">${s.qty.toLocaleString("fr-FR")}</div>
+      <div class="sc-unit">feuilles en stock</div>
+      <div class="stock-bar">
+        <div class="stock-bar-fill" style="width:${pct}%;background:${barColor}"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text-dim);font-family:'DM Mono',monospace">
+        <span>Min: ${s.minAlert.toLocaleString("fr-FR")}</span>
+        <span>~${(s.qty*(s.price||0)).toFixed(0)} DT</span>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function openDetail(id){
+  currentStockId = id;
+  const s = DB.getStockItem(id);
+  if(!s) return;
+  document.getElementById("detailStockTitle").textContent = s.name;
+  const fmtDt = iso => new Date(iso).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+  const history = (s.history||[]).slice().reverse().slice(0,10);
+  document.getElementById("detailStockBody").innerHTML = `
+    <div class="grid-2" style="margin-bottom:16px">
+      ${[["Format",s.format],["Fournisseur",s.supplier],["Prix/feuille",(s.price||0).toFixed(3)+" DT"],
+         ["Valeur totale",(s.qty*(s.price||0)).toFixed(2)+" DT"],["Seuil d'alerte",s.minAlert.toLocaleString("fr-FR")+" feuilles"],
+         ["En stock",`<strong style="color:${s.qty<=s.minAlert?"var(--danger)":"var(--success)"}">${s.qty.toLocaleString("fr-FR")} feuilles</strong>`]
+      ].map(([k,v])=>`<div style="margin-bottom:10px"><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px">${k}</div><div style="font-size:14px;color:var(--text-primary);margin-top:2px">${v}</div></div>`).join("")}
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Historique des mouvements</div>
+    ${history.length ? history.map(m=>`
+      <div class="mvt-row">
+        <div class="mvt-icon">${m.type==="in"?"📥":"📤"}</div>
+        <div class="mvt-body">
+          <div class="mvt-title">${m.note||"Mouvement de stock"}</div>
+          <div class="mvt-meta">${fmtDt(m.at)} · Solde après: ${m.balanceAfter?.toLocaleString("fr-FR")||"—"}</div>
+        </div>
+        <div class="mvt-qty ${m.type}">${m.type==="in"?"+":"-"}${m.qty.toLocaleString("fr-FR")}</div>
+      </div>`).join("") : `<div style="color:var(--text-dim);font-size:12px">Aucun mouvement enregistré</div>`}
+  `;
+  document.getElementById("detailModal").style.display="flex";
+}
+
+function openMvtModal(stockId, type){
+  const sel = document.getElementById("mvt-stock");
+  sel.innerHTML = DB.getStock().map(s=>`<option value="${s.id}" ${s.id===stockId?"selected":""}>${s.name} (${s.qty.toLocaleString("fr-FR")} feuilles)</option>`).join("");
+  document.getElementById("mvt-type").value = type||"in";
+  document.getElementById("mvt-qty").value  = "";
+  document.getElementById("mvt-note").value = "";
+  document.getElementById("mvtTitle").textContent = type==="in"?"📥 Entrée de stock":"📤 Sortie de stock";
+  document.getElementById("mvtModal").style.display="flex";
+}
+
+function saveMvt(){
+  const stockId = document.getElementById("mvt-stock").value;
+  const type    = document.getElementById("mvt-type").value;
+  const qty     = parseInt(document.getElementById("mvt-qty").value)||0;
+  const note    = document.getElementById("mvt-note").value;
+  if(!qty) { showToast("Saisissez une quantité valide","error"); return; }
+  const s = DB.getStockItem(stockId);
+  if(type==="out"&&s&&qty>s.qty){ showToast("Stock insuffisant","error"); return; }
+  DB.addStockMovement(stockId, type, qty, note);
+  document.getElementById("mvtModal").style.display="none";
+  showToast(`${type==="in"?"Entrée":"Sortie"} de ${qty.toLocaleString("fr-FR")} feuilles enregistrée`, "success");
+  renderAll();
+}
+
+function addNewStock(){
+  const item = {
+    id: "s"+(Date.now()),
+    name:     document.getElementById("as-name").value,
+    format:   document.getElementById("as-format").value,
+    supplier: document.getElementById("as-supplier").value,
+    qty:      parseInt(document.getElementById("as-qty").value)||0,
+    minAlert: parseInt(document.getElementById("as-alert").value)||1000,
+    price:    parseFloat(document.getElementById("as-price").value)||0,
+    unit: "feuilles", history: [],
+  };
+  if(!item.name){ showToast("Nom requis","error"); return; }
+  DB.push(DB.KEYS.stock, item);
+  document.getElementById("addStockModal").style.display="none";
+  showToast("Support ajouté !","success"); renderAll();
+}
+
+function openAddStockModal(){ document.getElementById("addStockModal").style.display="flex"; }
+
+renderAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMPACT ERP — Dashboard</title>
+  <link rel="stylesheet" href="css/simpact.css">
+  <style>
+    /* Timeline mini */
+    .timeline { display: flex; flex-direction: column; gap: 0; }
+    .tl-item {
+      display: flex; gap: 14px;
+      padding-bottom: 16px;
+      position: relative;
+    }
+    .tl-item:not(:last-child)::before {
+      content: '';
+      position: absolute; left: 15px; top: 28px;
+      width: 2px;
+      bottom: 0;
+      background: var(--navy-border);
+    }
+    .tl-dot {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0;
+      border: 2px solid;
+    }
+    .tl-dot.received   { background: rgba(74,159,212,0.15); border-color: var(--info); }
+    .tl-dot.bat        { background: rgba(232,160,48,0.15);  border-color: var(--warning); }
+    .tl-dot.production { background: rgba(201,168,76,0.15);  border-color: var(--gold); }
+    .tl-dot.done       { background: rgba(61,186,120,0.15);  border-color: var(--success); }
+    .tl-body { flex: 1; padding-top: 4px; }
+    .tl-title { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+    .tl-meta  { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family: 'DM Mono', monospace; }
+
+    /* Donut chart */
+    .donut-wrap {
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .donut-bar {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .donut-label-row { display: flex; justify-content: space-between; font-size: 12px; }
+    .donut-label { color: var(--text-secondary); }
+    .donut-val   { color: var(--gold); font-weight: 700; font-family: 'DM Mono', monospace; }
+    .donut-track {
+      height: 6px; background: var(--navy-dark); border-radius: 3px; overflow: hidden;
+    }
+    .donut-fill { height: 100%; border-radius: 3px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+
+    /* Alerte stock */
+    .stock-alert-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      background: var(--navy-dark);
+      border: 1px solid var(--navy-border);
+      transition: var(--transition);
+    }
+    .stock-alert-row:hover { border-color: var(--gold); }
+    .stock-bar-mini {
+      flex: 1; height: 4px;
+      background: var(--navy-border); border-radius: 2px; overflow: hidden;
+    }
+    .stock-bar-fill { height: 100%; border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<div class="erp-layout">
+
+  <!-- ── TOPBAR ─────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-logo">S</div>
+      <div class="brand-text">
+        <div class="brand-name">SIMPACT</div>
+        <div class="brand-sub">ERP v4.0</div>
+      </div>
+    </div>
+    <div class="topbar-center">
+      <span style="font-size:13px;color:var(--text-muted)">Tableau de bord</span>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-btn" title="Notifications" onclick="showToast('3 alertes en attente','warning')">
+        🔔
+        <span class="topbar-badge"></span>
+      </button>
+      <div class="user-chip" id="user-chip"></div>
+    </div>
+  </header>
+
+  <!-- ── SIDEBAR ─────────────────────────────────────────── -->
+  <nav class="sidebar">
+    <div class="nav-section-label">Navigation</div>
+
+    <a href="dashboard.html" class="nav-item" data-page="dashboard">
+      <span class="nav-icon">◈</span>
+      <span>Tableau de bord</span>
+    </a>
+    <a href="orders.html" class="nav-item" data-page="orders">
+      <span class="nav-icon">📋</span>
+      <span>Commandes</span>
+      <span class="nav-badge" id="pendingBadge">2</span>
+    </a>
+    <a href="configurator.html" class="nav-item" data-page="configurator">
+      <span class="nav-icon">⚙</span>
+      <span>Configurateur prix</span>
+    </a>
+    <a href="stock.html" class="nav-item" data-page="stock">
+      <span class="nav-icon">📦</span>
+      <span>Stocks papier</span>
+    </a>
+
+    <div class="nav-separator"></div>
+    <div class="nav-section-label">Gestion</div>
+
+    <a href="clients.html" class="nav-item" data-page="clients">
+      <span class="nav-icon">🏛</span>
+      <span>Clients</span>
+    </a>
+    <a href="reporting.html" class="nav-item" data-page="reporting">
+      <span class="nav-icon">📊</span>
+      <span>Reporting</span>
+    </a>
+
+    <div class="nav-separator"></div>
+    <div class="nav-section-label">Administration</div>
+
+    <a href="admin.html" class="nav-item" data-page="admin" id="adminNav">
+      <span class="nav-icon">🔐</span>
+      <span>Utilisateurs</span>
+    </a>
+
+    <div class="nav-separator"></div>
+    <a href="#" class="nav-item" onclick="SIMPACT_AUTH.logout()">
+      <span class="nav-icon">⎋</span>
+      <span>Déconnexion</span>
+    </a>
+  </nav>
+
+  <!-- ── MAIN ────────────────────────────────────────────── -->
+  <main class="main-content page-enter">
+
+    <!-- Header -->
+    <div class="page-header">
+      <div>
+        <div class="page-title">Tableau de bord</div>
+        <div class="page-subtitle" id="greetingText">Bonjour — chargement…</div>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-secondary btn-sm" onclick="window.location.href='orders.html'">
+          📋 Voir les commandes
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="window.location.href='orders.html#new'">
+          + Nouvelle commande
+        </button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid" id="kpiGrid">
+      <!-- injecté par JS -->
+    </div>
+
+    <!-- Ligne : Activité récente + Répartition + Alertes stock -->
+    <div style="display:grid;grid-template-columns:1fr 280px;gap:20px;margin-bottom:20px">
+
+      <!-- Commandes récentes -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Commandes récentes</div>
+          <a href="orders.html" class="btn btn-secondary btn-sm">Voir tout →</a>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="recentOrders">
+            <thead>
+              <tr>
+                <th>Réf.</th>
+                <th>Client</th>
+                <th>Produit</th>
+                <th>Montant HT</th>
+                <th>Statut</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody">
+              <tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:24px">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Panel droit -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <!-- Répartition CA par client -->
+        <div class="card" style="flex:1">
+          <div class="card-header">
+            <div class="card-title">CA par client</div>
+          </div>
+          <div class="card-body">
+            <div class="donut-wrap" id="clientChart"></div>
+          </div>
+        </div>
+
+        <!-- Alertes stock -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">⚠ Alertes stock</div>
+          </div>
+          <div class="card-body" id="stockAlerts">
+            <div style="font-size:12px;color:var(--text-dim)">Vérification…</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Activité récente (timeline) -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Activité — 48 dernières heures</div>
+      </div>
+      <div class="card-body">
+        <div class="timeline" id="activityTimeline"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  // ── Auth ────────────────────────────────────────────────
+  const session = SIMPACT_AUTH.requireAuth(["superadmin", "team"]);
+  if (session) {
+    SIMPACT_AUTH.renderUserChip(session);
+    SIMPACT_AUTH.setActiveNav("dashboard");
+    // Masquer admin nav si pas superadmin
+    if (session.role !== "superadmin") {
+      const adminNav = document.getElementById("adminNav");
+      if (adminNav) adminNav.style.display = "none";
+    }
+  }
+
+  // ── Salutation ──────────────────────────────────────────
+  function greeting() {
+    const h = new Date().getHours();
+    const g = h < 12 ? "Bonjour" : h < 18 ? "Bon après-midi" : "Bonsoir";
+    const d = new Date().toLocaleDateString("fr-FR", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+    document.getElementById("greetingText").textContent = `${g}, ${session?.name || ""} — ${d}`;
+  }
+  greeting();
+
+  // ── KPIs ────────────────────────────────────────────────
+  function renderKPIs() {
+    const orders  = DB.getOrders();
+    const caTotal = orders.reduce((s, o) => s + (o.priceHT || 0), 0);
+    const caMonth = orders
+      .filter(o => new Date(o.createdAt) >= new Date(new Date().setDate(1)))
+      .reduce((s, o) => s + (o.priceHT || 0), 0);
+    const pending = orders.filter(o => ["received","bat","production"].includes(o.status)).length;
+    const done    = orders.filter(o => o.status === "done").length;
+
+    const kpis = [
+      { label: "CA total (HT)", value: caTotal.toLocaleString("fr-FR",{minimumFractionDigits:0}), unit: "DT", icon: "💰", color: "gold",   delta: "+12%", dir: "up" },
+      { label: "CA ce mois", value: caMonth.toLocaleString("fr-FR",{minimumFractionDigits:0}), unit: "DT", icon: "📈", color: "green",  delta: "+8%", dir: "up" },
+      { label: "En cours", value: pending, unit: "cmd", icon: "⏳", color: "orange", delta: "", dir: "" },
+      { label: "Livrées", value: done, unit: "cmd", icon: "✅", color: "blue",   delta: "ce mois", dir: "" },
+    ];
+
+    document.getElementById("kpiGrid").innerHTML = kpis.map(k => `
+      <div class="kpi-card ${k.color}">
+        <div class="kpi-icon">${k.icon}</div>
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-value">${k.value}<span class="kpi-unit">${k.unit}</span></div>
+        ${k.delta ? `<div class="kpi-delta ${k.dir}">
+          ${k.dir === "up" ? "↑" : k.dir === "down" ? "↓" : "·"} ${k.delta}
+        </div>` : ""}
+      </div>
+    `).join("");
+  }
+  renderKPIs();
+
+  // ── Tableau des commandes récentes ──────────────────────
+  function statusBadge(s) {
+    const map = {
+      received:   ["badge-received", "Reçue"],
+      bat:        ["badge-bat",      "BAT"],
+      production: ["badge-production","Production"],
+      done:       ["badge-done",     "Livré"],
+      cancelled:  ["badge-cancelled","Annulé"],
+    };
+    const [cls, label] = map[s] || ["badge-received", s];
+    return `<span class="badge ${cls}">${label}</span>`;
+  }
+
+  function renderOrders() {
+    const orders = DB.getOrders().slice(0, 6);
+    const tbody  = document.getElementById("ordersBody");
+    if (!orders.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:24px">Aucune commande</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = orders.map(o => `
+      <tr>
+        <td><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--gold)">${o.id}</span></td>
+        <td style="color:var(--text-primary)">${o.clientName}</td>
+        <td>${o.product}</td>
+        <td style="font-family:'DM Mono',monospace;color:var(--text-primary)">${(o.priceHT||0).toFixed(2)} DT</td>
+        <td>${statusBadge(o.status)}</td>
+        <td>
+          <button class="btn btn-secondary btn-sm btn-icon" onclick="window.location.href='orders.html?id=${o.id}'" title="Détails">→</button>
+        </td>
+      </tr>
+    `).join("");
+
+    // Badge commandes en attente
+    const pending = DB.getOrders().filter(o => ["received","bat"].includes(o.status)).length;
+    document.getElementById("pendingBadge").textContent = pending;
+    document.getElementById("pendingBadge").style.display = pending ? "inline" : "none";
+  }
+  renderOrders();
+
+  // ── Graphe CA par client ────────────────────────────────
+  function renderClientChart() {
+    const orders  = DB.getOrders();
+    const clients = DB.getClients();
+    const byClient = {};
+    orders.forEach(o => {
+      byClient[o.clientName] = (byClient[o.clientName] || 0) + (o.priceHT || 0);
+    });
+    const sorted = Object.entries(byClient).sort((a,b) => b[1]-a[1]).slice(0,4);
+    const max = sorted[0]?.[1] || 1;
+    const colors = ["var(--gold)", "var(--info)", "var(--success)", "var(--warning)"];
+
+    document.getElementById("clientChart").innerHTML = sorted.map(([name, val], i) => `
+      <div class="donut-bar">
+        <div class="donut-label-row">
+          <span class="donut-label">${name}</span>
+          <span class="donut-val">${val.toFixed(0)} DT</span>
+        </div>
+        <div class="donut-track">
+          <div class="donut-fill" style="width:${(val/max*100).toFixed(1)}%;background:${colors[i]}"></div>
+        </div>
+      </div>
+    `).join("");
+  }
+  renderClientChart();
+
+  // ── Alertes stock ───────────────────────────────────────
+  function renderStockAlerts() {
+    const stock = DB.getStock();
+    const alerts = stock.filter(s => s.qty <= s.minAlert);
+    const el = document.getElementById("stockAlerts");
+
+    if (!alerts.length) {
+      el.innerHTML = `<div style="font-size:12px;color:var(--success);display:flex;gap:8px;align-items:center">✓ <span>Tous les stocks sont OK</span></div>`;
+      return;
+    }
+
+    el.innerHTML = alerts.map(s => {
+      const pct = Math.min((s.qty / s.minAlert) * 100, 100);
+      const color = s.qty < s.minAlert * 0.5 ? "var(--danger)" : "var(--warning)";
+      return `
+        <div class="stock-alert-row" style="margin-bottom:8px">
+          <div style="flex:1">
+            <div style="font-size:12px;color:var(--text-primary);font-weight:500">${s.name}</div>
+            <div style="font-size:10px;color:var(--text-muted);font-family:'DM Mono',monospace">
+              ${s.qty.toLocaleString()} / min. ${s.minAlert.toLocaleString()} ${s.unit}
+            </div>
+            <div class="stock-bar-mini" style="margin-top:6px">
+              <div class="stock-bar-fill" style="width:${pct}%;background:${color}"></div>
+            </div>
+          </div>
+          <a href="stock.html" style="font-size:18px;color:${color}">⚠</a>
+        </div>
+      `;
+    }).join("");
+  }
+  renderStockAlerts();
+
+  // ── Timeline activité ───────────────────────────────────
+  function renderTimeline() {
+    const orders = DB.getOrders();
+    const events = [];
+
+    orders.forEach(o => {
+      (o.timeline || []).forEach(t => {
+        events.push({ ...t, orderId: o.id, clientName: o.clientName, product: o.product });
+      });
+    });
+
+    events.sort((a,b) => new Date(b.at) - new Date(a.at));
+    const recent = events.slice(0, 7);
+
+    const icons = { received: "📥", bat: "🖨", production: "⚙", done: "✅", cancelled: "✕" };
+    const labels = { received: "Commande reçue", bat: "BAT envoyé", production: "En production", done: "Livraison", cancelled: "Annulation" };
+
+    const timeAgo = (iso) => {
+      const diff = (Date.now() - new Date(iso)) / 1000;
+      if (diff < 3600) return `${Math.floor(diff/60)}min`;
+      if (diff < 86400) return `${Math.floor(diff/3600)}h`;
+      return `${Math.floor(diff/86400)}j`;
+    };
+
+    document.getElementById("activityTimeline").innerHTML = recent.map(e => `
+      <div class="tl-item">
+        <div class="tl-dot ${e.status}">${icons[e.status] || "·"}</div>
+        <div class="tl-body">
+          <div class="tl-title">
+            <strong style="color:var(--gold)">${e.orderId}</strong>
+            — ${e.clientName} ·
+            <span style="color:var(--text-muted)">${labels[e.status] || e.status}</span>
+          </div>
+          <div class="tl-meta">${e.product} · il y a ${timeAgo(e.at)}${e.note ? " · " + e.note : ""}</div>
+        </div>
+      </div>
+    `).join("");
+  }
+  renderTimeline();
+</script>
+</body>
+</html>

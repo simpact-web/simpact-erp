@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMPACT ERP — Messagerie</title>
+  <link rel="stylesheet" href="css/simpact.css">
+  <style>
+    /* ══ Layout messagerie 3 colonnes ══════════════════════ */
+    .msg-layout {
+      display: grid;
+      grid-template-columns: 220px 320px 1fr;
+      height: calc(100vh - var(--header-h));
+      overflow: hidden;
+    }
+
+    /* ── Colonne 1 : dossiers ── */
+    .msg-folders {
+      background: var(--navy-darkest);
+      border-right: 1px solid rgba(201,168,76,0.08);
+      padding: 16px 12px;
+      overflow-y: auto;
+    }
+    .folder-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: var(--radius-md);
+      cursor: pointer; transition: var(--transition);
+      color: var(--text-muted); font-size: 13px; font-weight: 500;
+      margin-bottom: 2px; position: relative;
+    }
+    .folder-item:hover { background: var(--navy-hover); color: var(--text-primary); }
+    .folder-item.active {
+      background: linear-gradient(135deg, var(--navy-hover), var(--navy-light));
+      color: var(--gold);
+      border: 1px solid rgba(201,168,76,0.2);
+    }
+    .folder-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+    .folder-count {
+      margin-left: auto;
+      background: var(--danger); color: #fff;
+      font-size: 10px; font-weight: 700;
+      padding: 2px 7px; border-radius: 10px;
+      font-family: 'DM Mono', monospace;
+    }
+    .folder-count.zero { display: none; }
+
+    /* ── Colonne 2 : liste messages ── */
+    .msg-list {
+      border-right: 1px solid var(--navy-border);
+      overflow-y: auto;
+      background: var(--navy-dark);
+    }
+    .msg-list-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--navy-border);
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--text-muted); font-family: 'DM Mono', monospace;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; background: var(--navy-dark); z-index: 10;
+    }
+
+    .msg-item {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(26,48,80,0.4);
+      cursor: pointer; transition: var(--transition);
+      position: relative;
+    }
+    .msg-item:hover { background: var(--navy-hover); }
+    .msg-item.active { background: var(--navy-light); border-left: 3px solid var(--gold); }
+    .msg-item.unread { background: rgba(201,168,76,0.04); }
+    .msg-item.unread::before {
+      content: '';
+      position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+      width: 3px; height: 60%; background: var(--gold); border-radius: 0 2px 2px 0;
+    }
+
+    .mi-from  { font-size: 12px; font-weight: 700; color: var(--text-primary); margin-bottom: 3px; display: flex; align-items: center; justify-content: space-between; }
+    .mi-from.read { font-weight: 500; color: var(--text-secondary); }
+    .mi-subject { font-size: 12px; color: var(--text-secondary); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mi-subject.read { color: var(--text-muted); }
+    .mi-preview { font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mi-date { font-size: 10px; color: var(--text-dim); font-family: 'DM Mono', monospace; flex-shrink: 0; }
+    .mi-auto { display: inline-block; font-size: 9px; background: rgba(61,186,120,0.15); color: var(--success); border: 1px solid rgba(61,186,120,0.3); padding: 1px 6px; border-radius: 4px; margin-left: 6px; font-family: 'DM Mono', monospace; }
+    .mi-attach { font-size: 11px; color: var(--text-dim); }
+
+    /* ── Colonne 3 : lecture / rédaction ── */
+    .msg-reader {
+      background: var(--navy-deep);
+      overflow-y: auto;
+      display: flex; flex-direction: column;
+    }
+
+    /* Placeholder vide */
+    .msg-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: var(--text-dim); font-size: 14px;
+    }
+    .msg-empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+
+    /* Lecture d'un message */
+    .msg-read-wrap { padding: 28px; flex: 1; }
+    .mr-subject {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px; font-weight: 600;
+      color: var(--text-primary); margin-bottom: 16px;
+    }
+    .mr-meta {
+      background: var(--navy-mid);
+      border: 1px solid var(--navy-border);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      margin-bottom: 20px;
+    }
+    .mr-meta-row { display: flex; gap: 8px; margin-bottom: 6px; font-size: 12px; }
+    .mr-meta-row:last-child { margin-bottom: 0; }
+    .mr-meta-key { color: var(--text-muted); min-width: 60px; }
+    .mr-meta-val { color: var(--text-primary); font-weight: 500; }
+    .mr-body {
+      font-size: 14px; color: var(--text-secondary);
+      line-height: 1.8; white-space: pre-wrap;
+      background: var(--navy-mid); border: 1px solid var(--navy-border);
+      border-radius: var(--radius-lg); padding: 20px 24px;
+    }
+    .mr-attachment {
+      margin-top: 16px;
+      background: var(--navy-mid); border: 1px solid var(--navy-border);
+      border-radius: var(--radius-md); padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .mr-actions {
+      padding: 16px 28px;
+      border-top: 1px solid var(--navy-border);
+      display: flex; gap: 10px;
+      background: var(--navy-dark);
+      position: sticky; bottom: 0;
+    }
+
+    /* Composition */
+    .compose-wrap { padding: 28px; flex: 1; display: flex; flex-direction: column; }
+    .compose-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; color: var(--text-primary); margin-bottom: 20px; }
+    .compose-form  { display: flex; flex-direction: column; flex: 1; gap: 12px; }
+    .compose-body-wrap { flex: 1; display: flex; flex-direction: column; }
+    .compose-body {
+      flex: 1; min-height: 180px;
+      background: var(--navy-dark); border: 1px solid var(--navy-border);
+      border-radius: var(--radius-md); color: var(--text-primary);
+      font-size: 14px; padding: 14px; resize: none; outline: none;
+      font-family: 'Outfit', sans-serif; line-height: 1.7;
+      transition: var(--transition);
+    }
+    .compose-body:focus { border-color: var(--gold); }
+
+    /* Pièce jointe */
+    .attach-zone {
+      border: 2px dashed var(--navy-border);
+      border-radius: var(--radius-md);
+      padding: 14px 16px; text-align: center;
+      cursor: pointer; transition: var(--transition);
+      font-size: 12px; color: var(--text-muted);
+    }
+    .attach-zone:hover { border-color: var(--gold); color: var(--gold); }
+    .attach-zone.has-file { border-color: var(--success); color: var(--success); background: rgba(61,186,120,0.05); }
+
+    /* Avatar expéditeur */
+    .sender-avatar {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+<div class="erp-layout">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-logo">S</div>
+      <div class="brand-text"><div class="brand-name">SIMPACT</div><div class="brand-sub">ERP v4.0</div></div>
+    </div>
+    <div class="topbar-center"><span style="font-size:13px;color:var(--text-muted)">Messagerie</span></div>
+    <div class="topbar-right">
+      <button class="btn btn-primary btn-sm" onclick="openCompose()">✏ Nouveau message</button>
+      <div class="user-chip" id="user-chip"></div>
+    </div>
+  </header>
+
+  <!-- Sidebar ERP -->
+  <nav class="sidebar">
+    <div class="nav-section-label">Navigation</div>
+    <a href="dashboard.html" class="nav-item" data-page="dashboard"><span class="nav-icon">◈</span><span>Tableau de bord</span></a>
+    <a href="orders.html"    class="nav-item" data-page="orders"><span class="nav-icon">📋</span><span>Commandes</span></a>
+    <a href="configurator.html" class="nav-item" data-page="configurator"><span class="nav-icon">⚙</span><span>Configurateur prix</span></a>
+    <a href="stock.html"     class="nav-item" data-page="stock"><span class="nav-icon">📦</span><span>Stocks papier</span></a>
+    <div class="nav-separator"></div>
+    <a href="clients.html"   class="nav-item" data-page="clients"><span class="nav-icon">🏛</span><span>Clients</span></a>
+    <a href="reporting.html" class="nav-item" data-page="reporting"><span class="nav-icon">📊</span><span>Reporting</span></a>
+    <div class="nav-separator"></div>
+    <a href="messages.html"  class="nav-item active" data-page="messages"><span class="nav-icon">✉</span><span>Messagerie</span></a>
+    <a href="admin.html"     class="nav-item" data-page="admin"><span class="nav-icon">🔐</span><span>Utilisateurs</span></a>
+    <div class="nav-separator"></div>
+    <a href="#" class="nav-item" onclick="SIMPACT_AUTH.logout()"><span class="nav-icon">⎋</span><span>Déconnexion</span></a>
+  </nav>
+
+  <!-- Zone messagerie (remplace main-content) -->
+  <div style="display:contents">
+    <div class="msg-layout">
+
+      <!-- ── Col 1 : Dossiers ── -->
+      <div class="msg-folders">
+        <div style="padding: 0 4px 16px; display:flex; justify-content:space-between; align-items:center">
+          <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);font-family:'DM Mono',monospace">Dossiers</div>
+        </div>
+        <div class="folder-item active" id="folder-inbox" onclick="switchFolder('inbox')">
+          <span class="folder-icon">📥</span> Boîte de réception
+          <span class="folder-count" id="unread-count">0</span>
+        </div>
+        <div class="folder-item" id="folder-sent" onclick="switchFolder('sent')">
+          <span class="folder-icon">📤</span> Messages envoyés
+        </div>
+        <div class="folder-item" id="folder-auto" onclick="switchFolder('auto')">
+          <span class="folder-icon">🤖</span> Notifications auto
+        </div>
+        <div class="nav-separator"></div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);font-family:'DM Mono',monospace;padding:8px 12px 10px">Contacts</div>
+        <div id="contactsList"></div>
+      </div>
+
+      <!-- ── Col 2 : Liste messages ── -->
+      <div class="msg-list">
+        <div class="msg-list-header">
+          <span id="folderLabel">Boîte de réception</span>
+          <span id="msgCount" style="font-size:11px;color:var(--text-dim)"></span>
+        </div>
+        <div id="messageList">
+          <div style="text-align:center;color:var(--text-dim);padding:40px;font-size:13px">Chargement…</div>
+        </div>
+      </div>
+
+      <!-- ── Col 3 : Lecture / Rédaction ── -->
+      <div class="msg-reader" id="msgReader">
+        <div class="msg-empty">
+          <div class="msg-empty-icon">✉</div>
+          <div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px">Aucun message sélectionné</div>
+          <div style="font-size:13px">Choisissez un message dans la liste ou composez-en un nouveau.</div>
+          <button class="btn btn-primary" style="margin-top:20px" onclick="openCompose()">✏ Nouveau message</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Input fichier caché -->
+<input type="file" id="fileInput" style="display:none" accept=".pdf,.jpg,.jpeg,.png,.zip" onchange="handleFileAttach(event)">
+
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/messaging.js"></script>
+<script>
+
+const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
+if (session) { SIMPACT_AUTH.renderUserChip(session); }
+
+let currentFolder  = "inbox";
+let currentMsgId   = null;
+let pendingAttach  = null;
+let replyTo        = null;
+
+const ROLE_COLORS = { superadmin:"var(--gold)", team:"var(--info)", client:"var(--success)" };
+const ROLE_LABELS = { superadmin:"Super Admin", team:"Équipe", client:"Client" };
+
+// ── Dossiers ────────────────────────────────────────────
+function getUsers() {
+  return JSON.parse(localStorage.getItem("simpact_users_custom") || "null") || SIMPACT_AUTH.USERS;
+}
+
+function switchFolder(folder) {
+  currentFolder = folder;
+  currentMsgId  = null;
+  document.querySelectorAll(".folder-item").forEach(el => el.classList.remove("active"));
+  document.getElementById("folder-"+folder)?.classList.add("active");
+
+  const labels = { inbox:"Boîte de réception", sent:"Messages envoyés", auto:"Notifications auto" };
+  document.getElementById("folderLabel").textContent = labels[folder] || folder;
+
+  renderList();
+  showEmpty();
+}
+
+function getMsgsForFolder() {
+  const all = MSG.getAll();
+  if (currentFolder === "inbox") return all.filter(m => m.toId === session.userId && m.type !== "auto");
+  if (currentFolder === "sent")  return all.filter(m => m.fromId === session.userId);
+  if (currentFolder === "auto")  return all.filter(m => m.toId === session.userId && m.type === "auto");
+  return [];
+}
+
+// ── Liste ────────────────────────────────────────────────
+function renderList() {
+  const msgs = getMsgsForFolder();
+  document.getElementById("msgCount").textContent = msgs.length + " message" + (msgs.length !== 1 ? "s" : "");
+
+  if (!msgs.length) {
+    document.getElementById("messageList").innerHTML = `
+      <div style="text-align:center;color:var(--text-dim);padding:48px 20px;font-size:13px">
+        Aucun message dans ce dossier
+      </div>`;
+    return;
+  }
+
+  const isSent = currentFolder === "sent";
+  document.getElementById("messageList").innerHTML = msgs.map(m => {
+    const isUnread = !m.read && !isSent;
+    const displayName = isSent ? m.toName : m.fromName;
+    const displayRole = isSent ? m.toRole  : m.fromRole;
+    const avatarColor = ROLE_COLORS[displayRole] || "var(--text-muted)";
+    const initials    = displayName.split(" ").filter(w=>w.length>1).slice(0,2).map(w=>w[0]).join("").toUpperCase() || "?";
+
+    return `
+    <div class="msg-item ${isUnread?"unread":""} ${currentMsgId===m.id?"active":""}"
+         onclick="openMsg('${m.id}')">
+      <div class="mi-from ${m.read||isSent?"read":""}">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="sender-avatar" style="background:${avatarColor}18;color:${avatarColor}">${initials}</div>
+          <div>
+            <div style="font-size:12px;font-weight:${isUnread?700:500};color:${isUnread?"var(--text-primary)":"var(--text-secondary)"}">${displayName}</div>
+            <div style="font-size:9px;color:var(--text-dim);font-family:'DM Mono',monospace">${ROLE_LABELS[displayRole]||""}</div>
+          </div>
+        </div>
+        <span class="mi-date">${MSG.fmtDate(m.createdAt)}</span>
+      </div>
+      <div class="mi-subject ${m.read||isSent?"read":""}">
+        ${m.subject}
+        ${m.type==="auto"?`<span class="mi-auto">auto</span>`:""}
+        ${m.attachment?`<span class="mi-attach"> 📎</span>`:""}
+      </div>
+      <div class="mi-preview">${(m.body||"").replace(/\n/g," ").slice(0,80)}…</div>
+    </div>`;
+  }).join("");
+
+  // Unread count
+  const unread = MSG.unreadCount(session.userId);
+  const badge  = document.getElementById("unread-count");
+  badge.textContent = unread;
+  badge.className   = "folder-count" + (unread ? "" : " zero");
+}
+
+// ── Lecture ──────────────────────────────────────────────
+function openMsg(id) {
+  currentMsgId = id;
+  MSG.markRead(id);
+  renderList();
+
+  const m = MSG.getAll().find(x => x.id === id);
+  if (!m) return;
+
+  const isSent    = m.fromId === session.userId;
+  const otherName = isSent ? m.toName : m.fromName;
+  const otherRole = isSent ? m.toRole : m.fromRole;
+  const avatarColor = ROLE_COLORS[otherRole] || "var(--text-muted)";
+  const initials = otherName.split(" ").filter(w=>w.length>1).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+
+  document.getElementById("msgReader").innerHTML = `
+    <div class="msg-read-wrap">
+      <div class="mr-subject">${m.subject}</div>
+      <div class="mr-meta">
+        ${[
+          ["De",   `<div class="sender-avatar" style="background:${ROLE_COLORS[m.fromRole]||""}18;color:${ROLE_COLORS[m.fromRole]||""}18;display:inline-flex;width:24px;height:24px;font-size:10px;border-radius:6px;align-items:center;justify-content:center;background:${ROLE_COLORS[m.fromRole]}18;color:${ROLE_COLORS[m.fromRole]}">${m.fromName.split(" ").map(w=>w[0]).join("").slice(0,2)}</div> <strong>${m.fromName}</strong> <span style="color:var(--text-dim);font-size:11px">(${ROLE_LABELS[m.fromRole]||m.fromRole})</span>`],
+          ["À",    `<strong>${m.toName}</strong> <span style="color:var(--text-dim);font-size:11px">(${ROLE_LABELS[m.toRole]||m.toRole})</span>`],
+          ["Objet",`<strong>${m.subject}</strong>`],
+          ["Date", new Date(m.createdAt).toLocaleString("fr-FR",{day:"2-digit",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"})],
+        ].map(([k,v])=>`<div class="mr-meta-row"><span class="mr-meta-key">${k}</span><span class="mr-meta-val">${v}</span></div>`).join("")}
+      </div>
+      <div class="mr-body">${m.body || ""}</div>
+      ${m.attachment ? `
+        <div class="mr-attachment">
+          <span style="font-size:24px">📎</span>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${m.attachment.name}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${m.attachment.size}</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="downloadAttachment('${id}')">⬇ Télécharger</button>
+        </div>` : ""}
+    </div>
+    <div class="mr-actions">
+      ${!isSent ? `<button class="btn btn-primary" onclick="openReply('${id}')">↩ Répondre</button>` : ""}
+      <button class="btn btn-secondary" onclick="openCompose('${m.fromId}','${m.fromName}','Re: ${m.subject.replace(/'/,"\\'")}')">↪ Transférer</button>
+      <button class="btn btn-danger" style="margin-left:auto" onclick="deleteMsg('${id}')">🗑 Supprimer</button>
+    </div>
+  `;
+}
+
+function downloadAttachment(msgId) {
+  const m = MSG.getAll().find(x => x.id === msgId);
+  if (!m?.attachment?.data) return;
+  const a   = document.createElement("a");
+  a.href    = m.attachment.data;
+  a.download= m.attachment.name;
+  a.click();
+}
+
+function deleteMsg(id) {
+  if (!confirm("Supprimer ce message ?")) return;
+  MSG.delete(id);
+  showEmpty();
+  renderList();
+  showToast("Message supprimé", "success");
+}
+
+function showEmpty() {
+  document.getElementById("msgReader").innerHTML = `
+    <div class="msg-empty">
+      <div class="msg-empty-icon">✉</div>
+      <div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px">Aucun message sélectionné</div>
+      <div style="font-size:13px">Choisissez un message ou composez-en un nouveau.</div>
+      <button class="btn btn-primary" style="margin-top:20px" onclick="openCompose()">✏ Nouveau message</button>
+    </div>`;
+}
+
+// ── Répondre ─────────────────────────────────────────────
+function openReply(msgId) {
+  const m = MSG.getAll().find(x => x.id === msgId);
+  if (!m) return;
+  replyTo = m;
+  openCompose(m.fromId, m.fromName, "Re: " + m.subject, `\n\n---\nDe : ${m.fromName}\n${m.body}`);
+}
+
+// ── Composition ──────────────────────────────────────────
+function openCompose(toId = "", toName = "", subject = "", prefillBody = "") {
+  pendingAttach = null;
+  const recipients = MSG.getRecipientsFor(session.role, session.userId);
+
+  document.getElementById("msgReader").innerHTML = `
+    <div class="compose-wrap">
+      <div class="compose-title">✏ Nouveau message</div>
+      <div class="compose-form">
+
+        <div class="form-group">
+          <label class="form-label">Destinataire</label>
+          <select class="form-control" id="c-to">
+            <option value="">— Choisir un destinataire —</option>
+            ${recipients.map(u => {
+              const label = `${u.name} (${ROLE_LABELS[u.role]||u.role})`;
+              return `<option value="${u.id}|${u.name.replace(/"/g,"")}" ${u.id===toId?"selected":""}>${label}</option>`;
+            }).join("")}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Objet</label>
+          <input type="text" class="form-control" id="c-subject" placeholder="Objet du message" value="${subject.replace(/"/g,"&quot;")}">
+        </div>
+
+        <div class="compose-body-wrap">
+          <label class="form-label">Message</label>
+          <textarea class="compose-body" id="c-body" placeholder="Rédigez votre message…">${prefillBody}</textarea>
+        </div>
+
+        <!-- Pièce jointe -->
+        <div>
+          <label class="form-label">Pièce jointe (PDF, image — max 2 Mo)</label>
+          <div class="attach-zone" id="attachZone" onclick="document.getElementById('fileInput').click()">
+            <span id="attachLabel">📎 Cliquez pour joindre un fichier</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;padding-top:4px">
+          <button class="btn btn-primary" onclick="sendMsg()" style="min-width:140px">📤 Envoyer</button>
+          <button class="btn btn-secondary" onclick="showEmpty()">Annuler</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── Pièce jointe ─────────────────────────────────────────
+function handleFileAttach(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (file.size > 2 * 1024 * 1024) {
+    showToast("Fichier trop volumineux (max 2 Mo)", "error");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    pendingAttach = {
+      name: file.name,
+      size: (file.size / 1024).toFixed(0) + " Ko",
+      data: e.target.result,
+    };
+    const zone  = document.getElementById("attachZone");
+    const label = document.getElementById("attachLabel");
+    if (zone && label) {
+      zone.classList.add("has-file");
+      label.textContent = `✓ ${file.name} (${pendingAttach.size})`;
+    }
+  };
+  reader.readAsDataURL(file);
+  event.target.value = "";
+}
+
+// ── Envoi ────────────────────────────────────────────────
+function sendMsg() {
+  const toVal   = (document.getElementById("c-to")?.value || "").split("|");
+  const toId    = toVal[0];
+  const toName  = toVal[1];
+  const subject = document.getElementById("c-subject")?.value.trim();
+  const body    = document.getElementById("c-body")?.value.trim();
+
+  if (!toId || !subject || !body) {
+    showToast("Destinataire, objet et message sont requis", "error"); return;
+  }
+
+  const users  = getUsers();
+  const toUser = users.find(u => u.id === toId);
+
+  MSG.send({
+    fromId:   session.userId,
+    fromName: session.name,
+    fromRole: session.role,
+    toId,
+    toName:   toUser?.name || toName,
+    toRole:   toUser?.role || "client",
+    subject, body,
+    attachment: pendingAttach,
+  });
+
+  pendingAttach = null;
+  replyTo       = null;
+  showToast("Message envoyé ✓", "success");
+  switchFolder("sent");
+}
+
+// ── Contacts sidebar ─────────────────────────────────────
+function renderContacts() {
+  const users = getUsers().filter(u => u.id !== session.userId);
+  const groups = { client: "Clients", team: "Équipe", superadmin: "Admin" };
+
+  let html = "";
+  ["superadmin","team","client"].forEach(role => {
+    const list = users.filter(u => u.role === role);
+    if (!list.length) return;
+    html += `<div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;padding:10px 14px 4px;font-family:'DM Mono',monospace">${groups[role]}</div>`;
+    list.forEach(u => {
+      const color = ROLE_COLORS[u.role] || "var(--text-muted)";
+      const init  = u.avatar || u.name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+      html += `
+        <div class="folder-item" onclick="openCompose('${u.id}','${u.name}')" title="Écrire à ${u.name}">
+          <div class="sender-avatar" style="background:${color}18;color:${color};border-radius:8px;width:28px;height:28px;font-size:11px">${init}</div>
+          <div style="min-width:0">
+            <div style="font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.name.split("—")[0].trim()}</div>
+            <div style="font-size:9px;color:var(--text-dim);font-family:'DM Mono',monospace">${ROLE_LABELS[u.role]||""}</div>
+          </div>
+        </div>`;
+    });
+  });
+
+  document.getElementById("contactsList").innerHTML = html;
+}
+
+// ── Init ─────────────────────────────────────────────────
+renderContacts();
+switchFolder("inbox");
+renderList();
+</script>
+</body>
+</html>

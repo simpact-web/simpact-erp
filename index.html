@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMPACT ERP — Connexion</title>
+  <link rel="stylesheet" href="css/simpact.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: var(--navy-deepest);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Grille géométrique de fond */
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(201,168,76,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(201,168,76,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    /* Halo lumineux */
+    .bg-halo {
+      position: fixed;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(201,168,76,0.06) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .bg-halo-2 {
+      position: fixed;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(74,159,212,0.04) 0%, transparent 70%);
+      bottom: 10%; right: 10%;
+      pointer-events: none;
+    }
+
+    /* Carte de connexion */
+    .login-wrap {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 420px;
+      padding: 20px;
+      animation: pageEnter 0.5s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* Logo / Brand */
+    .login-brand {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .login-logo {
+      width: 64px; height: 64px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 36px; font-weight: 700;
+      color: var(--navy-dark);
+      margin: 0 auto 16px;
+      box-shadow: 0 8px 32px rgba(201,168,76,0.25);
+    }
+    .login-brand-name {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 5px;
+      color: var(--gold);
+      text-transform: uppercase;
+      font-family: 'Cormorant Garamond', serif;
+    }
+    .login-brand-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 4px;
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* Formulaire */
+    .login-card {
+      background: linear-gradient(160deg, var(--navy-mid) 0%, var(--navy-dark) 100%);
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: var(--radius-xl);
+      padding: 36px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.02);
+    }
+
+    .login-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+    .login-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+    }
+
+    .input-icon-wrap {
+      position: relative;
+    }
+    .input-icon {
+      position: absolute;
+      left: 13px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 15px; opacity: 0.5;
+      pointer-events: none;
+    }
+    .input-icon-wrap .form-control {
+      padding-left: 38px;
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+      border: none;
+      border-radius: var(--radius-md);
+      color: var(--navy-dark);
+      font-size: 14px; font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: var(--transition);
+      margin-top: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-login::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .btn-login:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(201,168,76,0.4); }
+    .btn-login:hover::after { opacity: 1; }
+    .btn-login:active { transform: translateY(0); }
+
+    .login-error {
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: rgba(224,80,80,0.1);
+      border: 1px solid rgba(224,80,80,0.3);
+      border-radius: var(--radius-md);
+      color: var(--danger);
+      font-size: 12px;
+      display: none;
+      animation: pageEnter 0.2s ease;
+    }
+    .login-error.show { display: flex; align-items: center; gap: 8px; }
+
+    /* Accès rapide (démo) */
+    .demo-accounts {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--navy-border);
+    }
+    .demo-label {
+      font-size: 10px;
+      text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+      font-family: 'DM Mono', monospace;
+    }
+    .demo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+    .demo-btn {
+      padding: 8px 6px;
+      background: var(--navy-dark);
+      border: 1px solid var(--navy-border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 10px;
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: center;
+      line-height: 1.4;
+    }
+    .demo-btn:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: var(--gold-glow);
+    }
+    .demo-btn .demo-role { font-size: 9px; color: var(--text-dim); display: block; font-family: 'DM Mono', monospace; }
+
+    /* Footer */
+    .login-footer {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: 'DM Mono', monospace;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-halo"></div>
+  <div class="bg-halo-2"></div>
+
+  <div class="login-wrap">
+
+    <!-- Brand -->
+    <div class="login-brand">
+      <div class="login-logo">S</div>
+      <div class="login-brand-name">SIMPACT</div>
+      <div class="login-brand-sub">Portail de Gestion B2B — v4.0</div>
+    </div>
+
+    <!-- Carte -->
+    <div class="login-card">
+      <div class="login-title">Bienvenue</div>
+      <div class="login-subtitle">Connectez-vous à votre espace SIMPACT</div>
+
+      <div class="form-group">
+        <label class="form-label">Identifiant</label>
+        <div class="input-icon-wrap">
+          <span class="input-icon">👤</span>
+          <input type="text" id="username" class="form-control"
+                 placeholder="votre identifiant"
+                 autocomplete="username" autocapitalize="none">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Mot de passe</label>
+        <div class="input-icon-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="password" class="form-control"
+                 placeholder="••••••••"
+                 autocomplete="current-password">
+        </div>
+      </div>
+
+      <button class="btn-login" id="loginBtn" onclick="doLogin()">
+        Se connecter
+      </button>
+
+      <div class="login-error" id="loginError">
+        <span>✕</span>
+        <span id="loginErrorMsg">Identifiants incorrects</span>
+      </div>
+
+      <!-- Accès rapide démo -->
+      <div class="demo-accounts">
+        <div class="demo-label">⚡ Accès rapide (démo)</div>
+        <div class="demo-grid">
+          <button class="demo-btn" onclick="fillLogin('youssef','simpact2024')">
+            Youssef
+            <span class="demo-role">Super Admin</span>
+          </button>
+          <button class="demo-btn" onclick="fillLogin('production','prod2024')">
+            Production
+            <span class="demo-role">Équipe</span>
+          </button>
+          <button class="demo-btn" onclick="fillLogin('stb','stb2024')">
+            STB
+            <span class="demo-role">Client</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="login-footer">
+      SIMPACT © 2024 — Fondée en 1979 — Tunis, Tunisie
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    // Si déjà connecté → redirect
+    const existing = SIMPACT_AUTH.getSession();
+    if (existing) SIMPACT_AUTH.redirectToHome(existing.role);
+
+    function doLogin() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const errBox   = document.getElementById("loginError");
+      const errMsg   = document.getElementById("loginErrorMsg");
+      const btn      = document.getElementById("loginBtn");
+
+      if (!username || !password) {
+        errMsg.textContent = "Veuillez remplir tous les champs.";
+        errBox.classList.add("show"); return;
+      }
+
+      btn.textContent = "Connexion…";
+      btn.disabled = true;
+
+      setTimeout(() => {
+        const result = SIMPACT_AUTH.login(username, password);
+        if (result.success) {
+          btn.textContent = "✓ Connecté";
+          errBox.classList.remove("show");
+          setTimeout(() => window.location.href = result.redirect, 400);
+        } else {
+          errMsg.textContent = result.error;
+          errBox.classList.add("show");
+          btn.textContent = "Se connecter";
+          btn.disabled = false;
+        }
+      }, 600);
+    }
+
+    function fillLogin(u, p) {
+      document.getElementById("username").value = u;
+      document.getElementById("password").value = p;
+      doLogin();
+    }
+
+    // Enter pour valider
+    document.addEventListener("keydown", e => {
+      if (e.key === "Enter") doLogin();
+    });
+  </script>
+</body>
+</html>

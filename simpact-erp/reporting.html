@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMPACT ERP — Reporting</title>
+  <link rel="stylesheet" href="css/simpact.css">
+  <style>
+    .report-tabs { display:flex; gap:4px; margin-bottom:24px; background:var(--navy-dark); padding:4px; border-radius:var(--radius-lg); border:1px solid var(--navy-border); width:fit-content; }
+    .tab-btn { padding:8px 20px; border-radius:var(--radius-md); font-size:12px; font-weight:600; border:none; cursor:pointer; transition:var(--transition); color:var(--text-muted); background:transparent; }
+    .tab-btn.active { background:linear-gradient(135deg,var(--gold),var(--gold-dark)); color:var(--navy-dark); }
+
+    .bar-chart { display:flex; align-items:flex-end; gap:8px; height:140px; padding-bottom:4px; }
+    .bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; justify-content:flex-end; }
+    .bar { width:100%; border-radius:4px 4px 0 0; min-height:4px; transition:height 0.6s cubic-bezier(0.4,0,0.2,1); }
+    .bar-label { font-size:9px; color:var(--text-dim); text-align:center; font-family:'DM Mono',monospace; }
+    .bar-val   { font-size:10px; color:var(--gold); font-weight:700; font-family:'DM Mono',monospace; }
+
+    .margin-pill {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; font-family:'DM Mono',monospace;
+    }
+    .margin-good { background:rgba(61,186,120,0.15); color:var(--success); border:1px solid rgba(61,186,120,0.3); }
+    .margin-mid  { background:rgba(232,160,48,0.15);  color:var(--warning); border:1px solid rgba(232,160,48,0.3); }
+    .margin-bad  { background:rgba(224,80,80,0.15);   color:var(--danger);  border:1px solid rgba(224,80,80,0.3); }
+
+    .cost-table th { background:var(--navy-dark); color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:1px; padding:10px 14px; font-family:'DM Mono',monospace; }
+    .cost-table td { padding:10px 14px; font-size:12px; border-bottom:1px solid rgba(26,48,80,0.3); }
+
+    .machine-card { background:var(--navy-dark); border:1px solid var(--navy-border); border-radius:var(--radius-md); padding:14px; }
+    .machine-card .mc-label { font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; font-family:'DM Mono',monospace; margin-bottom:6px; }
+    .machine-card .mc-val   { font-family:'Cormorant Garamond',serif; font-size:28px; font-weight:600; color:var(--gold); }
+    .machine-card .mc-sub   { font-size:11px; color:var(--text-muted); margin-top:2px; }
+  </style>
+</head>
+<body>
+<div class="erp-layout">
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-logo">S</div>
+      <div class="brand-text"><div class="brand-name">SIMPACT</div><div class="brand-sub">ERP v4.0</div></div>
+    </div>
+    <div class="topbar-center"><span style="font-size:13px;color:var(--text-muted)">Reporting & Analyse</span></div>
+    <div class="topbar-right"><div class="user-chip" id="user-chip"></div></div>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section-label">Navigation</div>
+    <a href="dashboard.html" class="nav-item" data-page="dashboard"><span class="nav-icon">◈</span><span>Tableau de bord</span></a>
+    <a href="orders.html" class="nav-item" data-page="orders"><span class="nav-icon">📋</span><span>Commandes</span></a>
+    <a href="configurator.html" class="nav-item" data-page="configurator"><span class="nav-icon">⚙</span><span>Configurateur prix</span></a>
+    <a href="stock.html" class="nav-item" data-page="stock"><span class="nav-icon">📦</span><span>Stocks papier</span></a>
+    <div class="nav-separator"></div>
+    <a href="clients.html" class="nav-item" data-page="clients"><span class="nav-icon">🏛</span><span>Clients</span></a>
+    <a href="reporting.html" class="nav-item" data-page="reporting"><span class="nav-icon">📊</span><span>Reporting</span></a>
+    <div class="nav-separator"></div>
+    <a href="#" class="nav-item" onclick="SIMPACT_AUTH.logout()"><span class="nav-icon">⎋</span><span>Déconnexion</span></a>
+  </nav>
+
+  <main class="main-content page-enter">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Reporting</div>
+        <div class="page-subtitle">Analyse financière — Marges, rentabilité, prix de revient</div>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-secondary" onclick="window.print()">🖨 Exporter</button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="report-tabs">
+      <button class="tab-btn active" onclick="showTab('ca')">CA & Activité</button>
+      <button class="tab-btn" onclick="showTab('margins')">Marges par produit</button>
+      <button class="tab-btn" onclick="showTab('clients')">Par client</button>
+      <button class="tab-btn" onclick="showTab('machine')">Coûts machine</button>
+    </div>
+
+    <!-- Tab CA -->
+    <div id="tab-ca">
+      <div class="kpi-grid" id="caKPIs"></div>
+      <div class="grid-2" style="margin-bottom:20px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">CA par mois (DT HT)</div></div>
+          <div class="card-body">
+            <div class="bar-chart" id="monthChart"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">CA par produit</div></div>
+          <div class="card-body" id="productChart"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Toutes les commandes — Analyse</div></div>
+        <div class="table-wrap">
+          <table class="data-table cost-table">
+            <thead><tr><th>Réf.</th><th>Client</th><th>Produit</th><th>Qté</th><th>Prix HT</th><th>Coût rev. est.</th><th>Marge est.</th><th>Statut</th></tr></thead>
+            <tbody id="allOrdersBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Marges -->
+    <div id="tab-margins" style="display:none">
+      <div class="alert alert-info" style="margin-bottom:20px">
+        ℹ Marges calculées sur la base de vos coûts réels Canon V1000 (0.0764 DT/A4 quadri · 0.0413 DT/A4 N&B) et de vos prix papier.
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Analyse des marges par produit & quantité</div></div>
+        <div class="table-wrap">
+          <table class="data-table cost-table" id="marginTable">
+            <thead><tr><th>Produit</th><th>Quantité</th><th>Prix vente HT</th><th>Coût papier est.</th><th>Coût machine est.</th><th>Coût total</th><th>Marge</th></tr></thead>
+            <tbody id="marginBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Clients -->
+    <div id="tab-clients" style="display:none">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Analyse par client</div></div>
+        <div class="table-wrap">
+          <table class="data-table cost-table">
+            <thead><tr><th>Client</th><th>Secteur</th><th>Nb commandes</th><th>CA total HT</th><th>Panier moyen</th><th>Dernière cmd</th></tr></thead>
+            <tbody id="clientBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Machine -->
+    <div id="tab-machine" style="display:none">
+      <div class="alert alert-info" style="margin-bottom:20px">
+        Données extraites de votre configuration Canon imagePRESS V1000 — Devis AZURColors 05/03/2026
+      </div>
+
+      <!-- Coûts machine réels -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:24px">
+        <div class="machine-card">
+          <div class="mc-label">Coût toner quadri/A4</div>
+          <div class="mc-val">0.0449</div><div class="mc-sub">DT / face A4 couleur</div>
+        </div>
+        <div class="machine-card">
+          <div class="mc-label">Coût toner N&B/A4</div>
+          <div class="mc-val">0.0099</div><div class="mc-sub">DT / face A4 noir</div>
+        </div>
+        <div class="machine-card">
+          <div class="mc-label">Coût pièces/A4</div>
+          <div class="mc-val">0.0314</div><div class="mc-sub">DT / face A4 (usure)</div>
+        </div>
+        <div class="machine-card" style="border-color:rgba(201,168,76,0.4)">
+          <div class="mc-label">Coût total quadri/A4</div>
+          <div class="mc-val" style="color:var(--gold)">0.0764</div><div class="mc-sub">DT / face A4 couleur</div>
+        </div>
+        <div class="machine-card">
+          <div class="mc-label">Coût total N&B/A4</div>
+          <div class="mc-val">0.0413</div><div class="mc-sub">DT / face A4 N&B</div>
+        </div>
+        <div class="machine-card">
+          <div class="mc-label">Volume cible/mois</div>
+          <div class="mc-val">300k</div><div class="mc-sub">pages/mois recommandé</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Coûts papier -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Prix papier fournisseur (DT/kg)</div></div>
+          <div class="card-body">
+            <table style="width:100%;font-size:12px;border-collapse:collapse" class="cost-table">
+              <thead><tr><th>Grammage</th><th>Type</th><th>Prix/kg</th><th>A4 (135g) / feuille</th></tr></thead>
+              <tbody>
+                ${[
+                  ["80g / 100g","Offset","3.70"],
+                  ["90g","Offset / Couché","3.90"],
+                  ["115g / 135g / 170g / 200g / 250g","Couché Mat & Brillant","3.60"],
+                  ["300g / 350g","Couché épais","3.90"],
+                ].map(([g,t,p])=>`<tr>
+                  <td style="font-family:'DM Mono',monospace;color:var(--gold)">${g}</td>
+                  <td style="color:var(--text-secondary)">${t}</td>
+                  <td style="font-weight:700;color:var(--text-primary);font-family:'DM Mono',monospace">${p} DT</td>
+                  <td style="color:var(--text-muted);font-family:'DM Mono',monospace">${g.includes("135")?(0.135*0.0624*3.6).toFixed(4)+" DT":"—"}</td>
+                </tr>`).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Simulateur ROI machine -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Simulateur ROI — Canon V1000</div></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">Volume mensuel (pages quadri)</label>
+              <input type="range" id="volSlider" min="50000" max="600000" step="10000" value="200000" oninput="updateROI()" style="width:100%;accent-color:var(--gold)">
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);font-family:'DM Mono',monospace;margin-top:4px">
+                <span>50k</span><span id="volVal" style="color:var(--gold)">200k</span><span>600k</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Prix de vente moyen / A4 (DT)</label>
+              <input type="range" id="sellSlider" min="0.10" max="0.80" step="0.01" value="0.40" oninput="updateROI()" style="width:100%;accent-color:var(--gold)">
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);font-family:'DM Mono',monospace;margin-top:4px">
+                <span>0.10 DT</span><span id="sellVal" style="color:var(--gold)">0.40 DT</span><span>0.80 DT</span>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px" id="roiResults"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Amortissement -->
+      <div class="card" style="margin-top:20px">
+        <div class="card-header"><div class="card-title">Plan de financement — imagePRESS V1000</div></div>
+        <div class="card-body">
+
+          <!-- Structure de financement fixe -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px">
+
+            <div class="machine-card" style="border-color:rgba(201,168,76,0.4)">
+              <div class="mc-label">Prix total machine</div>
+              <div class="mc-val">149 175</div>
+              <div class="mc-sub">DT HT — imagePRESS V1000</div>
+            </div>
+
+            <div class="machine-card" style="border-color:rgba(61,186,120,0.4)">
+              <div class="mc-label">Apport initial (fonds propres)</div>
+              <div class="mc-val" style="color:var(--success)">60 000</div>
+              <div class="mc-sub">DT — payé à la commande</div>
+            </div>
+
+            <div class="machine-card" style="border-color:rgba(74,159,212,0.4)">
+              <div class="mc-label">Facilité fournisseur</div>
+              <div class="mc-val" style="color:var(--info)">89 175</div>
+              <div class="mc-sub">DT sur 18 mois → ~4 954 DT/mois</div>
+            </div>
+
+            <div class="machine-card" style="border-color:rgba(232,160,48,0.4)">
+              <div class="mc-label">Aide État (mise à niveau)</div>
+              <div class="mc-val" style="color:var(--warning)">65 000</div>
+              <div class="mc-sub">DT — reçue après acquisition</div>
+            </div>
+
+            <div class="machine-card" style="border-color:rgba(61,186,120,0.4)">
+              <div class="mc-label">Dette nette après aide État</div>
+              <div class="mc-val" style="color:var(--success)">24 175</div>
+              <div class="mc-sub">DT restants (89 175 − 65 000)</div>
+            </div>
+
+            <div class="machine-card" style="border-color:rgba(201,168,76,0.4)">
+              <div class="mc-label">Mensualité fournisseur</div>
+              <div class="mc-val">4 954</div>
+              <div class="mc-sub">DT / mois × 18 mois</div>
+            </div>
+          </div>
+
+          <!-- Échéancier 18 mois -->
+          <div style="margin-bottom:20px">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:12px">
+              Échéancier fournisseur — 18 mois (89 175 DT)
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:4px;height:80px;margin-bottom:6px" id="echeancierBars"></div>
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-dim);font-family:'DM Mono',monospace">
+              <span>M1</span><span>M6</span><span>M12</span><span>M18</span>
+            </div>
+            <div style="margin-top:8px" id="aideEtatNote"></div>
+          </div>
+
+          <!-- Simulation marge vs charge mensuelle -->
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:12px">
+            Résultat net mensuel (marge d'exploitation − mensualité fournisseur)
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px" id="amortGrid"></div>
+
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script>
+const session = SIMPACT_AUTH.requireAuth(["superadmin"]);
+if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("reporting"); }
+
+// Coûts réels Canon V1000
+const COST_PER_A4_QUADRI = 0.0764;
+const COST_PER_A4_NB     = 0.0413;
+const MACHINE_PRICE_HT   = 149175;
+const A4_M2 = 0.21 * 0.297;
+
+// Prix papier DT/kg
+const PAPER_KG = { 80:3.7, 90:3.9, 100:3.7, 115:3.6, 135:3.6, 170:3.6, 200:3.6, 250:3.6, 300:3.9, 350:3.9 };
+
+function paperCostA4(g){ return (g/1000)*A4_M2*(PAPER_KG[g]||3.6); }
+
+// Produits avec config coûts
+const PROD_COSTS = [
+  { name:"Cartes de visite", grammage:350, piecesPerSRA3:20, sides:2, isColor:true, qtBreaks:[100,250,500,1000,2000,5000], sellPrices:[18,28,42,65,110,220] },
+  { name:"Flyers A5",        grammage:135, piecesPerSRA3:4,  sides:2, isColor:true, qtBreaks:[250,500,1000,2000,5000,10000], sellPrices:[22,35,52,85,165,280] },
+  { name:"Flyers A4",        grammage:135, piecesPerSRA3:2,  sides:2, isColor:true, qtBreaks:[250,500,1000,2000,5000,10000], sellPrices:[32,50,78,130,260,440] },
+  { name:"Brochures A4",     grammage:135, piecesPerSRA3:1,  sides:2, isColor:true, qtBreaks:[50,100,250,500,1000], sellPrices:[55,90,180,290,480] },
+  { name:"Affiches",         grammage:170, piecesPerSRA3:1,  sides:1, isColor:true, qtBreaks:[10,25,50,100,250,500], sellPrices:[25,48,80,140,280,490] },
+  { name:"Papier en-tête",   grammage:100, piecesPerSRA3:2,  sides:1, isColor:true, qtBreaks:[500,1000,2500,5000], sellPrices:[28,45,90,160] },
+  { name:"Dépliants",        grammage:135, piecesPerSRA3:2,  sides:2, isColor:true, qtBreaks:[250,500,1000,2000,5000], sellPrices:[30,48,75,125,245] },
+  { name:"Livres N&B",       grammage:80,  piecesPerSRA3:4,  sides:2, isColor:false, qtBreaks:[50,100,250,500,1000], sellPrices:[60,100,200,340,580] },
+];
+
+function estimateCost(prod, qtyIdx){
+  const qty   = prod.qtBreaks[qtyIdx];
+  const sheets= Math.ceil(qty / prod.piecesPerSRA3);
+  const paperCostSheet = (prod.grammage/1000) * 0.144 * (PAPER_KG[prod.grammage]||3.6);
+  const a4EquivPerSheet= 0.144 / A4_M2;
+  const machineCostA4  = prod.isColor ? COST_PER_A4_QUADRI : COST_PER_A4_NB;
+  const paperTotal  = sheets * paperCostSheet;
+  const machineTotal= sheets * a4EquivPerSheet * prod.sides * machineCostA4;
+  return { paper:paperTotal, machine:machineTotal, total:paperTotal+machineTotal };
+}
+
+// ── Tabs ───────────────────────────────────────────────
+const tabs = ["ca","margins","clients","machine"];
+function showTab(id){
+  tabs.forEach(t => { document.getElementById("tab-"+t).style.display = t===id?"block":"none"; });
+  document.querySelectorAll(".tab-btn").forEach((btn,i) => btn.classList.toggle("active", tabs[i]===id));
+  if(id==="machine") updateROI();
+}
+
+// ── Tab CA ─────────────────────────────────────────────
+function renderCA(){
+  const orders = DB.getOrders();
+  const done   = orders.filter(o=>o.status==="done");
+  const caTotal= orders.reduce((s,o)=>s+(o.priceHT||0),0);
+  const caDone = done.reduce((s,o)=>s+(o.priceHT||0),0);
+  const pending= orders.filter(o=>["received","bat","production"].includes(o.status));
+  const caPend = pending.reduce((s,o)=>s+(o.priceHT||0),0);
+
+  document.getElementById("caKPIs").innerHTML = [
+    {label:"CA total facturé",value:caTotal.toFixed(0),unit:"DT",icon:"💰",color:"gold"},
+    {label:"CA encaissé (livré)",value:caDone.toFixed(0),unit:"DT",icon:"✅",color:"green"},
+    {label:"CA en cours",value:caPend.toFixed(0),unit:"DT",icon:"⏳",color:"orange"},
+    {label:"Nb commandes",value:orders.length,unit:"",icon:"📋",color:"blue"},
+  ].map(k=>`<div class="kpi-card ${k.color}"><div class="kpi-icon">${k.icon}</div><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}<span class="kpi-unit">${k.unit}</span></div></div>`).join("");
+
+  // Graphe mois
+  const MONTHS = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+  const byMonth = Array(12).fill(0);
+  orders.forEach(o=>{ const m=new Date(o.createdAt).getMonth(); byMonth[m]+=(o.priceHT||0); });
+  const maxM = Math.max(...byMonth,1);
+  document.getElementById("monthChart").innerHTML = byMonth.map((v,i)=>`
+    <div class="bar-wrap">
+      <div class="bar-val">${v>0?v.toFixed(0):""}</div>
+      <div class="bar" style="height:${(v/maxM*100)}%;background:${v>0?"linear-gradient(180deg,var(--gold),var(--gold-dark))":"var(--navy-border)"}"></div>
+      <div class="bar-label">${MONTHS[i]}</div>
+    </div>`).join("");
+
+  // CA par produit
+  const byProd={};
+  orders.forEach(o=>{ byProd[o.product]=(byProd[o.product]||0)+(o.priceHT||0); });
+  const sorted=Object.entries(byProd).sort((a,b)=>b[1]-a[1]);
+  const maxP=sorted[0]?.[1]||1;
+  document.getElementById("productChart").innerHTML = sorted.map(([name,val],i)=>`
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="color:var(--text-secondary)">${name}</span>
+        <span style="color:var(--gold);font-family:'DM Mono',monospace">${val.toFixed(0)} DT</span>
+      </div>
+      <div style="height:6px;background:var(--navy-dark);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${val/maxP*100}%;background:${["var(--gold)","var(--info)","var(--success)","var(--warning)"][i%4]};border-radius:3px;transition:width 0.6s"></div>
+      </div>
+    </div>`).join("");
+
+  // Tableau toutes commandes avec marge estimée
+  function marginPill(m){
+    const cls=m>40?"margin-good":m>25?"margin-mid":"margin-bad";
+    return `<span class="margin-pill ${cls}">${m.toFixed(1)}%</span>`;
+  }
+  const SC={received:"badge-received",bat:"badge-bat",production:"badge-production",done:"badge-done",cancelled:"badge-cancelled"};
+  const SL={received:"Reçue",bat:"BAT",production:"Production",done:"Livré",cancelled:"Annulé"};
+  document.getElementById("allOrdersBody").innerHTML = orders.map(o=>{
+    const prod = PROD_COSTS.find(p=>o.product.toLowerCase().includes(p.name.toLowerCase().split(" ")[0]));
+    let costEst=0, marginEst=0;
+    if(prod){
+      const qi = Math.min(2, prod.qtBreaks.length-1);
+      const c  = estimateCost(prod,qi);
+      const ratio = (o.priceHT||0) / (prod.sellPrices[qi]||1);
+      costEst = c.total * ratio;
+      marginEst= o.priceHT>0?((o.priceHT-costEst)/o.priceHT*100):0;
+    }
+    return `<tr>
+      <td style="font-family:'DM Mono',monospace;color:var(--gold);font-size:11px">${o.id}</td>
+      <td style="color:var(--text-primary)">${o.clientName}</td>
+      <td>${o.product}</td>
+      <td style="font-family:'DM Mono',monospace">${(o.qty||0).toLocaleString("fr-FR")}</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--text-primary)">${(o.priceHT||0).toFixed(2)} DT</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--text-muted)">${costEst>0?costEst.toFixed(2)+" DT":"—"}</td>
+      <td>${marginEst>0?marginPill(marginEst):"—"}</td>
+      <td><span class="badge ${SC[o.status]||""}">${SL[o.status]||o.status}</span></td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:24px">Aucune commande</td></tr>`;
+}
+
+// ── Tab Marges ─────────────────────────────────────────
+function renderMargins(){
+  function marginPill(m){
+    const cls=m>40?"margin-good":m>25?"margin-mid":"margin-bad";
+    return `<span class="margin-pill ${cls}">${m.toFixed(1)}%</span>`;
+  }
+  document.getElementById("marginBody").innerHTML = PROD_COSTS.flatMap(prod=>
+    prod.qtBreaks.map((qty,i)=>{
+      const sell  = prod.sellPrices[i];
+      const cost  = estimateCost(prod,i);
+      const margin= ((sell-cost.total)/sell*100);
+      return `<tr>
+        <td style="color:var(--text-primary);font-weight:500">${prod.name}</td>
+        <td style="font-family:'DM Mono',monospace;color:var(--gold)">${qty.toLocaleString("fr-FR")} ex.</td>
+        <td style="font-family:'DM Mono',monospace">${sell.toFixed(2)} DT</td>
+        <td style="font-family:'DM Mono',monospace;color:var(--text-muted)">${cost.paper.toFixed(2)} DT</td>
+        <td style="font-family:'DM Mono',monospace;color:var(--text-muted)">${cost.machine.toFixed(2)} DT</td>
+        <td style="font-family:'DM Mono',monospace;font-weight:700">${cost.total.toFixed(2)} DT</td>
+        <td>${marginPill(margin)}</td>
+      </tr>`;
+    })
+  ).join("");
+}
+
+// ── Tab Clients ────────────────────────────────────────
+function renderClients(){
+  const orders  = DB.getOrders();
+  const clients = DB.getClients();
+  document.getElementById("clientBody").innerHTML = clients.map(c=>{
+    const co = orders.filter(o=>o.clientId===c.id);
+    const ca = co.reduce((s,o)=>s+(o.priceHT||0),0);
+    const avg= co.length ? ca/co.length : 0;
+    const last= co[0] ? new Date(co[0].createdAt).toLocaleDateString("fr-FR") : "—";
+    return `<tr>
+      <td style="color:var(--text-primary);font-weight:500">${c.name}</td>
+      <td style="color:var(--text-muted)">${c.sector||"—"}</td>
+      <td style="font-family:'DM Mono',monospace;text-align:center">${co.length}</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--gold)">${ca.toFixed(2)} DT</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--text-muted)">${avg.toFixed(2)} DT</td>
+      <td style="font-size:12px;color:var(--text-muted)">${last}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:24px">Aucun client</td></tr>`;
+}
+
+// ══════════════════════════════════════════════════════
+// PLAN DE FINANCEMENT RÉEL
+// ══════════════════════════════════════════════════════
+const FIN = {
+  prixTotal:      149175,
+  apportInitial:   60000,   // payé à la commande
+  aideEtat:        65000,   // reçue APRÈS acquisition
+  detteFournisseur: 89175,  // 149175 - 60000
+  dureesMois:        18,
+  get mensualite(){ return this.detteFournisseur / this.dureesMois; }, // ~4954 DT
+  // Aide État vient solder une partie → dette résiduelle après aide
+  get detteApresAide(){ return this.detteFournisseur - this.aideEtat; }, // 24175 DT
+};
+
+// ── Échéancier 18 mois ─────────────────────────────────
+function renderEcheancier(){
+  const bars = document.getElementById("echeancierBars");
+  if(!bars) return;
+
+  // On suppose que l'aide État arrive au mois 6 (estimé)
+  const AIDE_MOIS = 6;
+  let dette = FIN.detteFournisseur;
+
+  const months = Array.from({length:18}, (_,i) => {
+    const m = i + 1;
+    let paiement = FIN.mensualite;
+    let aideAppliquee = 0;
+    if(m === AIDE_MOIS){ aideAppliquee = FIN.aideEtat; }
+    dette -= paiement;
+    const detteAvantAide = dette;
+    dette -= aideAppliquee;
+    return { m, paiement, aideAppliquee, dette: Math.max(dette,0) };
+  });
+
+  const maxDette = FIN.detteFournisseur;
+  bars.innerHTML = months.map(({m, aideAppliquee, dette}) => {
+    const pct = (dette / maxDette * 100).toFixed(1);
+    const hasAide = aideAppliquee > 0;
+    const color = hasAide ? "var(--warning)" : dette < 30000 ? "var(--success)" : "var(--info)";
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;height:100%;justify-content:flex-end" title="Mois ${m} — Dette: ${dette.toFixed(0)} DT${hasAide?" (Aide État reçue)":""}">
+      <div style="width:100%;background:${color};border-radius:3px 3px 0 0;min-height:3px;height:${pct}%;transition:height 0.5s;${hasAide?"box-shadow:0 0 8px rgba(232,160,48,0.6)":""}"></div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("aideEtatNote").innerHTML = `
+    <div class="alert alert-warning" style="font-size:12px">
+      ⚡ La barre <strong style="color:var(--warning)">orange</strong> représente le mois de réception de l'aide État (65 000 DT) — 
+      la dette passe de <strong>~59 450 DT</strong> à <strong>~24 175 DT</strong> en un seul mois.
+      Le reliquat de <strong>24 175 DT</strong> est ensuite soldé sur les mois restants (~4 954 DT/mois).
+    </div>`;
+}
+
+// ── Simulateur ROI ─────────────────────────────────────
+function updateROI(){
+  const vol  = parseInt(document.getElementById("volSlider").value);
+  const sell = parseFloat(document.getElementById("sellSlider").value);
+  document.getElementById("volVal").textContent  = (vol/1000).toFixed(0)+"k";
+  document.getElementById("sellVal").textContent = sell.toFixed(2)+" DT";
+
+  const caMonthly   = vol * sell;
+  const costMonthly = vol * COST_PER_A4_QUADRI;
+  const marginBrute = caMonthly - costMonthly;
+  const marginPct   = caMonthly > 0 ? (marginBrute / caMonthly * 100) : 0;
+
+  // Nombre de mois pour couvrir la mensualité fournisseur
+  const mensualite  = FIN.mensualite;
+  const soldeNet    = marginBrute - mensualite; // résultat après charge mensuelle
+  const moisEquilibre = soldeNet > 0 ? "OK" : "Insuffisant";
+
+  document.getElementById("roiResults").innerHTML = [
+    {label:"CA mensuel",       val: caMonthly.toFixed(0)+" DT",    color:"var(--text-primary)"},
+    {label:"Coût variable",    val: costMonthly.toFixed(0)+" DT",  color:"var(--danger)"},
+    {label:"Marge brute",      val: marginBrute.toFixed(0)+" DT",  color:"var(--success)"},
+    {label:"Taux de marge",    val: marginPct.toFixed(1)+"%",       color:marginPct>40?"var(--success)":marginPct>25?"var(--warning)":"var(--danger)"},
+    {label:"Mensualité four.", val: mensualite.toFixed(0)+" DT",   color:"var(--warning)"},
+    {label:"Résultat net/mois",val: soldeNet.toFixed(0)+" DT",     color:soldeNet>0?"var(--success)":"var(--danger)"},
+  ].map(({label,val,color})=>`
+    <div style="background:var(--navy-dark);border:1px solid var(--navy-border);border-radius:var(--radius-md);padding:10px;text-align:center">
+      <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-family:'DM Mono',monospace">${label}</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:600;color:${color};margin-top:4px">${val}</div>
+    </div>`).join("");
+
+  // ── Grille mois par mois 18 mois ─────────────────────
+  // On recalcule l'échéancier réel avec aide État au mois 6
+  const AIDE_MOIS = 6;
+  let dette = FIN.detteFournisseur;
+  const rows = [];
+  for(let m=1; m<=18; m++){
+    const aideAppliquee = (m === AIDE_MOIS) ? FIN.aideEtat : 0;
+    dette -= FIN.mensualite;
+    dette -= aideAppliquee;
+    dette = Math.max(dette, 0);
+    const resultat = marginBrute - FIN.mensualite;
+    rows.push({ m, dette, aideAppliquee, resultat });
+  }
+
+  document.getElementById("amortGrid").innerHTML = rows.map(({m, dette, aideAppliquee, resultat}) => {
+    const isAide   = aideAppliquee > 0;
+    const isPositif= resultat > 0;
+    const borderColor = isAide ? "rgba(232,160,48,0.5)" : isPositif ? "rgba(61,186,120,0.3)" : "rgba(224,80,80,0.3)";
+    const valColor    = isPositif ? "var(--success)" : "var(--danger)";
+    return `<div class="machine-card" style="border-color:${borderColor}">
+      <div class="mc-label">Mois ${m}${isAide?" ⚡ Aide État":""}</div>
+      <div class="mc-val" style="color:${valColor};font-size:20px">${resultat>0?"+":""}${resultat.toFixed(0)}</div>
+      <div class="mc-sub">DT net · dette: ${dette.toFixed(0)} DT</div>
+    </div>`;
+  }).join("");
+
+  renderEcheancier();
+}
+
+// Init
+renderCA(); renderMargins(); renderClients(); updateROI();
+</script>
+</body>
+</html>
