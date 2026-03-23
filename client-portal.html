@@ -763,9 +763,10 @@ function closeDetail() {
   document.getElementById("detailOverlay").classList.remove("open");
 }
 
-// ─── CONFIGURATEUR CLIENT ────────────────────────────────
 // ─── CONFIGURATEUR CLIENT ─────────────────────────────────────
 // Moteur : SIMPACT_PRICING — même source que l'admin
+
+function renderConfigurator() { renderCpChips(); updateCpPrice(); }
 
 const PRODUCTS = SIMPACT_PRICING.PRODS;
 
