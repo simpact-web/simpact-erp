@@ -364,9 +364,11 @@
             <div><span class="config-step-num">2</span><span class="config-step-label">Format</span></div>
             <div class="cp-chips" id="cp-formatChips"></div>
           </div>
-          <!-- Papier -->
-          <div class="config-step">
-            <div><span class="config-step-num">3</span><span class="config-step-label">Support papier</span></div>
+          <!-- Sections dynamiques (reliure, pages, couverture, papier couv/int) -->
+          <div id="cp-extraSections" style="display:none"></div>
+          <!-- Papier (standard — caché pour brochures/livres qui ont cp-extraSections) -->
+          <div class="config-step" id="cp-paperStep">
+            <div><span class="config-step-num">3</span><span class="config-step-label cp-step-label">Support papier</span></div>
             <div class="cp-chips" id="cp-paperChips"></div>
           </div>
           <!-- Impression -->
@@ -761,17 +763,86 @@ function closeDetail() {
 
 // ─── CONFIGURATEUR CLIENT ────────────────────────────────
 const PRODUCTS = [
-  { id:"cartes-visite", name:"Cartes de visite", icon:"▪", formats:["85×54mm Standard","90×50mm Slim"], papers:["350g Couché Mat","350g Couché Brillant","400g Soft Touch"], colors:["Quadri R/V (4/4)","Quadri recto (4/0)","Noir & Blanc"], finitions:[{l:"Pelliculage Mat",p:8},{l:"Pelliculage Brillant",p:6},{l:"Coins arrondis",p:5},{l:"Vernis UV",p:14}], qtBreaks:[100,250,500,1000,2000,5000], prices:[18,28,42,65,110,220] },
-  { id:"flyers-a5",     name:"Flyers A5",        icon:"◈", formats:["A5 (148×210mm)","A5+ (150×215mm)"], papers:["135g Couché Mat","135g Couché Brillant","170g Couché Mat"], colors:["Quadri R/V (4/4)","Quadri recto (4/0)","Noir & Blanc"], finitions:[{l:"Pelliculage Mat",p:12},{l:"Pelliculage Brillant",p:10},{l:"Pliage",p:10}], qtBreaks:[250,500,1000,2000,5000,10000], prices:[22,35,52,85,165,280] },
-  { id:"flyers-a4",     name:"Flyers A4",        icon:"◫", formats:["A4 (210×297mm)","A4+ (220×310mm)"], papers:["115g Couché Mat","135g Couché Mat","170g Couché Brillant"], colors:["Quadri R/V (4/4)","Quadri recto (4/0)","Noir & Blanc"], finitions:[{l:"Pelliculage Mat",p:18},{l:"Pelliculage Brillant",p:15},{l:"Pliage dépliant",p:15}], qtBreaks:[250,500,1000,2000,5000,10000], prices:[32,50,78,130,260,440] },
-  { id:"brochures",     name:"Brochures A4",     icon:"⊟", formats:["A4 agrafé 8 pages","A4 agrafé 16 pages","A4 agrafé 24 pages"], papers:["Couv 300g + Int 135g Mat","Couv 350g + Int 170g Brillant","Couv 250g + Int 115g Éco"], colors:["Quadri complet (4/4)","Couv couleur + Int N&B","Noir & Blanc intégral"], finitions:[{l:"Pelliculage Mat couv.",p:15},{l:"Pelliculage Brillant couv.",p:12},{l:"Reliure spirale",p:20}], qtBreaks:[50,100,250,500,1000], prices:[55,90,180,290,480] },
-  { id:"affiches",      name:"Affiches",         icon:"⬜", formats:["A3 (297×420mm)","A2 (420×594mm)","A1 (594×841mm)","40×60cm"], papers:["135g Couché Brillant","170g Couché Mat","200g Couché Brillant Premium"], colors:["Quadri recto (4/0)","Noir & Blanc recto"], finitions:[{l:"Pelliculage Mat",p:20},{l:"Pelliculage Brillant",p:16},{l:"Œillets ×4",p:8}], qtBreaks:[10,25,50,100,250,500], prices:[25,48,80,140,280,490] },
-  { id:"papier-entete", name:"Papier en-tête",   icon:"📄", formats:["A4 (210×297mm)"], papers:["100g Offset Premium","80g Offset Standard"], colors:["Quadri recto (4/0)","Noir & Blanc","1 couleur Pantone"], finitions:[], qtBreaks:[500,1000,2500,5000], prices:[28,45,90,160] },
-  { id:"depliants",     name:"Dépliants",        icon:"◱", formats:["A4 pli en 3 (DL)","A4 pli en 2","A3 pli en 3"], papers:["135g Couché Mat","135g Couché Brillant","170g Couché Mat"], colors:["Quadri R/V (4/4)","Quadri recto (4/0)"], finitions:[{l:"Pelliculage Mat",p:15},{l:"Pelliculage Brillant",p:12}], qtBreaks:[250,500,1000,2000,5000], prices:[30,48,75,125,245] },
-  { id:"livres-nb",     name:"Livres N&B",       icon:"📚", formats:["A5 (48 pages)","A5 (96 pages)","A5 (128 pages)","A4 (48 pages)"], papers:["80g Offset blanc","90g Offset ivory","100g Offset Premium"], colors:["Noir & Blanc","Couverture couleur + N&B"], finitions:[{l:"Dos carré-collé",p:20},{l:"Reliure spirale",p:15}], qtBreaks:[50,100,250,500,1000], prices:[60,100,200,340,580] },
+  { id:"cartes-visite", name:"Cartes de visite", icon:"▪",
+    formats:["85×54mm Standard","90×50mm Slim","85×85mm Carré"],
+    papers:["350g Couché Mat","350g Couché Brillant","400g Soft Touch","300g Couché Mat","250g Couché Mat"],
+    colors:["Quadri R/V (4/4)","Quadri recto (4/0)","Noir & Blanc R/V"],
+    finitions:[{l:"Pelliculage Mat",p:8},{l:"Pelliculage Brillant",p:6},{l:"Coins arrondis",p:5},{l:"Vernis UV sélectif",p:14}],
+    qtBreaks:[100,250,500,1000,2000,5000], prices:[18,28,42,65,110,220] },
+
+  { id:"flyers-a5", name:"Flyers A5", icon:"◈",
+    formats:["A5 — 15×21 cm","16×23 cm"],
+    papers:["115g Couché Mat","135g Couché Mat","135g Couché Brillant","170g Couché Mat","170g Couché Brillant","200g Couché Mat"],
+    colors:["Quadri R/V (4/4)","Quadri recto (4/0)","Noir & Blanc"],
+    finitions:[{l:"Pelliculage Mat",p:12},{l:"Pelliculage Brillant",p:10},{l:"Pliage",p:10}],
+    qtBreaks:[50,100,250,500,1000,2000], prices:[28,40,58,125,215,410] },
+
+  { id:"flyers-a4", name:"Flyers A4", icon:"◫",
+    formats:["A4 — 21×29,7 cm"],
+    papers:["115g Couché Mat","135g Couché Mat","135g Couché Brillant","170g Couché Mat","170g Couché Brillant"],
+    colors:["Quadri R/V (4/4)","Quadri recto (4/0)","Noir & Blanc"],
+    finitions:[{l:"Pelliculage Mat",p:18},{l:"Pelliculage Brillant",p:15}],
+    qtBreaks:[50,100,250,500,1000,2000], prices:[42,62,96,215,410,820] },
+
+  { id:"brochures", name:"Brochures A4", icon:"⊟",
+    // Format : taille finie
+    formats:["A4","A5"],
+    // Reliure
+    bindings:["Piqûre (agrafé)","Reliure spirale","Dos carré collé"],
+    // Impression
+    colors:["Quadri complet (4/4)","Couv couleur + Int N&B","Noir & Blanc intégral"],
+    // Papier couverture (chips séparés)
+    covPapers:["300g Couché Mat","300g Couché Brillant","350g Couché Mat","350g Couché Brillant","250g Couché Mat (Éco)"],
+    // Type couverture
+    covTypes:["Couverture Recto/Verso","Couverture Recto"],
+    // Papier intérieur (chips séparés)
+    intPapers:["80g Offset","100g Offset","115g Couché Mat","135g Couché Mat","135g Couché Brillant","170g Couché Mat","170g Couché Brillant"],
+    // Finitions (pelliculage uniquement — reliure gérée dans bindings)
+    finitions:[{l:"Pelliculage Mat couv.",p:15},{l:"Pelliculage Brillant couv.",p:12}],
+    // Pages libres (saisie manuelle)
+    hasPages:true,
+    qtBreaks:[25,50,100,250,500,1000], prices:[40,55,90,180,290,480] },
+
+  { id:"affiches", name:"Affiches", icon:"⬜",
+    formats:["A3 (297×420mm)","A3+ (320×450mm)","A2 (420×594mm)","A1 (594×841mm)","40×60cm","50×70cm"],
+    papers:["135g Couché Mat","135g Couché Brillant","170g Couché Mat","170g Couché Brillant","200g Couché Brillant Premium"],
+    colors:["Quadri recto (4/0)","Noir & Blanc recto"],
+    finitions:[{l:"Pelliculage Mat",p:20},{l:"Pelliculage Brillant",p:16},{l:"Œillets ×4",p:8}],
+    qtBreaks:[10,25,50,100,250,500], prices:[25,48,80,140,280,490] },
+
+  { id:"papier-entete", name:"Papier en-tête", icon:"📄",
+    formats:["A4 (210×297mm)"],
+    papers:["80g Offset Standard","100g Offset Premium"],
+    colors:["Noir & Blanc","1 couleur Pantone","Quadri recto (4/0)"],
+    finitions:[],
+    qtBreaks:[25,50,100,200,500,1000,2000], prices:[20,24,34,50,105,190,360] },
+
+  { id:"depliants", name:"Dépliants", icon:"◱",
+    formats:["A4 ouvert / A5 fermé (2 volets)","A4 ouvert / 10×21 fermé (3 volets)","A3+ ouvert / 16×23 fermé (2 volets)"],
+    papers:["115g Couché Mat","135g Couché Mat","135g Couché Brillant","170g Couché Mat","170g Couché Brillant","200g Couché Mat","250g Couché Mat"],
+    colors:["Quadri R/V (4/4)","Quadri recto (4/0)"],
+    finitions:[{l:"Pelliculage Mat",p:15},{l:"Pelliculage Brillant",p:12}],
+    qtBreaks:[25,50,100,200,500,1000,2000], prices:[40,48,70,110,245,470,940] },
+
+  { id:"livres-nb", name:"Livres N&B", icon:"📚",
+    // Format : taille finie
+    formats:["A5","A4"],
+    // Papier intérieur
+    papers:["80g Offset blanc","90g Offset ivory","100g Offset Premium"],
+    // Couleur (intérieur toujours N&B, couv toujours couleur)
+    colors:["N&B int. + Couverture quadri"],
+    // Type couverture
+    covTypes:["Couverture Recto","Couverture Recto/Verso"],
+    // Papier couverture
+    covPapers:["250g Couché Mat","300g Couché Mat","300g Couché Brillant","350g Couché Mat","350g Couché Brillant"],
+    // Pages libres
+    hasPages:true,
+    // Finitions = reliure + pelliculage
+    finitions:[{l:"Agrafé (piqûre)",p:8},{l:"Reliure spirale",p:12},{l:"Dos carré collé",p:10},{l:"Pelliculage Mat couv.",p:10},{l:"Pelliculage Brillant couv.",p:10}],
+    qtBreaks:[10,25,50,100,250,500], prices:[60,100,180,300,540,920] },
 ];
 
-let cfg = { pi:0, fi:0, pa:0, co:0, qi:2, fins:[] };
+let cfg = { pi:0, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0 };
 
 function renderConfigurator() {
   renderCpChips(); updateCpPrice();
@@ -782,7 +853,7 @@ function renderCpChips() {
 
   // Produits
   document.getElementById("cp-productChips").innerHTML = PRODUCTS.map((pr,i) =>
-    `<div class="cp-chip ${cfg.pi===i?"active":""}" onclick="cfg={pi:${i},fi:0,pa:0,co:0,qi:2,fins:[]};renderCpChips();updateCpPrice()">${pr.icon} ${pr.name}</div>`
+    `<div class="cp-chip ${cfg.pi===i?"active":""}" onclick="cfg={pi:${i},fi:0,pa:0,co:0,qi:2,fins:[],pages:null,bi:0,pa2:0,cov:0};renderCpChips();updateCpPrice()">${pr.icon} ${pr.name}</div>`
   ).join("");
 
   // Formats
@@ -790,10 +861,114 @@ function renderCpChips() {
     `<div class="cp-chip ${cfg.fi===i?"active":""}" onclick="cfg.fi=${i};renderCpChips();updateCpPrice()">${f}</div>`
   ).join("");
 
-  // Papiers
-  document.getElementById("cp-paperChips").innerHTML = p.papers.map((pa,i) =>
-    `<div class="cp-chip ${cfg.pa===i?"active":""}" onclick="cfg.pa=${i};renderCpChips();updateCpPrice()">${pa}</div>`
-  ).join("");
+  // ── Sections spéciales : Brochures ──────────────────────
+  const extraEl = document.getElementById("cp-extraSections");
+  if(p.bindings){
+    // Reliure
+    let xh = `<div style="margin-bottom:16px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">R</span> Reliure</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${p.bindings.map((b,i)=>`<div class="cp-chip ${cfg.bi===i?"active":""}" onclick="cfg.bi=${i};renderCpChips();updateCpPrice()">${b}</div>`).join("")}
+      </div></div>`;
+
+    // Pages libres
+    xh += `<div style="margin-bottom:16px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">P</span>
+        Pages intérieures <span style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0;font-family:'Outfit',sans-serif">(multiple de 4, hors couverture)</span></div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <input type="number" min="4" step="4" placeholder="Ex : 28" value="${cfg.pages||""}"
+          style="background:var(--navy-mid);border:1px solid ${cfg.pages?"var(--gold)":"var(--navy-border)"};border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'DM Mono',monospace;font-size:15px;font-weight:700;width:140px;outline:none;transition:border-color .2s"
+          oninput="cfg.pages=this.value?Math.max(4,parseInt(this.value)):null;this.style.borderColor=cfg.pages?'var(--gold)':'var(--navy-border)';updateCpPrice()">
+        <span style="font-size:12px;color:var(--text-muted)">${cfg.pages?`= ${cfg.pages+4} pages total couv. incluse`:"Entrez le nombre de pages"}</span>
+      </div></div>`;
+
+    // Type couverture
+    if(p.covTypes){
+      xh += `<div style="margin-bottom:16px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+          <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">C</span> Type couverture</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${p.covTypes.map((c,i)=>`<div class="cp-chip ${cfg.cov===i?"active":""}" onclick="cfg.cov=${i};renderCpChips();updateCpPrice()">${c}</div>`).join("")}
+        </div></div>`;
+    }
+
+    // Papier couverture
+    if(p.covPapers){
+      xh += `<div style="margin-bottom:16px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+          <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">K</span> Papier couverture</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${p.covPapers.map((pp,i)=>`<div class="cp-chip ${cfg.pa2===i?"active":""}" onclick="cfg.pa2=${i};renderCpChips();updateCpPrice()">${pp}</div>`).join("")}
+        </div></div>`;
+    }
+
+    // Papier intérieur (label personnalisé)
+    const intLabel = p.intPapers?"Papier intérieur":"Support papier";
+    const intArr = p.intPapers||p.papers;
+    xh += `<div style="margin-bottom:0">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">I</span> ${intLabel}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${intArr.map((pp,i)=>`<div class="cp-chip ${cfg.pa===i?"active":""}" onclick="cfg.pa=${i};renderCpChips();updateCpPrice()">${pp}</div>`).join("")}
+      </div></div>`;
+
+    extraEl.innerHTML = xh;
+    extraEl.style.display = "block";
+    // Masquer la section papier standard
+    document.getElementById("cp-paperStep").style.display = "none";
+
+  } else if(p.covPapers){
+    // Livres N&B : pas de bindings mais a covPapers
+    let xh = `<div style="margin-bottom:16px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">P</span>
+        Pages intérieures N&B <span style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0;font-family:'Outfit',sans-serif">(multiple de 4)</span></div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <input type="number" min="4" step="4" placeholder="Ex : 200" value="${cfg.pages||""}"
+          style="background:var(--navy-mid);border:1px solid ${cfg.pages?"var(--gold)":"var(--navy-border)"};border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'DM Mono',monospace;font-size:15px;font-weight:700;width:140px;outline:none;transition:border-color .2s"
+          oninput="cfg.pages=this.value?Math.max(4,parseInt(this.value)):null;this.style.borderColor=cfg.pages?'var(--gold)':'var(--navy-border)';updateCpPrice()">
+        <span style="font-size:12px;color:var(--text-muted)">${cfg.pages?`${cfg.pages+4}p total (couv. incluse)`:"Entrez le nombre de pages"}</span>
+      </div></div>`;
+
+    // Type couverture
+    xh += `<div style="margin-bottom:16px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">C</span> Couverture couleur</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${p.covTypes.map((c,i)=>`<div class="cp-chip ${cfg.cov===i?"active":""}" onclick="cfg.cov=${i};renderCpChips();updateCpPrice()">${c}</div>`).join("")}
+      </div></div>`;
+
+    // Papier couverture
+    xh += `<div style="margin-bottom:0">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">K</span> Papier couverture</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${p.covPapers.map((pp,i)=>`<div class="cp-chip ${cfg.pa2===i?"active":""}" onclick="cfg.pa2=${i};renderCpChips();updateCpPrice()">${pp}</div>`).join("")}
+      </div></div>`;
+
+    extraEl.innerHTML = xh;
+    extraEl.style.display = "block";
+    // Section papier standard = papier intérieur
+    document.getElementById("cp-paperStep").style.display = "block";
+    document.getElementById("cp-paperStep").querySelector(".cp-step-label").textContent = "③ Papier intérieur N&B";
+
+  } else {
+    extraEl.innerHTML = "";
+    extraEl.style.display = "none";
+    // Restaurer label papier standard
+    const paperStepLabel = document.getElementById("cp-paperStep")?.querySelector(".cp-step-label");
+    if(paperStepLabel) paperStepLabel.textContent = "③ Support papier";
+    document.getElementById("cp-paperStep").style.display = "block";
+  }
+
+  // Papiers standard (si pas de section spéciale)
+  if(!p.bindings){
+    document.getElementById("cp-paperChips").innerHTML = p.papers.map((pa,i) =>
+      `<div class="cp-chip ${cfg.pa===i?"active":""}" onclick="cfg.pa=${i};renderCpChips();updateCpPrice()">${pa}</div>`
+    ).join("");
+  }
 
   // Couleurs
   document.getElementById("cp-colorChips").innerHTML = p.colors.map((c,i) =>
@@ -840,19 +1015,33 @@ function updateCpPrice() {
   const unit     = priceHT / qty;
 
   document.getElementById("ps-product").textContent = p.name;
-  document.getElementById("ps-specs").textContent   = `${p.formats[cfg.fi]} · ${p.papers[cfg.pa]}`;
+
+  // Spec résumée selon le type de produit
+  let specParts = [];
+  if(p.bindings) specParts.push(p.formats[cfg.fi], p.bindings[cfg.bi]);
+  else specParts.push(p.formats[cfg.fi]);
+  if(p.covPapers && !p.bindings) specParts.push(p.papers[cfg.pa]||"");
+  else if(!p.bindings) specParts.push(p.papers[cfg.pa]);
+  document.getElementById("ps-specs").textContent = specParts.filter(Boolean).join(" · ");
+
   document.getElementById("ps-priceHT").textContent = priceHT.toFixed(2)+" DT";
   document.getElementById("ps-unit").textContent    = `soit ${unit.toFixed(3)} DT / exemplaire`;
   document.getElementById("ps-ttc").textContent     = `TTC (TVA 19%) : ${priceTTC.toFixed(2)} DT`;
 
-  document.getElementById("ps-summary").innerHTML = [
+  const rows = [
     ["Produit", p.name],
-    ["Format",  p.formats[cfg.fi]],
-    ["Papier",  p.papers[cfg.pa]],
+    ["Format", p.formats[cfg.fi]],
+    ...(p.bindings ? [["Reliure", p.bindings[cfg.bi]]] : []),
+    ...(p.hasPages && cfg.pages ? [["Pages", cfg.pages+" int. (+"+(cfg.pages+4)+"p total)"]] : []),
+    ...(p.covTypes ? [["Couverture", p.covTypes[cfg.cov]]] : []),
+    ...(p.covPapers ? [["Papier couv.", p.covPapers[cfg.pa2]]] : []),
+    ...(p.intPapers ? [["Papier int.", p.intPapers[cfg.pa]]] : (!p.bindings ? [["Papier", p.papers[cfg.pa]]] : [])),
     ["Impression", p.colors[cfg.co]],
     ["Quantité", qty.toLocaleString("fr-FR")+" ex."],
     ...cfg.fins.map(i => [p.finitions[i]?.l, `+${p.finitions[i]?.p} DT`]),
-  ].map(([k,v]) => `
+  ];
+
+  document.getElementById("ps-summary").innerHTML = rows.map(([k,v]) => `
     <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px">
       <span style="color:var(--text-muted)">${k}</span>
       <span style="color:var(--text-primary)">${v}</span>
@@ -885,9 +1074,13 @@ function submitOrder() {
     priceHT,
     priceTTC: priceHT * 1.19,
     specs: {
-      format:   p.formats[cfg.fi],
-      paper:    p.papers[cfg.pa],
-      color:    p.colors[cfg.co],
+      format:    p.formats[cfg.fi],
+      ...(p.bindings   ? {reliure:    p.bindings[cfg.bi]}   : {}),
+      ...(p.hasPages   ? {pages:      cfg.pages||"—"}        : {}),
+      ...(p.covTypes   ? {couverture: p.covTypes[cfg.cov]}   : {}),
+      ...(p.covPapers  ? {papierCouv: p.covPapers[cfg.pa2]} : {}),
+      ...(p.intPapers  ? {papierInt:  p.intPapers[cfg.pa]}  : {paper: p.papers[cfg.pa]}),
+      color:     p.colors[cfg.co],
       finitions: cfg.fins.map(i => p.finitions[i]?.l).filter(Boolean),
     },
     note: document.getElementById("cp-note").value.trim(),
