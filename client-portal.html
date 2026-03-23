@@ -869,16 +869,48 @@ function renderCpChips() {
   h += '</div></div>';
   document.getElementById("cp-dynFields").innerHTML = h;
 
-  // Finitions (checkboxes)
+  // Finitions — pelliculage exclusif (mat OU brillant), reste en checkboxes
   if (p.fins.length) {
     document.getElementById("cp-finitionsStep").style.display = "block";
-    document.getElementById("cp-finitions").innerHTML = p.fins.map((f,i) => `
-      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
-        border:1px solid ${cfg.fins.includes(i)?"var(--gold)":"var(--navy-border)"};
-        background:${cfg.fins.includes(i)?"rgba(201,168,76,0.08)":"var(--navy-dark)"};cursor:pointer;transition:all 0.15s">
-        <input type="checkbox" ${cfg.fins.includes(i)?"checked":""} onchange="toggleFin(${i})" style="accent-color:var(--gold);width:14px;height:14px">
+
+    // Séparer pelliculages (exclusifs) des autres finitions
+    const pellFins = p.fins.filter(f => f.id === "pm" || f.id === "pb");
+    const otherFins = p.fins.filter(f => f.id !== "pm" && f.id !== "pb");
+    const activePell = cfg.fins.find(i => p.fins[i]?.id === "pm" || p.fins[i]?.id === "pb");
+    const activePellId = activePell !== undefined ? p.fins[activePell]?.id : null;
+
+    let html = "";
+
+    // Pelliculage : select déroulant unique
+    if (pellFins.length) {
+      html += `<div style="grid-column:1/-1;margin-bottom:4px">
+        <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:6px;font-family:'DM Mono',monospace">Pelliculage couverture</div>
+        <select style="width:100%;background:var(--navy-dark);border:1px solid ${activePellId?"var(--gold)":"var(--navy-border)"};border-radius:8px;padding:10px 14px;color:${activePellId?"var(--gold)":"var(--text-muted)"};font-size:13px;font-family:'Outfit',sans-serif;outline:none;cursor:pointer;transition:all .2s"
+          onchange="(function(v){
+            var p=PRODUCTS[cfg.pi];
+            cfg.fins=cfg.fins.filter(function(i){return p.fins[i]?.id!=='pm'&&p.fins[i]?.id!=='pb';});
+            if(v!=='none'){var idx=p.fins.findIndex(function(f){return f.id===v;});if(idx>=0)cfg.fins.push(idx);}
+            renderCpChips();updateCpPrice();
+          })(this.value)">
+          <option value="none" ${!activePellId?"selected":""}>— Sans pelliculage —</option>
+          ${pellFins.map(f=>`<option value="${f.id}" ${activePellId===f.id?"selected":""}>${f.label.replace(" couv.","")}</option>`).join("")}
+        </select>
+      </div>`;
+    }
+
+    // Autres finitions : checkboxes normaux
+    html += otherFins.map(f => {
+      const i = p.fins.indexOf(f);
+      const on = cfg.fins.includes(i);
+      return `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
+        border:1px solid ${on?"var(--gold)":"var(--navy-border)"};
+        background:${on?"rgba(201,168,76,0.08)":"var(--navy-dark)"};cursor:pointer;transition:all 0.15s">
+        <input type="checkbox" ${on?"checked":""} onchange="toggleFin(${i})" style="accent-color:var(--gold);width:14px;height:14px">
         <div style="font-size:12px;color:var(--text-primary)">${f.label}</div>
-      </label>`).join("");
+      </label>`;
+    }).join("");
+
+    document.getElementById("cp-finitions").innerHTML = html;
   } else {
     document.getElementById("cp-finitionsStep").style.display = "none";
   }

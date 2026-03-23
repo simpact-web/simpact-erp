@@ -242,9 +242,7 @@
 <script src="js/auth.js"></script>
 <script src="js/messaging.js"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
-const session = SIMPACT_AUTH.requireAuth(["superadmin","team","client"]);
-if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("orders"); }
+/* ── SIMPACT ERP — orders.html — toutes les fonctions au scope global ── */
 
 const STATUS_CONFIG = {
   received:   { label:"Reçue",      badge:"badge-received",   icon:"📥", next:"bat",        nextLabel:"Envoyer BAT" },
@@ -410,8 +408,11 @@ function createOrder(){
   renderPipeline(); filterOrders();
 }
 
-renderPipeline(); renderClientFilter(); filterOrders();
-  });
+document.addEventListener("DOMContentLoaded", () => {
+  const session = SIMPACT_AUTH.requireAuth(["superadmin","team","client"]);
+  if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("orders"); }
+  renderPipeline(); renderClientFilter(); filterOrders();
+});
 </script>
 </body>
 </html>
