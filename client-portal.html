@@ -543,6 +543,7 @@
 
 <script src="js/data.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/pricing.js"></script>
 <script src="js/messaging.js"></script>
 <script>
 // ─── Auth ───────────────────────────────────────────────
@@ -762,238 +763,160 @@ function closeDetail() {
 }
 
 // ─── CONFIGURATEUR CLIENT ────────────────────────────────
-const PRODUCTS = [
-  { id:"cartes-visite", name:"Cartes de visite", icon:"▪",
-    formats:["85×54mm Standard","90×50mm Slim","85×85mm Carré"],
-    papers:["350g Couché Mat","350g Couché Brillant","400g Soft Touch","300g Couché Mat","250g Couché Mat"],
-    colors:["Quadri R/V (4/4)","Quadri recto (4/0)","Noir & Blanc R/V"],
-    finitions:[{l:"Pelliculage Mat",p:8},{l:"Pelliculage Brillant",p:6},{l:"Coins arrondis",p:5},{l:"Vernis UV sélectif",p:14}],
-    qtBreaks:[100,250,500,1000,2000,5000], prices:[18,28,42,65,110,220] },
+// ─── CONFIGURATEUR CLIENT ─────────────────────────────────────
+// Utilise SIMPACT_PRICING — même moteur que l'admin, mêmes prix
 
-  { id:"flyers-a5", name:"Flyers A5", icon:"◈",
-    formats:["A5 — 15×21 cm","16×23 cm"],
-    papers:["115g Couché Mat","135g Couché Mat","135g Couché Brillant","170g Couché Mat","170g Couché Brillant","200g Couché Mat"],
-    colors:["Quadri R/V (4/4)","Quadri recto (4/0)","Noir & Blanc"],
-    finitions:[{l:"Pelliculage Mat",p:12},{l:"Pelliculage Brillant",p:10},{l:"Pliage",p:10}],
-    qtBreaks:[50,100,250,500,1000,2000], prices:[28,40,58,125,215,410] },
+const PRODUCTS = SIMPACT_PRICING.PRODS;  // Source unique
 
-  { id:"flyers-a4", name:"Flyers A4", icon:"◫",
-    formats:["A4 — 21×29,7 cm"],
-    papers:["115g Couché Mat","135g Couché Mat","135g Couché Brillant","170g Couché Mat","170g Couché Brillant"],
-    colors:["Quadri R/V (4/4)","Quadri recto (4/0)","Noir & Blanc"],
-    finitions:[{l:"Pelliculage Mat",p:18},{l:"Pelliculage Brillant",p:15}],
-    qtBreaks:[50,100,250,500,1000,2000], prices:[42,62,96,215,410,820] },
+let cfg = {
+  pi:0, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0
+};
 
-  { id:"brochures", name:"Brochures A4", icon:"⊟",
-    // Format : taille finie
-    formats:["A4","A5"],
-    // Reliure
-    bindings:["Piqûre (agrafé)","Reliure spirale","Dos carré collé"],
-    // Impression
-    colors:["Quadri complet (4/4)","Couv couleur + Int N&B","Noir & Blanc intégral"],
-    // Papier couverture (chips séparés)
-    covPapers:["300g Couché Mat","300g Couché Brillant","350g Couché Mat","350g Couché Brillant","250g Couché Mat (Éco)"],
-    // Type couverture
-    covTypes:["Couverture Recto/Verso","Couverture Recto"],
-    // Papier intérieur (chips séparés)
-    intPapers:["80g Offset","100g Offset","115g Couché Mat","135g Couché Mat","135g Couché Brillant","170g Couché Mat","170g Couché Brillant"],
-    // Finitions (pelliculage uniquement — reliure gérée dans bindings)
-    finitions:[{l:"Pelliculage Mat couv.",p:15},{l:"Pelliculage Brillant couv.",p:12}],
-    // Pages libres (saisie manuelle)
-    hasPages:true,
-    qtBreaks:[25,50,100,250,500,1000], prices:[40,55,90,180,290,480] },
-
-  { id:"affiches", name:"Affiches", icon:"⬜",
-    formats:["A3 (297×420mm)","A3+ (320×450mm)","A2 (420×594mm)","A1 (594×841mm)","40×60cm","50×70cm"],
-    papers:["135g Couché Mat","135g Couché Brillant","170g Couché Mat","170g Couché Brillant","200g Couché Brillant Premium"],
-    colors:["Quadri recto (4/0)","Noir & Blanc recto"],
-    finitions:[{l:"Pelliculage Mat",p:20},{l:"Pelliculage Brillant",p:16},{l:"Œillets ×4",p:8}],
-    qtBreaks:[10,25,50,100,250,500], prices:[25,48,80,140,280,490] },
-
-  { id:"papier-entete", name:"Papier en-tête", icon:"📄",
-    formats:["A4 (210×297mm)"],
-    papers:["80g Offset Standard","100g Offset Premium"],
-    colors:["Noir & Blanc","1 couleur Pantone","Quadri recto (4/0)"],
-    finitions:[],
-    qtBreaks:[25,50,100,200,500,1000,2000], prices:[20,24,34,50,105,190,360] },
-
-  { id:"depliants", name:"Dépliants", icon:"◱",
-    formats:["A4 ouvert / A5 fermé (2 volets)","A4 ouvert / 10×21 fermé (3 volets)","A3+ ouvert / 16×23 fermé (2 volets)"],
-    papers:["115g Couché Mat","135g Couché Mat","135g Couché Brillant","170g Couché Mat","170g Couché Brillant","200g Couché Mat","250g Couché Mat"],
-    colors:["Quadri R/V (4/4)","Quadri recto (4/0)"],
-    finitions:[{l:"Pelliculage Mat",p:15},{l:"Pelliculage Brillant",p:12}],
-    qtBreaks:[25,50,100,200,500,1000,2000], prices:[40,48,70,110,245,470,940] },
-
-  { id:"livres-nb", name:"Livres N&B", icon:"📚",
-    // Format : taille finie
-    formats:["A5","A4"],
-    // Papier intérieur
-    papers:["80g Offset blanc","90g Offset ivory","100g Offset Premium"],
-    // Couleur (intérieur toujours N&B, couv toujours couleur)
-    colors:["N&B int. + Couverture quadri"],
-    // Type couverture
-    covTypes:["Couverture Recto","Couverture Recto/Verso"],
-    // Papier couverture
-    covPapers:["250g Couché Mat","300g Couché Mat","300g Couché Brillant","350g Couché Mat","350g Couché Brillant"],
-    // Pages libres
-    hasPages:true,
-    // Finitions = reliure + pelliculage
-    finitions:[{l:"Agrafé (piqûre)",p:8},{l:"Reliure spirale",p:12},{l:"Dos carré collé",p:10},{l:"Pelliculage Mat couv.",p:10},{l:"Pelliculage Brillant couv.",p:10}],
-    qtBreaks:[10,25,50,100,250,500], prices:[60,100,180,300,540,920] },
-];
-
-let cfg = { pi:0, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0 };
-
-function renderConfigurator() {
-  renderCpChips(); updateCpPrice();
+// Convertit l'état cfg vers le format du moteur de prix
+function cfgToState(overrideQty) {
+  const p = PRODUCTS[cfg.pi];
+  // fins = indices → IDs
+  const finIds = cfg.fins.map(i => p.fins[i]?.id).filter(Boolean);
+  return {
+    fi:cfg.fi, pa:cfg.pa, pa2:cfg.pa2, co:cfg.co,
+    bi:cfg.bi, cov:cfg.cov, pages:cfg.pages,
+    fins:finIds,
+    qty: overrideQty ?? (p.qty[cfg.qi] || p.qty[0]),
+    disc:0,
+  };
 }
 
 function renderCpChips() {
   const p = PRODUCTS[cfg.pi];
 
-  // Produits
+  // ① Produits
   document.getElementById("cp-productChips").innerHTML = PRODUCTS.map((pr,i) =>
     `<div class="cp-chip ${cfg.pi===i?"active":""}" onclick="cfg={pi:${i},fi:0,pa:0,co:0,qi:2,fins:[],pages:null,bi:0,pa2:0,cov:0};renderCpChips();updateCpPrice()">${pr.icon} ${pr.name}</div>`
   ).join("");
 
-  // Formats
+  // ② Formats
   document.getElementById("cp-formatChips").innerHTML = p.formats.map((f,i) =>
-    `<div class="cp-chip ${cfg.fi===i?"active":""}" onclick="cfg.fi=${i};renderCpChips();updateCpPrice()">${f}</div>`
+    `<div class="cp-chip ${cfg.fi===i?"active":""}" onclick="cfg.fi=${i};renderCpChips();updateCpPrice()">${f.label||f.pd&&"A"+(i===0?"5":"4")||"—"}</div>`
   ).join("");
 
-  // ── Sections spéciales : Brochures ──────────────────────
   const extraEl = document.getElementById("cp-extraSections");
-  if(p.bindings){
+  const paperStep = document.getElementById("cp-paperStep");
+
+  if (p.type === "booklet") {
+    // Sections spéciales brochure
+    let xh = "";
+
     // Reliure
-    let xh = `<div style="margin-bottom:16px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-        <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">R</span> Reliure</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${p.bindings.map((b,i)=>`<div class="cp-chip ${cfg.bi===i?"active":""}" onclick="cfg.bi=${i};renderCpChips();updateCpPrice()">${b}</div>`).join("")}
+    xh += `<div class="config-step">
+      <div><span class="config-step-num">R</span><span class="config-step-label">Reliure</span></div>
+      <div class="cp-chips" style="margin-top:10px">
+        ${p.bindings.map((b,i)=>`<div class="cp-chip ${cfg.bi===i?"active":""}" onclick="cfg.bi=${i};renderCpChips();updateCpPrice()">${b.label}</div>`).join("")}
       </div></div>`;
 
     // Pages libres
-    xh += `<div style="margin-bottom:16px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-        <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">P</span>
-        Pages intérieures <span style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0;font-family:'Outfit',sans-serif">(multiple de 4, hors couverture)</span></div>
-      <div style="display:flex;align-items:center;gap:12px">
+    xh += `<div class="config-step">
+      <div><span class="config-step-num">P</span><span class="config-step-label">Pages intérieures <span style="font-size:11px;color:var(--text-muted);font-weight:400">(multiple de 4, hors couverture)</span></span></div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
         <input type="number" min="4" step="4" placeholder="Ex : 28" value="${cfg.pages||""}"
           style="background:var(--navy-mid);border:1px solid ${cfg.pages?"var(--gold)":"var(--navy-border)"};border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'DM Mono',monospace;font-size:15px;font-weight:700;width:140px;outline:none;transition:border-color .2s"
           oninput="cfg.pages=this.value?Math.max(4,parseInt(this.value)):null;this.style.borderColor=cfg.pages?'var(--gold)':'var(--navy-border)';updateCpPrice()">
-        <span style="font-size:12px;color:var(--text-muted)">${cfg.pages?`= ${cfg.pages+4} pages total couv. incluse`:"Entrez le nombre de pages"}</span>
+        <span style="font-size:12px;color:var(--text-muted)">${cfg.pages?"= "+(cfg.pages+4)+" pages total couv. incluse":"Entrez le nombre de pages"}</span>
       </div></div>`;
 
     // Type couverture
-    if(p.covTypes){
-      xh += `<div style="margin-bottom:16px">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-          <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">C</span> Type couverture</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          ${p.covTypes.map((c,i)=>`<div class="cp-chip ${cfg.cov===i?"active":""}" onclick="cfg.cov=${i};renderCpChips();updateCpPrice()">${c}</div>`).join("")}
-        </div></div>`;
-    }
+    xh += `<div class="config-step">
+      <div><span class="config-step-num">C</span><span class="config-step-label">Type couverture</span></div>
+      <div class="cp-chips" style="margin-top:10px">
+        ${p.covTypes.map((c,i)=>`<div class="cp-chip ${cfg.cov===i?"active":""}" onclick="cfg.cov=${i};renderCpChips();updateCpPrice()">${c.label}</div>`).join("")}
+      </div></div>`;
 
     // Papier couverture
-    if(p.covPapers){
-      xh += `<div style="margin-bottom:16px">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-          <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">K</span> Papier couverture</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          ${p.covPapers.map((pp,i)=>`<div class="cp-chip ${cfg.pa2===i?"active":""}" onclick="cfg.pa2=${i};renderCpChips();updateCpPrice()">${pp}</div>`).join("")}
-        </div></div>`;
-    }
+    xh += `<div class="config-step">
+      <div><span class="config-step-num">K</span><span class="config-step-label">Papier couverture</span></div>
+      <div class="cp-chips" style="margin-top:10px">
+        ${p.cPapers.map((pp,i)=>`<div class="cp-chip ${cfg.pa2===i?"active":""}" onclick="cfg.pa2=${i};renderCpChips();updateCpPrice()">${pp.label}</div>`).join("")}
+      </div></div>`;
 
-    // Papier intérieur (label personnalisé)
-    const intLabel = p.intPapers?"Papier intérieur":"Support papier";
-    const intArr = p.intPapers||p.papers;
-    xh += `<div style="margin-bottom:0">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-        <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">I</span> ${intLabel}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${intArr.map((pp,i)=>`<div class="cp-chip ${cfg.pa===i?"active":""}" onclick="cfg.pa=${i};renderCpChips();updateCpPrice()">${pp}</div>`).join("")}
+    // Papier intérieur
+    xh += `<div class="config-step">
+      <div><span class="config-step-num">I</span><span class="config-step-label">Papier intérieur</span></div>
+      <div class="cp-chips" style="margin-top:10px">
+        ${p.iPapers.map((pp,i)=>`<div class="cp-chip ${cfg.pa===i?"active":""}" onclick="cfg.pa=${i};renderCpChips();updateCpPrice()">${pp.label}</div>`).join("")}
       </div></div>`;
 
     extraEl.innerHTML = xh;
     extraEl.style.display = "block";
-    // Masquer la section papier standard
-    document.getElementById("cp-paperStep").style.display = "none";
+    paperStep.style.display = "none";
 
-  } else if(p.covPapers){
-    // Livres N&B : pas de bindings mais a covPapers
-    let xh = `<div style="margin-bottom:16px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-        <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">P</span>
-        Pages intérieures N&B <span style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0;font-family:'Outfit',sans-serif">(multiple de 4)</span></div>
-      <div style="display:flex;align-items:center;gap:12px">
+  } else if (p.type === "book") {
+    let xh = "";
+
+    // Pages libres N&B
+    xh += `<div class="config-step">
+      <div><span class="config-step-num">P</span><span class="config-step-label">Pages intérieures N&B <span style="font-size:11px;color:var(--text-muted);font-weight:400">(multiple de 4)</span></span></div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
         <input type="number" min="4" step="4" placeholder="Ex : 200" value="${cfg.pages||""}"
           style="background:var(--navy-mid);border:1px solid ${cfg.pages?"var(--gold)":"var(--navy-border)"};border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'DM Mono',monospace;font-size:15px;font-weight:700;width:140px;outline:none;transition:border-color .2s"
           oninput="cfg.pages=this.value?Math.max(4,parseInt(this.value)):null;this.style.borderColor=cfg.pages?'var(--gold)':'var(--navy-border)';updateCpPrice()">
-        <span style="font-size:12px;color:var(--text-muted)">${cfg.pages?`${cfg.pages+4}p total (couv. incluse)`:"Entrez le nombre de pages"}</span>
+        <span style="font-size:12px;color:var(--text-muted)">${cfg.pages?(cfg.pages+4)+"p total (couv. incluse)":"Entrez le nombre de pages"}</span>
       </div></div>`;
 
-    // Type couverture
-    xh += `<div style="margin-bottom:16px">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-        <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">C</span> Couverture couleur</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${p.covTypes.map((c,i)=>`<div class="cp-chip ${cfg.cov===i?"active":""}" onclick="cfg.cov=${i};renderCpChips();updateCpPrice()">${c}</div>`).join("")}
+    // Type couverture quadri
+    xh += `<div class="config-step">
+      <div><span class="config-step-num">C</span><span class="config-step-label">Couverture couleur</span></div>
+      <div class="cp-chips" style="margin-top:10px">
+        ${p.covTypes.map((c,i)=>`<div class="cp-chip ${cfg.cov===i?"active":""}" onclick="cfg.cov=${i};renderCpChips();updateCpPrice()">${c.label}</div>`).join("")}
       </div></div>`;
 
     // Papier couverture
-    xh += `<div style="margin-bottom:0">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px">
-        <span style="width:20px;height:20px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">K</span> Papier couverture</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        ${p.covPapers.map((pp,i)=>`<div class="cp-chip ${cfg.pa2===i?"active":""}" onclick="cfg.pa2=${i};renderCpChips();updateCpPrice()">${pp}</div>`).join("")}
+    xh += `<div class="config-step">
+      <div><span class="config-step-num">K</span><span class="config-step-label">Papier couverture</span></div>
+      <div class="cp-chips" style="margin-top:10px">
+        ${p.cPapers.map((pp,i)=>`<div class="cp-chip ${cfg.pa2===i?"active":""}" onclick="cfg.pa2=${i};renderCpChips();updateCpPrice()">${pp.label}</div>`).join("")}
       </div></div>`;
 
     extraEl.innerHTML = xh;
     extraEl.style.display = "block";
-    // Section papier standard = papier intérieur
-    document.getElementById("cp-paperStep").style.display = "block";
-    document.getElementById("cp-paperStep").querySelector(".cp-step-label").textContent = "③ Papier intérieur N&B";
+    // Papier intérieur = papier standard
+    paperStep.style.display = "block";
+    paperStep.querySelector(".cp-step-label").textContent = "③ Papier intérieur N&B";
 
   } else {
     extraEl.innerHTML = "";
     extraEl.style.display = "none";
-    // Restaurer label papier standard
-    const paperStepLabel = document.getElementById("cp-paperStep")?.querySelector(".cp-step-label");
-    if(paperStepLabel) paperStepLabel.textContent = "③ Support papier";
-    document.getElementById("cp-paperStep").style.display = "block";
+    const lbl = paperStep.querySelector(".cp-step-label");
+    if (lbl) lbl.textContent = "③ Support papier";
+    paperStep.style.display = "block";
   }
 
-  // Papiers standard (si pas de section spéciale)
-  if(!p.bindings){
+  // Papier standard (si pas booklet)
+  if (p.type !== "booklet") {
     document.getElementById("cp-paperChips").innerHTML = p.papers.map((pa,i) =>
-      `<div class="cp-chip ${cfg.pa===i?"active":""}" onclick="cfg.pa=${i};renderCpChips();updateCpPrice()">${pa}</div>`
+      `<div class="cp-chip ${cfg.pa===i?"active":""}" onclick="cfg.pa=${i};renderCpChips();updateCpPrice()">${pa.label}</div>`
     ).join("");
   }
 
   // Couleurs
   document.getElementById("cp-colorChips").innerHTML = p.colors.map((c,i) =>
-    `<div class="cp-chip ${cfg.co===i?"active":""}" onclick="cfg.co=${i};renderCpChips();updateCpPrice()">${c}</div>`
+    `<div class="cp-chip ${cfg.co===i?"active":""}" onclick="cfg.co=${i};renderCpChips();updateCpPrice()">${c.label}</div>`
   ).join("");
 
   // Quantités
-  document.getElementById("cp-qtyChips").innerHTML = p.qtBreaks.map((q,i) =>
+  document.getElementById("cp-qtyChips").innerHTML = p.qty.map((q,i) =>
     `<div class="cp-chip ${cfg.qi===i?"active":""}" onclick="cfg.qi=${i};renderCpChips();updateCpPrice()">
       <strong>${q.toLocaleString("fr-FR")}</strong> <span style="font-size:10px;opacity:0.6">ex.</span>
     </div>`
   ).join("");
 
   // Finitions
-  if (p.finitions.length) {
+  if (p.fins.length) {
     document.getElementById("cp-finitionsStep").style.display = "block";
-    document.getElementById("cp-finitions").innerHTML = p.finitions.map((f,i) => `
+    document.getElementById("cp-finitions").innerHTML = p.fins.map((f,i) => `
       <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
         border:1px solid ${cfg.fins.includes(i)?"var(--gold)":"var(--navy-border)"};
         background:${cfg.fins.includes(i)?"rgba(201,168,76,0.08)":"var(--navy-dark)"};cursor:pointer;transition:all 0.15s">
         <input type="checkbox" ${cfg.fins.includes(i)?"checked":""} onchange="toggleFin(${i})" style="accent-color:var(--gold);width:14px;height:14px">
-        <div>
-          <div style="font-size:12px;color:var(--text-primary)">${f.l}</div>
-          <div style="font-size:11px;color:var(--gold)">+${f.p} DT</div>
-        </div>
+        <div style="font-size:12px;color:var(--text-primary)">${f.label}</div>
       </label>`).join("");
   } else {
     document.getElementById("cp-finitionsStep").style.display = "none";
@@ -1006,39 +929,55 @@ function toggleFin(i) {
 }
 
 function updateCpPrice() {
-  const p    = PRODUCTS[cfg.pi];
-  const qty  = p.qtBreaks[cfg.qi];
-  const base = p.prices[cfg.qi];
-  const finTotal = cfg.fins.reduce((s,i) => s+(p.finitions[i]?.p||0), 0);
-  const priceHT  = base + finTotal;
-  const priceTTC = priceHT * 1.19;
-  const unit     = priceHT / qty;
+  const p = PRODUCTS[cfg.pi];
+  const state = cfgToState();
+  const res = SIMPACT_PRICING.compute(p, state);
+  const qty = p.qty[cfg.qi] || p.qty[0];
+
+  if (!res) {
+    // Pas de calcul possible (pages manquantes pour bro/liv)
+    document.getElementById("ps-priceHT").textContent = "—";
+    document.getElementById("ps-unit").textContent = "Configurez tous les paramètres";
+    document.getElementById("ps-ttc").textContent = "";
+    document.getElementById("ps-summary").innerHTML = "";
+    document.getElementById("ps-paliers").innerHTML = "";
+    return;
+  }
 
   document.getElementById("ps-product").textContent = p.name;
+  const subSpec = res.isBooklet ? `${p.formats[cfg.fi]?.label||""} · ${res.bindingLabel||""}` :
+                  res.isBook    ? `${p.formats[cfg.fi]?.label||""} · N&B` :
+                  `${p.formats[cfg.fi]?.label||""} · ${p.papers[cfg.pa]?.label||""}`;
+  document.getElementById("ps-specs").textContent = subSpec;
 
-  // Spec résumée selon le type de produit
-  let specParts = [];
-  if(p.bindings) specParts.push(p.formats[cfg.fi], p.bindings[cfg.bi]);
-  else specParts.push(p.formats[cfg.fi]);
-  if(p.covPapers && !p.bindings) specParts.push(p.papers[cfg.pa]||"");
-  else if(!p.bindings) specParts.push(p.papers[cfg.pa]);
-  document.getElementById("ps-specs").textContent = specParts.filter(Boolean).join(" · ");
+  // Prix entier — même moteur que l'admin
+  document.getElementById("ps-priceHT").textContent = res.finalHT + " DT";
+  document.getElementById("ps-unit").textContent    = `soit ${res.unit.toFixed(3)} DT / exemplaire`;
+  document.getElementById("ps-ttc").textContent     = `TTC (TVA 19%) : ${(res.finalHT*1.19).toFixed(2)} DT`;
 
-  document.getElementById("ps-priceHT").textContent = priceHT.toFixed(2)+" DT";
-  document.getElementById("ps-unit").textContent    = `soit ${unit.toFixed(3)} DT / exemplaire`;
-  document.getElementById("ps-ttc").textContent     = `TTC (TVA 19%) : ${priceTTC.toFixed(2)} DT`;
-
+  const finNames = cfg.fins.map(i => p.fins[i]?.label).filter(Boolean);
   const rows = [
     ["Produit", p.name],
-    ["Format", p.formats[cfg.fi]],
-    ...(p.bindings ? [["Reliure", p.bindings[cfg.bi]]] : []),
-    ...(p.hasPages && cfg.pages ? [["Pages", cfg.pages+" int. (+"+(cfg.pages+4)+"p total)"]] : []),
-    ...(p.covTypes ? [["Couverture", p.covTypes[cfg.cov]]] : []),
-    ...(p.covPapers ? [["Papier couv.", p.covPapers[cfg.pa2]]] : []),
-    ...(p.intPapers ? [["Papier int.", p.intPapers[cfg.pa]]] : (!p.bindings ? [["Papier", p.papers[cfg.pa]]] : [])),
-    ["Impression", p.colors[cfg.co]],
+    ["Format",  p.formats[cfg.fi]?.label||"—"],
+    ...(res.isBooklet?[
+      ["Reliure",     res.bindingLabel||"—"],
+      ...(cfg.pages?[["Pages",cfg.pages+" int. (+"+(cfg.pages+4)+"p total)"]]:[] ),
+      ["Type couv.",  p.covTypes[cfg.cov]?.label||"—"],
+      ["Papier couv.",p.cPapers[cfg.pa2]?.label||"—"],
+      ["Papier int.", p.iPapers[cfg.pa]?.label||"—"],
+    ]:[]),
+    ...(res.isBook?[
+      ...(cfg.pages?[["Pages",cfg.pages+"p N&B (+"+(cfg.pages+4)+"p total)"]]:[] ),
+      ["Couverture", p.covTypes[cfg.cov]?.label||"—"],
+      ["Papier couv.",p.cPapers[cfg.pa2]?.label||"—"],
+      ["Papier int.", p.papers[cfg.pa]?.label||"—"],
+    ]:[]),
+    ...(!res.isBooklet&&!res.isBook?[
+      ["Papier",     p.papers[cfg.pa]?.label||"—"],
+      ["Impression", p.colors[cfg.co]?.label||"—"],
+    ]:[]),
     ["Quantité", qty.toLocaleString("fr-FR")+" ex."],
-    ...cfg.fins.map(i => [p.finitions[i]?.l, `+${p.finitions[i]?.p} DT`]),
+    ...finNames.map(l=>[l,"✓"]),
   ];
 
   document.getElementById("ps-summary").innerHTML = rows.map(([k,v]) => `
@@ -1047,24 +986,30 @@ function updateCpPrice() {
       <span style="color:var(--text-primary)">${v}</span>
     </div>`).join("");
 
-  document.getElementById("ps-paliers").innerHTML = p.qtBreaks.map((q,i) => {
-    const sp = p.prices[i] + finTotal;
+  // Paliers — tous recalculés avec la config courante
+  document.getElementById("ps-paliers").innerHTML = p.qty.map((qp,i) => {
+    const r = SIMPACT_PRICING.compute(p, {...cfgToState(), qty:qp});
     const active = cfg.qi === i;
     return `<tr onclick="cfg.qi=${i};renderCpChips();updateCpPrice()" style="cursor:pointer;${active?"background:rgba(201,168,76,0.06)":""}">
-      <td style="padding:4px 8px;color:${active?"var(--gold)":"var(--text-muted)"};font-family:'DM Mono',monospace;font-size:11px">${q.toLocaleString("fr-FR")} ex.</td>
-      <td style="padding:4px 8px;text-align:right;color:${active?"var(--text-primary)":"var(--text-dim)"};font-family:'DM Mono',monospace;font-size:11px">${sp.toFixed(2)} DT</td>
+      <td style="padding:4px 8px;color:${active?"var(--gold)":"var(--text-muted)"};font-family:'DM Mono',monospace;font-size:11px">${qp.toLocaleString("fr-FR")} ex.</td>
+      <td style="padding:4px 8px;text-align:right;color:${active?"var(--text-primary)":"var(--text-dim)"};font-family:'DM Mono',monospace;font-size:11px">${r?r.finalHT:"—"} DT</td>
     </tr>`;
   }).join("");
 }
 
-// ─── SOUMETTRE UNE COMMANDE ──────────────────────────────
+// ─── SOUMETTRE UNE COMMANDE ──────────────────────────────────
 function submitOrder() {
   const p     = PRODUCTS[cfg.pi];
-  const qty   = p.qtBreaks[cfg.qi];
-  const base  = p.prices[cfg.qi];
-  const finTotal = cfg.fins.reduce((s,i) => s+(p.finitions[i]?.p||0), 0);
-  const priceHT  = base + finTotal;
-  const client   = DB.getClient(CLIENT_ID);
+  const qty   = p.qty[cfg.qi] || p.qty[0];
+  const client = DB.getClient(CLIENT_ID);
+  const state = cfgToState(qty);
+  const res   = SIMPACT_PRICING.compute(p, state);
+  if (!res) {
+    showToast("Configurez tous les paramètres avant de soumettre.", "error");
+    return;
+  }
+  const priceHT  = res.finalHT;
+  const finNames = cfg.fins.map(i => p.fins[i]?.label).filter(Boolean);
 
   const order = DB.createOrder({
     clientId:   CLIENT_ID,
@@ -1072,32 +1017,27 @@ function submitOrder() {
     product:    p.name,
     qty,
     priceHT,
-    priceTTC: priceHT * 1.19,
+    priceTTC: +(priceHT * 1.19).toFixed(2),
     specs: {
-      format:    p.formats[cfg.fi],
-      ...(p.bindings   ? {reliure:    p.bindings[cfg.bi]}   : {}),
-      ...(p.hasPages   ? {pages:      cfg.pages||"—"}        : {}),
-      ...(p.covTypes   ? {couverture: p.covTypes[cfg.cov]}   : {}),
-      ...(p.covPapers  ? {papierCouv: p.covPapers[cfg.pa2]} : {}),
-      ...(p.intPapers  ? {papierInt:  p.intPapers[cfg.pa]}  : {paper: p.papers[cfg.pa]}),
-      color:     p.colors[cfg.co],
-      finitions: cfg.fins.map(i => p.finitions[i]?.l).filter(Boolean),
+      format:    p.formats[cfg.fi]?.label||"—",
+      ...(p.type==="booklet" ? {reliure:p.bindings[cfg.bi]?.label, pages:(cfg.pages||0)+"p int",
+          couverture:p.covTypes[cfg.cov]?.label, papierCouv:p.cPapers[cfg.pa2]?.label, papierInt:p.iPapers[cfg.pa]?.label,
+          impression:p.colors[cfg.co]?.label} : {}),
+      ...(p.type==="book"    ? {pages:(cfg.pages||0)+"p N&B", couverture:p.covTypes[cfg.cov]?.label,
+          papierCouv:p.cPapers[cfg.pa2]?.label, papierInt:p.papers[cfg.pa]?.label} : {}),
+      ...(p.type==="std"     ? {paper:p.papers[cfg.pa]?.label, color:p.colors[cfg.co]?.label} : {}),
+      finitions: finNames,
     },
-    note: document.getElementById("cp-note").value.trim(),
+    note: document.getElementById("cp-note")?.value.trim() || "",
   });
 
-  // Reset configurateur
-  cfg = { pi:cfg.pi, fi:0, pa:0, co:0, qi:2, fins:[] };
-  document.getElementById("cp-note").value = "";
+  // Reset
+  cfg = {pi:cfg.pi, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0};
+  if (document.getElementById("cp-note")) document.getElementById("cp-note").value = "";
   renderCpChips(); updateCpPrice();
 
-  showToast(`Commande ${order.id} envoyée ! SIMPACT vous contactera sous 24h.`, "success");
-
-  // Aller voir la commande
-  setTimeout(() => {
-    showView("dashboard");
-    renderDashboard();
-  }, 1200);
+  showToast(`✓ Commande ${order.id} envoyée ! SIMPACT vous contactera sous 24h.`, "success");
+  setTimeout(() => { showView("dashboard"); renderDashboard(); }, 1200);
 }
 
 // ─── MESSAGERIE CLIENT ────────────────────────────────────
