@@ -283,6 +283,7 @@
 <script src="js/data.js"></script>
 <script src="js/auth.js"></script>
 <script>
+  document.addEventListener("DOMContentLoaded", () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin"]);
 if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("reporting"); }
 
@@ -559,6 +560,7 @@ function updateROI(){
 
 // Init
 renderCA(); renderMargins(); renderClients(); updateROI();
+  });
 </script>
 </body>
 </html>

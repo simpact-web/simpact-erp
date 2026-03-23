@@ -167,6 +167,7 @@
 <script src="js/data.js"></script>
 <script src="js/auth.js"></script>
 <script>
+  document.addEventListener("DOMContentLoaded", () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
 if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("stock"); }
 
@@ -305,6 +306,7 @@ function addNewStock(){
 function openAddStockModal(){ document.getElementById("addStockModal").style.display="flex"; }
 
 renderAll();
+  });
 </script>
 </body>
 </html>

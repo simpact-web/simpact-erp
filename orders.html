@@ -242,6 +242,7 @@
 <script src="js/auth.js"></script>
 <script src="js/messaging.js"></script>
 <script>
+  document.addEventListener("DOMContentLoaded", () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin","team","client"]);
 if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("orders"); }
 
@@ -410,6 +411,7 @@ function createOrder(){
 }
 
 renderPipeline(); renderClientFilter(); filterOrders();
+  });
 </script>
 </body>
 </html>

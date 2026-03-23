@@ -123,6 +123,7 @@
 <script src="js/data.js"></script>
 <script src="js/auth.js"></script>
 <script>
+  document.addEventListener("DOMContentLoaded", () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
 if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("clients"); }
 
@@ -255,6 +256,7 @@ function saveNewClient(){
 }
 
 renderKPIs(); filterClients("");
+  });
 </script>
 </body>
 </html>

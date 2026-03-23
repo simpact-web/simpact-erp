@@ -260,7 +260,7 @@
 <script src="js/auth.js"></script>
 <script src="js/messaging.js"></script>
 <script>
-
+  document.addEventListener("DOMContentLoaded", () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
 if (session) { SIMPACT_AUTH.renderUserChip(session); }
 
@@ -567,6 +567,7 @@ function renderContacts() {
 renderContacts();
 switchFolder("inbox");
 renderList();
+  });
 </script>
 </body>
 </html>
