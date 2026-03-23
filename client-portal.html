@@ -147,14 +147,15 @@
       font-size: 11px; font-weight: 700; text-transform: uppercase;
       letter-spacing: 1.5px; color: var(--text-muted); font-family: 'DM Mono', monospace;
     }
-    .cp-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-    .cp-chip {
-      padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 500;
-      border: 1px solid var(--navy-border); background: var(--navy-dark); color: var(--text-muted);
-      transition: var(--transition);
-    }
-    .cp-chip.active { border-color: var(--gold); background: rgba(201,168,76,0.1); color: var(--gold); }
-    .cp-chip:hover:not(.active) { border-color: var(--text-muted); color: var(--text-primary); }
+    /* ── Grille dropdowns configurateur ── */
+    .cp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .cp-field { display: flex; flex-direction: column; gap: 6px; }
+    .cp-field.full { grid-column: 1 / -1; }
+    .cp-field-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.6px; color: var(--text-muted); font-family: 'DM Mono', monospace; display: flex; align-items: center; gap: 6px; }
+    .cp-field-num { width: 18px; height: 18px; border-radius: 50%; background: var(--gold); color: var(--navy-dark); font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .cp-select { appearance: none; -webkit-appearance: none; background: var(--navy-dark) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c9a84c' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center; border: 1px solid var(--navy-border); border-radius: 8px; padding: 10px 36px 10px 14px; font-size: 12px; font-family: 'Outfit', sans-serif; color: var(--text-primary); cursor: pointer; transition: border-color .2s, box-shadow .2s; width: 100%; outline: none; }
+    .cp-select:focus, .cp-select:hover { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,168,76,0.12); }
+    .cp-select option { background: #0e1e35; color: var(--text-primary); }
 
     /* ── Panier / Récapitulatif prix ── */
     .price-sticky {
@@ -234,6 +235,20 @@
       .cp-sidebar { display: none; }
       .cp-topbar { padding: 0 16px; }
     }
+  .cp-chip.active { border-color:var(--gold);background:rgba(201,168,76,0.1);color:var(--gold); }
+  .cp-select {
+    width:100%; padding:10px 36px 10px 14px;
+    background:var(--navy-mid);
+    border:1px solid var(--navy-border); border-radius:8px;
+    color:var(--text-primary); font-size:13px; font-family:'Outfit',sans-serif;
+    cursor:pointer; outline:none; transition:border-color .2s, box-shadow .2s;
+    appearance:none; -webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c9a84c' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 14px center;
+    margin-top:10px;
+  }
+  .cp-select:focus { border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,168,76,.1); }
+  .cp-select option { background:var(--navy-dark); color:var(--text-primary); }
   </style>
 </head>
 <body>
@@ -352,44 +367,30 @@
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 320px;gap:24px" id="configLayout">
-        <!-- Panneau gauche : options -->
+        <!-- Panneau gauche : options — tout en dropdowns -->
         <div>
-          <!-- Produit -->
+          <!-- Produit — garde les chips visuels (navigation principale) -->
           <div class="config-step">
-            <div><span class="config-step-num">1</span><span class="config-step-label">Produit</span></div>
-            <div class="cp-chips" id="cp-productChips"></div>
+            <div style="margin-bottom:12px"><span class="cp-field-num">1</span>
+              <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.6px;color:var(--text-muted);font-family:'DM Mono',monospace">Produit</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px" id="cp-productChips"></div>
           </div>
-          <!-- Format -->
-          <div class="config-step">
-            <div><span class="config-step-num">2</span><span class="config-step-label">Format</span></div>
-            <div class="cp-chips" id="cp-formatChips"></div>
-          </div>
-          <!-- Sections dynamiques (reliure, pages, couverture, papier couv/int) -->
-          <div id="cp-extraSections" style="display:none"></div>
-          <!-- Papier (standard — caché pour brochures/livres qui ont cp-extraSections) -->
-          <div class="config-step" id="cp-paperStep">
-            <div><span class="config-step-num">3</span><span class="config-step-label cp-step-label">Support papier</span></div>
-            <div class="cp-chips" id="cp-paperChips"></div>
-          </div>
-          <!-- Impression -->
-          <div class="config-step">
-            <div><span class="config-step-num">4</span><span class="config-step-label">Mode d'impression</span></div>
-            <div class="cp-chips" id="cp-colorChips"></div>
-          </div>
-          <!-- Quantité -->
-          <div class="config-step">
-            <div><span class="config-step-num">5</span><span class="config-step-label">Quantité</span></div>
-            <div class="cp-chips" id="cp-qtyChips"></div>
-          </div>
+          <!-- Zone dynamique complète — rendue par renderCpChips() -->
+          <div id="cp-dynFields"></div>
           <!-- Finitions -->
-          <div class="config-step" id="cp-finitionsStep">
-            <div><span class="config-step-num">6</span><span class="config-step-label">Finitions <span style="color:var(--text-dim);font-weight:400">(optionnel)</span></span></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px" id="cp-finitions"></div>
+          <div class="config-step" id="cp-finitionsStep" style="display:none">
+            <div style="margin-bottom:12px"><span class="cp-field-num">★</span>
+              <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.6px;color:var(--text-muted);font-family:'DM Mono',monospace">Finitions <span style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">(optionnel)</span></span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="cp-finitions"></div>
           </div>
           <!-- Note -->
           <div class="config-step">
-            <div><span class="config-step-num">7</span><span class="config-step-label">Instructions particulières</span></div>
-            <textarea class="form-control" id="cp-note" rows="3" placeholder="Ex : Pantone 485, livraison urgente, format spécial…" style="margin-top:12px"></textarea>
+            <div style="margin-bottom:12px"><span class="cp-field-num">✎</span>
+              <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.6px;color:var(--text-muted);font-family:'DM Mono',monospace">Instructions particulières</span>
+            </div>
+            <textarea class="form-control" id="cp-note" rows="3" placeholder="Ex : Pantone 485, livraison urgente, format spécial…"></textarea>
           </div>
         </div>
 
@@ -764,151 +765,110 @@ function closeDetail() {
 
 // ─── CONFIGURATEUR CLIENT ────────────────────────────────
 // ─── CONFIGURATEUR CLIENT ─────────────────────────────────────
-// Utilise SIMPACT_PRICING — même moteur que l'admin, mêmes prix
+// Moteur : SIMPACT_PRICING — même source que l'admin
 
-const PRODUCTS = SIMPACT_PRICING.PRODS;  // Source unique
+const PRODUCTS = SIMPACT_PRICING.PRODS;
 
-let cfg = {
-  pi:0, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0
-};
+let cfg = { pi:0, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null };
 
-// Convertit l'état cfg vers le format du moteur de prix
 function cfgToState(overrideQty) {
   const p = PRODUCTS[cfg.pi];
-  // fins = indices → IDs
   const finIds = cfg.fins.map(i => p.fins[i]?.id).filter(Boolean);
-  return {
-    fi:cfg.fi, pa:cfg.pa, pa2:cfg.pa2, co:cfg.co,
-    bi:cfg.bi, cov:cfg.cov, pages:cfg.pages,
-    fins:finIds,
-    qty: overrideQty ?? (p.qty[cfg.qi] || p.qty[0]),
-    disc:0,
-  };
+  const qty = overrideQty ?? (cfg.qLibre ?? p.qty[Math.min(cfg.qi, p.qty.length-1)]);
+  return { fi:cfg.fi, pa:cfg.pa, pa2:cfg.pa2, co:cfg.co, bi:cfg.bi, cov:cfg.cov,
+           pages:cfg.pages, fins:finIds, qty, disc:0 };
+}
+
+function cpSel(n, label, items, val, onchange, full=false) {
+  return `<div class="cp-field${full?" full":""}">
+    <div class="cp-field-label"><span class="cp-field-num">${n}</span> ${label}</div>
+    <select class="cp-select" onchange="${onchange}">
+      ${items.map((it,i)=>`<option value="${i}" ${val===i?"selected":""}>${it}</option>`).join("")}
+    </select>
+  </div>`;
+}
+
+function cpQtyField(p, n) {
+  const isLibre = !!cfg.qLibre;
+  return `<div class="cp-field full">
+    <div class="cp-field-label"><span class="cp-field-num">${n}</span> Quantité</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <select class="cp-select" style="flex:1" onchange="
+        if(this.value==='libre'){cfg.qi=-1;var inp=this.parentNode.querySelector('.cp-libre-qty');inp.style.display='block';inp.focus();}
+        else{cfg.qi=parseInt(this.value);cfg.qLibre=null;this.parentNode.querySelector('.cp-libre-qty').style.display='none';renderCpChips();updateCpPrice();}">
+        ${p.qty.map((q,i)=>`<option value="${i}" ${cfg.qi===i&&!isLibre?"selected":""}>${q.toLocaleString("fr-FR")} ex.</option>`).join("")}
+        <option value="libre" ${isLibre?"selected":""}>✎ Saisie libre…</option>
+      </select>
+      <input class="cp-libre-qty" type="number" min="1" placeholder="Nb ex."
+        style="display:${isLibre?"block":"none"};width:110px;background:var(--navy-dark);border:1px dashed var(--navy-border);border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;font-family:'DM Mono',monospace;color:var(--gold);outline:none"
+        value="${cfg.qLibre||""}"
+        oninput="cfg.qLibre=this.value?Math.max(1,parseInt(this.value)):null;cfg.qi=-1;updateCpPrice()">
+    </div>
+  </div>`;
+}
+
+// Produit selector (garde chips visuels pour navigation principale)
+function renderProductChips() {
+  document.getElementById("cp-productChips").innerHTML = PRODUCTS.map((pr,i) =>
+    `<div style="padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:500;border:1px solid ${cfg.pi===i?"var(--gold)":"var(--navy-border)"};background:${cfg.pi===i?"rgba(201,168,76,0.1)":"var(--navy-dark)"};color:${cfg.pi===i?"var(--gold)":"var(--text-muted)"};transition:all .15s"
+      onclick="cfg={pi:${i},fi:0,pa:0,co:0,qi:2,fins:[],pages:null,bi:0,pa2:0,cov:0,qLibre:null};renderCpChips();updateCpPrice()">${pr.icon} ${pr.name}</div>`
+  ).join("");
 }
 
 function renderCpChips() {
   const p = PRODUCTS[cfg.pi];
+  renderProductChips();
 
-  // ① Produits
-  document.getElementById("cp-productChips").innerHTML = PRODUCTS.map((pr,i) =>
-    `<div class="cp-chip ${cfg.pi===i?"active":""}" onclick="cfg={pi:${i},fi:0,pa:0,co:0,qi:2,fins:[],pages:null,bi:0,pa2:0,cov:0};renderCpChips();updateCpPrice()">${pr.icon} ${pr.name}</div>`
-  ).join("");
-
-  // ② Formats
-  document.getElementById("cp-formatChips").innerHTML = p.formats.map((f,i) =>
-    `<div class="cp-chip ${cfg.fi===i?"active":""}" onclick="cfg.fi=${i};renderCpChips();updateCpPrice()">${f.label||f.pd&&"A"+(i===0?"5":"4")||"—"}</div>`
-  ).join("");
-
-  const extraEl = document.getElementById("cp-extraSections");
-  const paperStep = document.getElementById("cp-paperStep");
+  let h = '<div class="config-step" style="margin-bottom:14px"><div class="cp-grid">';
 
   if (p.type === "booklet") {
-    // Sections spéciales brochure
-    let xh = "";
-
-    // Reliure
-    xh += `<div class="config-step">
-      <div><span class="config-step-num">R</span><span class="config-step-label">Reliure</span></div>
-      <div class="cp-chips" style="margin-top:10px">
-        ${p.bindings.map((b,i)=>`<div class="cp-chip ${cfg.bi===i?"active":""}" onclick="cfg.bi=${i};renderCpChips();updateCpPrice()">${b.label}</div>`).join("")}
-      </div></div>`;
-
-    // Pages libres
-    xh += `<div class="config-step">
-      <div><span class="config-step-num">P</span><span class="config-step-label">Pages intérieures <span style="font-size:11px;color:var(--text-muted);font-weight:400">(multiple de 4, hors couverture)</span></span></div>
-      <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
+    h += cpSel("2","Format",    p.formats.map(f=>f.label||"—"), cfg.fi, `cfg.fi=parseInt(this.value);renderCpChips();updateCpPrice()`);
+    h += cpSel("3","Reliure",   p.bindings.map(b=>b.label),     cfg.bi, `cfg.bi=parseInt(this.value);renderCpChips();updateCpPrice()`);
+    h += cpSel("4","Mode d'impression", p.colors.map(c=>c.label), cfg.co, `cfg.co=parseInt(this.value);updateCpPrice()`);
+    h += cpSel("5","Type couverture", p.covTypes.map(c=>c.label), cfg.cov, `cfg.cov=parseInt(this.value);updateCpPrice()`);
+    h += cpSel("6","Papier couverture", p.cPapers.map(pp=>pp.label), cfg.pa2, `cfg.pa2=parseInt(this.value);updateCpPrice()`);
+    h += cpSel("7","Papier intérieur",  p.iPapers.map(pp=>pp.label), cfg.pa,  `cfg.pa=parseInt(this.value);updateCpPrice()`);
+    h += cpQtyField(p, "8");
+    h += `<div class="cp-field full">
+      <div class="cp-field-label"><span class="cp-field-num">P</span> Pages intérieures
+        <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">(multiple de 4 · hors couverture)</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
         <input type="number" min="4" step="4" placeholder="Ex : 28" value="${cfg.pages||""}"
-          style="background:var(--navy-mid);border:1px solid ${cfg.pages?"var(--gold)":"var(--navy-border)"};border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'DM Mono',monospace;font-size:15px;font-weight:700;width:140px;outline:none;transition:border-color .2s"
+          style="background:var(--navy-dark);border:1px solid ${cfg.pages?"var(--gold)":"var(--navy-border)"};border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'DM Mono',monospace;font-size:15px;font-weight:700;width:140px;outline:none;transition:border-color .2s"
           oninput="cfg.pages=this.value?Math.max(4,parseInt(this.value)):null;this.style.borderColor=cfg.pages?'var(--gold)':'var(--navy-border)';updateCpPrice()">
-        <span style="font-size:12px;color:var(--text-muted)">${cfg.pages?"= "+(cfg.pages+4)+" pages total couv. incluse":"Entrez le nombre de pages"}</span>
+        <span style="font-size:12px;color:var(--text-muted)">${cfg.pages?"= "+(cfg.pages+4)+" pages total (couv. incluse)":"Entrez le nombre de pages"}</span>
       </div></div>`;
-
-    // Type couverture
-    xh += `<div class="config-step">
-      <div><span class="config-step-num">C</span><span class="config-step-label">Type couverture</span></div>
-      <div class="cp-chips" style="margin-top:10px">
-        ${p.covTypes.map((c,i)=>`<div class="cp-chip ${cfg.cov===i?"active":""}" onclick="cfg.cov=${i};renderCpChips();updateCpPrice()">${c.label}</div>`).join("")}
-      </div></div>`;
-
-    // Papier couverture
-    xh += `<div class="config-step">
-      <div><span class="config-step-num">K</span><span class="config-step-label">Papier couverture</span></div>
-      <div class="cp-chips" style="margin-top:10px">
-        ${p.cPapers.map((pp,i)=>`<div class="cp-chip ${cfg.pa2===i?"active":""}" onclick="cfg.pa2=${i};renderCpChips();updateCpPrice()">${pp.label}</div>`).join("")}
-      </div></div>`;
-
-    // Papier intérieur
-    xh += `<div class="config-step">
-      <div><span class="config-step-num">I</span><span class="config-step-label">Papier intérieur</span></div>
-      <div class="cp-chips" style="margin-top:10px">
-        ${p.iPapers.map((pp,i)=>`<div class="cp-chip ${cfg.pa===i?"active":""}" onclick="cfg.pa=${i};renderCpChips();updateCpPrice()">${pp.label}</div>`).join("")}
-      </div></div>`;
-
-    extraEl.innerHTML = xh;
-    extraEl.style.display = "block";
-    paperStep.style.display = "none";
 
   } else if (p.type === "book") {
-    let xh = "";
-
-    // Pages libres N&B
-    xh += `<div class="config-step">
-      <div><span class="config-step-num">P</span><span class="config-step-label">Pages intérieures N&B <span style="font-size:11px;color:var(--text-muted);font-weight:400">(multiple de 4)</span></span></div>
-      <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
+    h += cpSel("2","Format", p.formats.map(f=>f.label||"—"), cfg.fi, `cfg.fi=parseInt(this.value);renderCpChips();updateCpPrice()`);
+    h += cpSel("3","Papier intérieur N&B", p.papers.map(pp=>pp.label), cfg.pa, `cfg.pa=parseInt(this.value);updateCpPrice()`);
+    h += cpSel("4","Couverture quadri",    p.covTypes.map(c=>c.label), cfg.cov, `cfg.cov=parseInt(this.value);updateCpPrice()`);
+    h += cpSel("5","Papier couverture",    p.cPapers.map(pp=>pp.label), cfg.pa2, `cfg.pa2=parseInt(this.value);updateCpPrice()`);
+    h += cpQtyField(p, "6");
+    h += `<div class="cp-field full">
+      <div class="cp-field-label"><span class="cp-field-num">P</span> Pages intérieures N&amp;B
+        <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">(multiple de 4)</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
         <input type="number" min="4" step="4" placeholder="Ex : 200" value="${cfg.pages||""}"
-          style="background:var(--navy-mid);border:1px solid ${cfg.pages?"var(--gold)":"var(--navy-border)"};border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'DM Mono',monospace;font-size:15px;font-weight:700;width:140px;outline:none;transition:border-color .2s"
+          style="background:var(--navy-dark);border:1px solid ${cfg.pages?"var(--gold)":"var(--navy-border)"};border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'DM Mono',monospace;font-size:15px;font-weight:700;width:140px;outline:none;transition:border-color .2s"
           oninput="cfg.pages=this.value?Math.max(4,parseInt(this.value)):null;this.style.borderColor=cfg.pages?'var(--gold)':'var(--navy-border)';updateCpPrice()">
         <span style="font-size:12px;color:var(--text-muted)">${cfg.pages?(cfg.pages+4)+"p total (couv. incluse)":"Entrez le nombre de pages"}</span>
       </div></div>`;
 
-    // Type couverture quadri
-    xh += `<div class="config-step">
-      <div><span class="config-step-num">C</span><span class="config-step-label">Couverture couleur</span></div>
-      <div class="cp-chips" style="margin-top:10px">
-        ${p.covTypes.map((c,i)=>`<div class="cp-chip ${cfg.cov===i?"active":""}" onclick="cfg.cov=${i};renderCpChips();updateCpPrice()">${c.label}</div>`).join("")}
-      </div></div>`;
-
-    // Papier couverture
-    xh += `<div class="config-step">
-      <div><span class="config-step-num">K</span><span class="config-step-label">Papier couverture</span></div>
-      <div class="cp-chips" style="margin-top:10px">
-        ${p.cPapers.map((pp,i)=>`<div class="cp-chip ${cfg.pa2===i?"active":""}" onclick="cfg.pa2=${i};renderCpChips();updateCpPrice()">${pp.label}</div>`).join("")}
-      </div></div>`;
-
-    extraEl.innerHTML = xh;
-    extraEl.style.display = "block";
-    // Papier intérieur = papier standard
-    paperStep.style.display = "block";
-    paperStep.querySelector(".cp-step-label").textContent = "③ Papier intérieur N&B";
-
   } else {
-    extraEl.innerHTML = "";
-    extraEl.style.display = "none";
-    const lbl = paperStep.querySelector(".cp-step-label");
-    if (lbl) lbl.textContent = "③ Support papier";
-    paperStep.style.display = "block";
+    // Produits standard
+    h += cpSel("2","Format",       p.formats.map(f=>f.label||"—"),                       cfg.fi, `cfg.fi=parseInt(this.value);cfg.pa=0;renderCpChips();updateCpPrice()`);
+    h += cpSel("3","Support papier",p.papers.map(pp=>pp.label+(pp.g?" — "+pp.g+"g":"")), cfg.pa, `cfg.pa=parseInt(this.value);updateCpPrice()`);
+    h += cpSel("4","Mode d'impression", p.colors.map(c=>c.label),                        cfg.co, `cfg.co=parseInt(this.value);updateCpPrice()`);
+    h += cpQtyField(p, "5");
   }
 
-  // Papier standard (si pas booklet)
-  if (p.type !== "booklet") {
-    document.getElementById("cp-paperChips").innerHTML = p.papers.map((pa,i) =>
-      `<div class="cp-chip ${cfg.pa===i?"active":""}" onclick="cfg.pa=${i};renderCpChips();updateCpPrice()">${pa.label}</div>`
-    ).join("");
-  }
+  h += '</div></div>';
+  document.getElementById("cp-dynFields").innerHTML = h;
 
-  // Couleurs
-  document.getElementById("cp-colorChips").innerHTML = p.colors.map((c,i) =>
-    `<div class="cp-chip ${cfg.co===i?"active":""}" onclick="cfg.co=${i};renderCpChips();updateCpPrice()">${c.label}</div>`
-  ).join("");
-
-  // Quantités
-  document.getElementById("cp-qtyChips").innerHTML = p.qty.map((q,i) =>
-    `<div class="cp-chip ${cfg.qi===i?"active":""}" onclick="cfg.qi=${i};renderCpChips();updateCpPrice()">
-      <strong>${q.toLocaleString("fr-FR")}</strong> <span style="font-size:10px;opacity:0.6">ex.</span>
-    </div>`
-  ).join("");
-
-  // Finitions
+  // Finitions (checkboxes)
   if (p.fins.length) {
     document.getElementById("cp-finitionsStep").style.display = "block";
     document.getElementById("cp-finitions").innerHTML = p.fins.map((f,i) => `
@@ -932,10 +892,9 @@ function updateCpPrice() {
   const p = PRODUCTS[cfg.pi];
   const state = cfgToState();
   const res = SIMPACT_PRICING.compute(p, state);
-  const qty = p.qty[cfg.qi] || p.qty[0];
+  const qty = state.qty;
 
   if (!res) {
-    // Pas de calcul possible (pages manquantes pour bro/liv)
     document.getElementById("ps-priceHT").textContent = "—";
     document.getElementById("ps-unit").textContent = "Configurez tous les paramètres";
     document.getElementById("ps-ttc").textContent = "";
@@ -950,7 +909,6 @@ function updateCpPrice() {
                   `${p.formats[cfg.fi]?.label||""} · ${p.papers[cfg.pa]?.label||""}`;
   document.getElementById("ps-specs").textContent = subSpec;
 
-  // Prix entier — même moteur que l'admin
   document.getElementById("ps-priceHT").textContent = res.finalHT + " DT";
   document.getElementById("ps-unit").textContent    = `soit ${res.unit.toFixed(3)} DT / exemplaire`;
   document.getElementById("ps-ttc").textContent     = `TTC (TVA 19%) : ${(res.finalHT*1.19).toFixed(2)} DT`;
@@ -986,11 +944,10 @@ function updateCpPrice() {
       <span style="color:var(--text-primary)">${v}</span>
     </div>`).join("");
 
-  // Paliers — tous recalculés avec la config courante
   document.getElementById("ps-paliers").innerHTML = p.qty.map((qp,i) => {
     const r = SIMPACT_PRICING.compute(p, {...cfgToState(), qty:qp});
-    const active = cfg.qi === i;
-    return `<tr onclick="cfg.qi=${i};renderCpChips();updateCpPrice()" style="cursor:pointer;${active?"background:rgba(201,168,76,0.06)":""}">
+    const active = cfg.qi === i && !cfg.qLibre;
+    return `<tr onclick="cfg.qi=${i};cfg.qLibre=null;renderCpChips();updateCpPrice()" style="cursor:pointer;${active?"background:rgba(201,168,76,0.06)":""}">
       <td style="padding:4px 8px;color:${active?"var(--gold)":"var(--text-muted)"};font-family:'DM Mono',monospace;font-size:11px">${qp.toLocaleString("fr-FR")} ex.</td>
       <td style="padding:4px 8px;text-align:right;color:${active?"var(--text-primary)":"var(--text-dim)"};font-family:'DM Mono',monospace;font-size:11px">${r?r.finalHT:"—"} DT</td>
     </tr>`;
@@ -1000,7 +957,7 @@ function updateCpPrice() {
 // ─── SOUMETTRE UNE COMMANDE ──────────────────────────────────
 function submitOrder() {
   const p     = PRODUCTS[cfg.pi];
-  const qty   = p.qty[cfg.qi] || p.qty[0];
+  const qty   = cfg.qLibre ?? p.qty[Math.min(cfg.qi, p.qty.length-1)] ?? p.qty[0];
   const client = DB.getClient(CLIENT_ID);
   const state = cfgToState(qty);
   const res   = SIMPACT_PRICING.compute(p, state);
@@ -1032,7 +989,7 @@ function submitOrder() {
   });
 
   // Reset
-  cfg = {pi:cfg.pi, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0};
+  cfg = {pi:cfg.pi, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null};
   if (document.getElementById("cp-note")) document.getElementById("cp-note").value = "";
   renderCpChips(); updateCpPrice();
 

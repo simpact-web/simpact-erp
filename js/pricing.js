@@ -358,7 +358,8 @@ const SIMPACT_PRICING = (function () {
     const sh=p.sheet, sa=sh.w*sh.h, a4e=sa/A4A;
     const {n:ps}=poses(fmt.piece.w, fmt.piece.h, sh.w, sh.h);
     const iSpc=Math.ceil(pages/4);
-    const cNet=q, iNet=q*iSpc;
+    // ps (poses/feuille) réduit le nombre de feuilles : A5 (4 poses) = moitié vs A4 (2 poses)
+    const cNet=Math.ceil(q/ps), iNet=Math.ceil((q*iSpc)/ps);
     const cW=waste(cNet,q), iW=waste(iNet,q);
     const cT=cNet+cW, iT=iNet+iW;
     const cpCost=cT*(cp.g/1000)*sa*kp(cp.g, cp.type);
@@ -394,8 +395,10 @@ const SIMPACT_PRICING = (function () {
     const sh=p.sheet, sa=sh.w*sh.h, a4e=sa/A4A;
     const {n:ps}=poses(fmt.pd.w, fmt.pd.h, sh.w, sh.h);
     const iSpc=Math.ceil(pages/4);
-    const iNet=q*iSpc, iW=waste(iNet,q), iT=iNet+iW;
-    const cNet=q, cW=Math.max(5,Math.ceil(q*.03)), cT=cNet+cW;
+    // ps réduit les feuilles intérieures (A5 = 4 poses = moitié de feuilles vs A4 = 2 poses)
+    const iNet=Math.ceil((q*iSpc)/ps), iW=waste(iNet,q), iT=iNet+iW;
+    // Couverture : 1 couverture par exemplaire (pliée), imposée avec ps
+    const cNet=Math.ceil(q/ps), cW=Math.max(3,Math.ceil(cNet*.05)), cT=cNet+cW;
     const ipCost=iT*(pap.g/1000)*sa*kp(pap.g, pap.type);
     const cpCost=cT*(cp.g/1000)*sa*kp(cp.g, cp.type);
     const imCost=iT*a4e*2*p.cpcNb;
