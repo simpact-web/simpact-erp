@@ -90,14 +90,14 @@ const SIMPACT_PRICING = (function () {
         {id:"nb",label:"Noir & Blanc R/V",  sides:2, cpc:CPC.ent_nb},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.030},
-        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.025},
-        {id:"co",label:"Coins arrondis",        t:"pp", r:.004},
-        {id:"vu",label:"Vernis UV sélectif",    t:"ps", r:.055},
+        {id:"pm",label:"Pelliculage Mat",      t:"pp", r:.022},
+        {id:"pb",label:"Pelliculage Brillant",  t:"pp", r:.018},
+        {id:"co",label:"Coins arrondis",        t:"pp", r:.020},
+        {id:"vu",label:"Vernis UV sélectif",    t:"pp", r:.035},
       ],
       qty:[50,100,250,500,1000,2000],
-      margins:[.20,.22,.25,.27,.28,.28],
-      margin:.25, setup:12,
+      margins:[.40,.42,.45,.47,.48,.48],
+      margin:.45, setup:12,
     },
 
     /* ── FLYERS ────────────────────────────────────── */
@@ -121,12 +121,12 @@ const SIMPACT_PRICING = (function () {
         {id:"nb",label:"Noir & Blanc R/V",  sides:2, cpc:CPC.ent_nb},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.022},
-        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.018},
+        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.28},
+        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.22},
       ],
       qty:[50,100,250,500,1000,2000],
-      margins:[.15,.23,.21,.27,.26,.28],
-      margin:.25, setup:10,
+      margins:[.35,.43,.41,.47,.40,.32],
+      margin:.41, setup:10,
     },
 
     /* ── BROCHURES ─────────────────────────────────── */
@@ -171,11 +171,11 @@ const SIMPACT_PRICING = (function () {
         {id:"nb", label:"Noir & Blanc intégral",   cSides:2,iSides:2, cpcCov:CPC.ent_nb, cpcInt:CPC.ent_nb},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat couv.",      t:"pc", r:.035},
-        {id:"pb",label:"Pelliculage Brillant couv.", t:"pc", r:.028},
+        {id:"pm",label:"Pelliculage Mat couv.",      t:"pc", r:.28},
+        {id:"pb",label:"Pelliculage Brillant couv.", t:"pc", r:.22},
       ],
       qty:[25,50,100,250,500,1000],
-      margin:.44, setup:18,
+      margin:.64, setup:18,
     },
 
     /* ── AFFICHES ──────────────────────────────────── */
@@ -201,12 +201,12 @@ const SIMPACT_PRICING = (function () {
         {id:"nb",label:"Noir & Blanc recto", sides:1, cpc:CPC.ent_nb},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.040},
-        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.032},
-        {id:"oe",label:"Œillets ×4",           t:"pp", r:.020},
+        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.32},
+        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.25},
+        {id:"oe",label:"Œillets ×4",           t:"pp", r:.050},
       ],
       qty:[5,10,25,50,100,250],
-      margin:.44, setup:15,
+      margin:.64, setup:15,
     },
 
     /* ── PAPIER EN-TÊTE ────────────────────────────── */
@@ -224,7 +224,7 @@ const SIMPACT_PRICING = (function () {
       ],
       fins:[],
       qty:[25,50,100,200,500,1000,2000],
-      margin:.35, setup:8,
+      margin:.55, setup:8,
     },
 
     /* ── DÉPLIANTS ─────────────────────────────────── */
@@ -248,13 +248,13 @@ const SIMPACT_PRICING = (function () {
         {id:"40",label:"Quadri recto (4/0)",sides:1, cpc:CPC.dep},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.025},
-        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.020},
+        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.28},
+        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.22},
         {id:"pl",label:"Pliage",               t:"pp", r:.015},
       ],
       qty:[25,50,100,200,500,1000,2000],
-      margins:[.18,.16,.21,.21,.26,.25,.28],
-      margin:.25, setup:12,
+      margins:[.38,.36,.41,.41,.46,.45,.48],
+      margin:.41, setup:12,
     },
 
     /* ── LIVRES N&B ────────────────────────────────── */
@@ -286,11 +286,11 @@ const SIMPACT_PRICING = (function () {
         {id:"piqure", label:"Agrafé (piqûre)",           t:"pp", r:.08},
         {id:"spirale",label:"Reliure spirale",            t:"pp", r:.12},
         {id:"dos",    label:"Dos carré collé",            t:"pp", r:.10},
-        {id:"pm",     label:"Pelliculage Mat (couv)",     t:"pp", r:.030},
-        {id:"pb",     label:"Pelliculage Brillant (couv)",t:"pp", r:.030},
+        {id:"pm",     label:"Pelliculage Mat (couv)",     t:"pp", r:.18},
+        {id:"pb",     label:"Pelliculage Brillant (couv)", t:"pp", r:.18},
       ],
       qty:[10,25,50,100,250,500],
-      margin:.42, setup:20, cpcNb:CPC.liv_nb, cpcCov:CPC.bro,
+      margin:.62, setup:20, cpcNb:CPC.liv_nb, cpcCov:CPC.bro,
     },
   ];
 
