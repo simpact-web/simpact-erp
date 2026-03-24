@@ -7,7 +7,7 @@
 const SIMPACT_PRICING = (function () {
 
   /* ── CPC Canon V1000 — Source Azur Colors 05/03/2026 ── */
-  const E  = 0.042;                    // énergie DT/click
+  const E  = 0.002;                    // énergie DT/click  (corrigé 24/03/2026)
   const T  = 0.90;                     // -10% terrain
   const MO = 38885 / 7800000;          // main-d'oeuvre DT/click
 
@@ -17,19 +17,22 @@ const SIMPACT_PRICING = (function () {
     bro:    +((0.1706 + E + MO) * T).toFixed(4),
     aff:    +((0.2939 + E + MO) * T).toFixed(4),
     dep:    +((0.1905 + E + MO) * T).toFixed(4),
-    ent_nb: +((0.0308 + E + MO) * T).toFixed(4),
+    ent_nb: +((0.011  + E + MO) * T).toFixed(4),  // KM AccurioPrint 2100 — consommables 0.011 DT/click
     ent_cl: +((0.1247 + E + MO) * T).toFixed(4),
-    liv_nb: +((0.0356 + E + MO) * T).toFixed(4),
+    liv_nb: +((0.011  + E + MO) * T).toFixed(4),  // KM AccurioPrint 2100 — consommables 0.011 DT/click
   };
 
   const A4A = 0.210 * 0.297;   // surface A4 en m²
 
   /* ── Prix papier DT/kg ─────────────────────────────── */
+  // Prix papier DT/kg — PRIX D'ACHAT RÉELS SIMPACT (fiches fournisseurs LPCT + CSP mars 2026)
+  // LPCT : 300g=3.630, 350g=3.750, 250g=3.650, 170g=3.650
+  // CSP  : 80g offset=3.500, 130g couché=3.480, 200g couché=3.480
   const PKG = {
-    coated: { 115:3.6, 135:3.6, 170:3.6, 200:3.6, 250:3.6, 300:3.9, 350:3.9, 400:3.9 },
-    offset: { 80:3.7, 90:3.9, 100:3.7 },
+    coated: { 90:3.48, 115:3.48, 135:3.48, 170:3.65, 200:3.48, 250:3.65, 300:3.63, 350:3.75, 400:3.90 },  // 400g confirmé
+    offset: { 80:3.50, 90:3.55, 100:3.60 },
   };
-  const kp = (g, t) => (PKG[t] || PKG.coated)[g] || 3.6;
+  const kp = (g, t) => (PKG[t] || PKG.coated)[g] || 3.50;
 
   /* ── Imposition ───────────────────────────────────── */
   function poses(pw, ph, sw, sh) {
@@ -46,14 +49,13 @@ const SIMPACT_PRICING = (function () {
     return Math.max(10, Math.ceil(sNet * r));
   }
 
-  /* ── Arrondi HT : entier, arrondi au sup par palier ─ */
+  /* ── Arrondi HT : granularité fine pour que les choix papier soient visibles ─ */
   function roundHT(x) {
-    if (x <= 0) return 0;
-    if (x < 10)  return Math.ceil(x);
-    if (x < 50)  return Math.ceil(x / 2) * 2;
-    if (x < 200) return Math.ceil(x / 5) * 5;
-    if (x < 500) return Math.ceil(x / 10) * 10;
-    return Math.ceil(x / 20) * 20;
+    if (x <= 0)   return 0;
+    if (x < 10)   return Math.ceil(x);
+    if (x < 100)  return Math.ceil(x / 2) * 2;
+    if (x < 1000) return Math.ceil(x / 5) * 5;
+    return Math.ceil(x / 10) * 10;
   }
 
   /* ── Marge par quantité ────────────────────────── */
@@ -75,7 +77,7 @@ const SIMPACT_PRICING = (function () {
     {
       id:"cdv", name:"Cartes de visite", icon:"▪", type:"std",
       formats:[
-        {label:"85×54mm Standard", w:.085, h:.054, sheet:{w:.320,h:.450}},
+        {label:"85×55mm Standard", w:.085, h:.055, sheet:{w:.320,h:.450}, psOverride:20, noWaste:true},
         {label:"90×50mm Slim",     w:.090, h:.050, sheet:{w:.320,h:.450}},
         {label:"85×85mm Carré",    w:.085, h:.085, sheet:{w:.320,h:.450}},
       ],
@@ -90,8 +92,8 @@ const SIMPACT_PRICING = (function () {
         {id:"nb",label:"Noir & Blanc R/V",  sides:2, cpc:CPC.ent_nb},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat",      t:"pp", r:.022},
-        {id:"pb",label:"Pelliculage Brillant",  t:"pp", r:.018},
+        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.10},
+        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.10},
         {id:"co",label:"Coins arrondis",        t:"pp", r:.020},
         {id:"vu",label:"Vernis UV sélectif",    t:"pp", r:.035},
       ],
@@ -121,8 +123,8 @@ const SIMPACT_PRICING = (function () {
         {id:"nb",label:"Noir & Blanc R/V",  sides:2, cpc:CPC.ent_nb},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.28},
-        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.22},
+        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.10},
+        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.10},
       ],
       qty:[50,100,250,500,1000,2000],
       margins:[.35,.43,.41,.47,.40,.32],
@@ -171,11 +173,11 @@ const SIMPACT_PRICING = (function () {
         {id:"nb", label:"Noir & Blanc intégral",   cSides:2,iSides:2, cpcCov:CPC.ent_nb, cpcInt:CPC.ent_nb},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat couv.",      t:"pc", r:.28},
-        {id:"pb",label:"Pelliculage Brillant couv.", t:"pc", r:.22},
+        {id:"pm",label:"Pelliculage Mat couv.",      t:"pc", r:.10},
+        {id:"pb",label:"Pelliculage Brillant couv.", t:"pc", r:.10},
       ],
       qty:[25,50,100,250,500,1000],
-      margin:.64, setup:18,
+      margin:.53, setup:18,
     },
 
     /* ── AFFICHES ──────────────────────────────────── */
@@ -201,8 +203,8 @@ const SIMPACT_PRICING = (function () {
         {id:"nb",label:"Noir & Blanc recto", sides:1, cpc:CPC.ent_nb},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.32},
-        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.25},
+        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.10},
+        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.10},
         {id:"oe",label:"Œillets ×4",           t:"pp", r:.050},
       ],
       qty:[5,10,25,50,100,250],
@@ -248,8 +250,8 @@ const SIMPACT_PRICING = (function () {
         {id:"40",label:"Quadri recto (4/0)",sides:1, cpc:CPC.dep},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.28},
-        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.22},
+        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.10},
+        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.10},
         {id:"pl",label:"Pliage",               t:"pp", r:.015},
       ],
       qty:[25,50,100,200,500,1000,2000],
@@ -286,11 +288,11 @@ const SIMPACT_PRICING = (function () {
         {id:"piqure", label:"Agrafé (piqûre)",           t:"pp", r:.08},
         {id:"spirale",label:"Reliure spirale",            t:"pp", r:.12},
         {id:"dos",    label:"Dos carré collé",            t:"pp", r:.10},
-        {id:"pm",     label:"Pelliculage Mat (couv)",     t:"pp", r:.18},
-        {id:"pb",     label:"Pelliculage Brillant (couv)", t:"pp", r:.18},
+        {id:"pm",     label:"Pelliculage Mat (couv)",      t:"ps", r:.10},  // 0.10 DT/face SRA3 couverture
+        {id:"pb",     label:"Pelliculage Brillant (couv)", t:"ps", r:.10},
       ],
       qty:[10,25,50,100,250,500],
-      margin:.62, setup:20, cpcNb:CPC.liv_nb, cpcCov:CPC.bro,
+      margin:.41, setup:20, cpcNb:CPC.liv_nb, cpcCov:CPC.bro,
     },
   ];
 
@@ -324,8 +326,11 @@ const SIMPACT_PRICING = (function () {
     const fmt=p.formats[fi], pap=p.papers[pai], col=p.colors[ci];
     if (!fmt||!pap||!col) return null;
     const sh=fmt.sheet, sa=sh.w*sh.h, a4e=sa/A4A;
-    const {n:ps, o:or}=poses(fmt.w, fmt.h, sh.w, sh.h);
-    const sNet=Math.ceil(q/ps), sw=waste(sNet,q), sT=sNet+sw;
+    const {n:ps_calc, o:or}=poses(fmt.w, fmt.h, sh.w, sh.h);
+    const ps = fmt.psOverride || ps_calc;          // pose fixée manuellement si psOverride
+    const sNet=Math.ceil(q/ps);
+    const sw = fmt.noWaste ? 0 : waste(sNet,q);    // pas de gâche si noWaste
+    const sT=sNet+sw;
     const kps=(pap.g/1000)*sa, kprice=kp(pap.g, pap.type);
     const paperCost=sT*kps*kprice;
     const cpcUsed=col.cpc;
@@ -358,10 +363,15 @@ const SIMPACT_PRICING = (function () {
     const covType=p.covTypes[cov]||p.covTypes[0];
     const fmt=p.formats[fi];
     const sh=p.sheet, sa=sh.w*sh.h, a4e=sa/A4A;
+    // ps = poses par face (A4→2, A5→4)
+    // Règle prepress : 1 SRA3 = ps × 2 faces = pagesPerSheet
+    //   A4 : 2×2 = 4 pages/SRA3  |  A5 : 4×2 = 8 pages/SRA3
     const {n:ps}=poses(fmt.piece.w, fmt.piece.h, sh.w, sh.h);
-    const iSpc=Math.ceil(pages/4);
-    // ps (poses/feuille) réduit le nombre de feuilles : A5 (4 poses) = moitié vs A4 (2 poses)
-    const cNet=Math.ceil(q/ps), iNet=Math.ceil((q*iSpc)/ps);
+    const pps=ps*2;                          // pages par SRA3 (recto+verso)
+    const iSpc=pages/pps;                    // SRA3 int/ex — exact (demi-cahier autorisé)
+    // Couverture : 4 pages ÷ pps → A4: 1 SRA3/ex, A5: 2 couv/SRA3
+    const iNet=Math.ceil(q*pages/pps);       // ceil pour obtenir un entier
+    const cNet=Math.ceil(q*4/pps);           // A4: ceil(q×4/4)=q, A5: ceil(q×4/8)=ceil(q/2)
     const cW=waste(cNet,q), iW=waste(iNet,q);
     const cT=cNet+cW, iT=iNet+iW;
     const cpCost=cT*(cp.g/1000)*sa*kp(cp.g, cp.type);
@@ -396,16 +406,15 @@ const SIMPACT_PRICING = (function () {
     const fmt=p.formats[fi];
     const sh=p.sheet, sa=sh.w*sh.h, a4e=sa/A4A;
     const {n:ps}=poses(fmt.pd.w, fmt.pd.h, sh.w, sh.h);
-    const iSpc=Math.ceil(pages/4);
-    // ps réduit les feuilles intérieures (A5 = 4 poses = moitié de feuilles vs A4 = 2 poses)
-    const iNet=Math.ceil((q*iSpc)/ps), iW=waste(iNet,q), iT=iNet+iW;
-    // Couverture : 1 couverture par exemplaire (pliée), imposée avec ps
-    const cNet=Math.ceil(q/ps), cW=Math.max(3,Math.ceil(cNet*.05)), cT=cNet+cW;
+    const pps=ps*2;                          // A5→8 pages/SRA3, A4→4 pages/SRA3
+    const iSpc=pages/pps;                    // exact — demi-cahier possible
+    const iNet=Math.ceil(q*pages/pps), iW=waste(iNet,q), iT=iNet+iW;
+    const cNet=Math.ceil(q*4/pps), cW=Math.max(5,Math.ceil(cNet*.05)), cT=cNet+cW;
     const ipCost=iT*(pap.g/1000)*sa*kp(pap.g, pap.type);
     const cpCost=cT*(cp.g/1000)*sa*kp(cp.g, cp.type);
     const imCost=iT*a4e*2*p.cpcNb;
     const cmCost=cT*a4e*covType.sides*p.cpcCov;
-    const {fc, fr}=calcFins(p.fins, fins, 0, q);
+    const {fc, fr}=calcFins(p.fins, fins, cNet, q);  // cNet = nb feuilles couverture
     const setup=p.setup;
     const tot=ipCost+cpCost+imCost+cmCost+setup+fc;
     const rawHT=tot/(1-p.margin);
