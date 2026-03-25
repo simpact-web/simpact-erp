@@ -58,7 +58,7 @@
     </div>
 
     <div class="alert alert-info" style="margin-bottom:24px">
-      🔐 Tous les comptes sont stockés localement. Les modifications sont appliquées immédiatement à la prochaine connexion.
+      🔐 Tous les comptes sont stockés dans la base de données. Les modifications sont appliquées immédiatement.
     </div>
 
     <!-- Sections par rôle -->
@@ -171,187 +171,180 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="js/supabase.js"></script>
-  <script src="js/db.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/db.js"></script>
 <script src="js/auth.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", async () => {
-const session = SIMPACT_AUTH.requireAuth(["superadmin"]);
-if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("admin"); }
+    const session = SIMPACT_AUTH.requireAuth(["superadmin"]);
+    if (session) { SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("admin"); }
 
-// ─── Stockage utilisateurs (localStorage) ────────────────
-const USERS_KEY = "simpact_users_custom";
+    // ─── Rendu ───────────────────────────────────────────────
+    const ROLE_COLORS = { superadmin: "var(--gold)", team: "var(--info)", client: "var(--success)" };
+    const ROLE_LABELS = { superadmin: "Super Admin", team: "Équipe", client: "Client" };
 
-async function getUsers() {
-  const custom = JSON.parse(localStorage.getItem(USERS_KEY) || "null");
-  if (custom) return custom;
-  // Copier les users de auth.js la première fois
-  const base = SIMPACT_AUTH.USERS.map(u => ({...u}));
-  saveUsers(base);
-  return base;
-}
-
-async function saveUsers(users) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-  // Synchroniser avec SIMPACT_AUTH pour la session courante
-  SIMPACT_AUTH.USERS = users;
-}
-
-// ─── Rendu ───────────────────────────────────────────────
-const ROLE_COLORS = { superadmin:"var(--gold)", team:"var(--info)", client:"var(--success)" };
-const ROLE_LABELS = { superadmin:"Super Admin", team:"Équipe", client:"Client" };
-
-async function renderAll() {
-  const users = getUsers();
-  ["superadmin","team","client"].forEach(role => {
-    const list = users.filter(u => u.role === role);
-    document.getElementById("list-"+role).innerHTML = list.length
-      ? list.map(u => userCard(u)).join("")
-      : `<div style="color:var(--text-dim);font-size:12px;padding:12px">Aucun compte ${ROLE_LABELS[role].toLowerCase()}.</div>`;
-  });
-}
-
-async function userCard(u) {
-  const color = ROLE_COLORS[u.role] || "var(--text-muted)";
-  const client = u.clientId ? await DB.getClient(u.clientId) : null;
-  const isSelf = u.id === session.userId;
-
-  return `<div class="user-card">
-    <div class="ua" style="background:${color}18;border:1px solid ${color}30;color:${color}">${u.avatar||"?"}</div>
-    <div style="flex:1;min-width:0">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
-        <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${u.name}</div>
-        ${isSelf ? `<span style="font-size:9px;color:var(--text-dim);font-family:'DM Mono',monospace">(vous)</span>` : ""}
-      </div>
-      <div style="font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace">@${u.username}</div>
-      ${client ? `<div style="font-size:11px;color:var(--success);margin-top:2px">🏛 ${client.name}</div>` : ""}
-      ${u.email ? `<div style="font-size:11px;color:var(--text-dim);margin-top:1px">${u.email}</div>` : ""}
-    </div>
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-      <span class="role-badge role-${u.role}">${ROLE_LABELS[u.role]}</span>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-secondary btn-sm" onclick="editUser('${u.id}')">✏ Modifier</button>
-        ${!isSelf ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}','${u.name.replace(/'/,"\\'")}')">✕</button>` : ""}
-      </div>
-    </div>
-  </div>`;
-}
-
-// ─── Modal ───────────────────────────────────────────────
-async function openModal(userId = null) {
-  document.getElementById("edit-id").value       = userId || "";
-  document.getElementById("edit-name").value     = "";
-  document.getElementById("edit-avatar").value   = "";
-  document.getElementById("edit-username").value = "";
-  document.getElementById("edit-password").value = "";
-  document.getElementById("edit-email").value    = "";
-  document.getElementById("edit-role").value     = "team";
-  document.getElementById("edit-clientId").value = "";
-  document.getElementById("modalTitle").textContent = userId ? "Modifier l'utilisateur" : "Nouvel utilisateur";
-
-  // Remplir dropdown clients
-  const sel = document.getElementById("edit-clientId");
-  sel.innerHTML = `<option value="">— Aucun —</option>`;
-  await DB.getClients().forEach(c => {
-    const o = document.createElement("option"); o.value=c.id; o.textContent=c.name; sel.appendChild(o);
-  });
-
-  if (userId) {
-    const u = getUsers().find(x => x.id === userId);
-    if (u) {
-      document.getElementById("edit-name").value     = u.name;
-      document.getElementById("edit-avatar").value   = u.avatar||"";
-      document.getElementById("edit-username").value = u.username;
-      document.getElementById("edit-password").value = u.password;
-      document.getElementById("edit-email").value    = u.email||"";
-      document.getElementById("edit-role").value     = u.role;
-      document.getElementById("edit-clientId").value = u.clientId||"";
+    async function renderAll() {
+      for (const role of ["superadmin", "team", "client"]) {
+        document.getElementById("list-"+role).innerHTML =
+          `<div style="color:var(--text-dim);font-size:12px;padding:12px">Chargement…</div>`;
+      }
+      const users = await DB.getUsers();
+      for (const role of ["superadmin", "team", "client"]) {
+        const list = users.filter(u => u.role === role);
+        const html = list.length
+          ? (await Promise.all(list.map(u => userCard(u)))).join("")
+          : `<div style="color:var(--text-dim);font-size:12px;padding:12px">Aucun compte ${ROLE_LABELS[role].toLowerCase()}.</div>`;
+        document.getElementById("list-"+role).innerHTML = html;
+      }
     }
-  }
 
-  toggleClientFields();
-  document.getElementById("userModal").style.display = "flex";
-}
+    async function userCard(u) {
+      const color    = ROLE_COLORS[u.role] || "var(--text-muted)";
+      const clientId = u.clientId ?? u.client_id;
+      const client   = clientId ? await DB.getClient(clientId) : null;
+      const isSelf   = u.id === session.userId;
 
-async function closeModal() { document.getElementById("userModal").style.display = "none"; }
-
-async function toggleClientFields() {
-  const role = document.getElementById("edit-role").value;
-  document.getElementById("clientFields").style.display = role === "client" ? "block" : "none";
-}
-
-async function togglePwd() {
-  const inp = document.getElementById("edit-password");
-  inp.type = inp.type === "password" ? "text" : "password";
-}
-
-async function editUser(id) { openModal(id); }
-
-async function saveUser() {
-  const id       = document.getElementById("edit-id").value;
-  const name     = document.getElementById("edit-name").value.trim();
-  const username = document.getElementById("edit-username").value.trim().toLowerCase();
-  const password = document.getElementById("edit-password").value.trim();
-  const email    = document.getElementById("edit-email").value.trim();
-  const role     = document.getElementById("edit-role").value;
-  const avatar   = document.getElementById("edit-avatar").value.trim() || name.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
-  const clientId = document.getElementById("edit-clientId").value || null;
-
-  if (!name || !username || !password) {
-    showToast("Nom, identifiant et mot de passe sont requis", "error"); return;
-  }
-
-  const users = getUsers();
-  const dup   = users.find(u => u.username === username && u.id !== id);
-  if (dup) { showToast("Cet identifiant est déjà utilisé", "error"); return; }
-
-  if (id) {
-    // Modification
-    const idx = users.findIndex(u => u.id === id);
-    if (idx !== -1) {
-      users[idx] = { ...users[idx], name, username, password, email, role, avatar, clientId, permissions: role==="client"?["client-portal"]:role==="superadmin"?["all"]:["orders","stock","dashboard","clients"] };
+      return `<div class="user-card">
+        <div class="ua" style="background:${color}18;border:1px solid ${color}30;color:${color}">${u.avatar || "?"}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+            <div style="font-size:14px;font-weight:600;color:var(--text-primary)">${u.name}</div>
+            ${isSelf ? `<span style="font-size:9px;color:var(--text-dim);font-family:'DM Mono',monospace">(vous)</span>` : ""}
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace">@${u.username}</div>
+          ${client ? `<div style="font-size:11px;color:var(--success);margin-top:2px">🏛 ${client.name}</div>` : ""}
+          ${u.email ? `<div style="font-size:11px;color:var(--text-dim);margin-top:1px">${u.email}</div>` : ""}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+          <span class="role-badge role-${u.role}">${ROLE_LABELS[u.role]}</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-secondary btn-sm" onclick="editUser('${u.id}')">✏ Modifier</button>
+            ${!isSelf ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}','${u.name.replace(/'/g, "\\'")}')" >✕</button>` : ""}
+          </div>
+        </div>
+      </div>`;
     }
-  } else {
-    // Création
-    const newUser = {
-      id: "u" + Date.now(),
-      name, username, password, email, role, avatar, clientId,
-      permissions: role==="client"?["client-portal"]:role==="superadmin"?["all"]:["orders","stock","dashboard","clients"],
-    };
-    users.push(newUser);
-  }
 
-  saveUsers(users);
-  closeModal();
-  renderAll();
-  showToast(id ? "Utilisateur modifié ✓" : "Utilisateur créé ✓", "success");
-}
+    // ─── Modal ───────────────────────────────────────────────
+    async function openModal(userId = null) {
+      document.getElementById("edit-id").value       = userId || "";
+      document.getElementById("edit-name").value     = "";
+      document.getElementById("edit-avatar").value   = "";
+      document.getElementById("edit-username").value = "";
+      document.getElementById("edit-password").value = "";
+      document.getElementById("edit-email").value    = "";
+      document.getElementById("edit-role").value     = "team";
+      document.getElementById("edit-clientId").value = "";
+      document.getElementById("modalTitle").textContent = userId ? "Modifier l'utilisateur" : "Nouvel utilisateur";
 
-// ─── Suppression ─────────────────────────────────────────
-let deleteTargetId = null;
+      // Remplir dropdown clients
+      const sel = document.getElementById("edit-clientId");
+      sel.innerHTML = `<option value="">— Aucun —</option>`;
+      const clients = await DB.getClients();
+      clients.forEach(c => {
+        const o = document.createElement("option");
+        o.value = c.id;
+        o.textContent = c.name;
+        sel.appendChild(o);
+      });
 
-async function deleteUser(id, name) {
-  deleteTargetId = id;
-  document.getElementById("deleteUserName").textContent = name;
-  document.getElementById("deleteModal").style.display = "flex";
-}
+      if (userId) {
+        const users = await DB.getUsers();
+        const u = users.find(x => x.id === userId);
+        if (u) {
+          document.getElementById("edit-name").value     = u.name;
+          document.getElementById("edit-avatar").value   = u.avatar || "";
+          document.getElementById("edit-username").value = u.username;
+          document.getElementById("edit-password").value = u.password;
+          document.getElementById("edit-email").value    = u.email || "";
+          document.getElementById("edit-role").value     = u.role;
+          document.getElementById("edit-clientId").value = u.clientId ?? u.client_id ?? "";
+        }
+      }
 
-async function confirmDelete() {
-  if (!deleteTargetId) return;
-  const users = getUsers().filter(u => u.id !== deleteTargetId);
-  saveUsers(users);
-  document.getElementById("deleteModal").style.display = "none";
-  deleteTargetId = null;
-  renderAll();
-  showToast("Utilisateur supprimé", "success");
-}
+      toggleClientFields();
+      document.getElementById("userModal").style.display = "flex";
+    }
 
-// ─── Init ────────────────────────────────────────────────
-// Patch auth.js pour lire le localStorage en priorité
-const customUsers = JSON.parse(localStorage.getItem(USERS_KEY) || "null");
-if (customUsers) SIMPACT_AUTH.USERS = customUsers;
+    function closeModal() { document.getElementById("userModal").style.display = "none"; }
 
-renderAll();
+    function toggleClientFields() {
+      const role = document.getElementById("edit-role").value;
+      document.getElementById("clientFields").style.display = role === "client" ? "block" : "none";
+    }
+
+    function togglePwd() {
+      const inp = document.getElementById("edit-password");
+      inp.type = inp.type === "password" ? "text" : "password";
+    }
+
+    function editUser(id) { openModal(id); }
+
+    async function saveUser() {
+      const id       = document.getElementById("edit-id").value;
+      const name     = document.getElementById("edit-name").value.trim();
+      const username = document.getElementById("edit-username").value.trim().toLowerCase();
+      const password = document.getElementById("edit-password").value.trim();
+      const email    = document.getElementById("edit-email").value.trim();
+      const role     = document.getElementById("edit-role").value;
+      const avatar   = document.getElementById("edit-avatar").value.trim() ||
+                       name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+      const clientId = document.getElementById("edit-clientId").value || null;
+
+      if (!name || !username || !password) {
+        showToast("Nom, identifiant et mot de passe sont requis", "error"); return;
+      }
+
+      const permissions = role === "client" ? ["client-portal"]
+                        : role === "superadmin" ? ["all"]
+                        : ["orders", "stock", "dashboard", "clients"];
+
+      const userData = { name, username, password, email, role, avatar, client_id: clientId, permissions };
+
+      if (id) {
+        const result = await DB.updateUser(id, userData);
+        if (!result) { showToast("Erreur lors de la modification", "error"); return; }
+      } else {
+        const result = await DB.createUser(userData);
+        if (!result) { showToast("Erreur lors de la création", "error"); return; }
+      }
+
+      closeModal();
+      await renderAll();
+      showToast(id ? "Utilisateur modifié ✓" : "Utilisateur créé ✓", "success");
+    }
+
+    // ─── Suppression ─────────────────────────────────────────
+    let deleteTargetId = null;
+
+    function deleteUser(id, name) {
+      deleteTargetId = id;
+      document.getElementById("deleteUserName").textContent = name;
+      document.getElementById("deleteModal").style.display = "flex";
+    }
+
+    async function confirmDelete() {
+      if (!deleteTargetId) return;
+      const result = await DB.deleteUser(deleteTargetId);
+      if (!result) { showToast("Erreur lors de la suppression", "error"); return; }
+      document.getElementById("deleteModal").style.display = "none";
+      deleteTargetId = null;
+      await renderAll();
+      showToast("Utilisateur supprimé", "success");
+    }
+
+    // ─── Exposer au scope global (onclick HTML) ───────────────
+    window.openModal        = openModal;
+    window.closeModal       = closeModal;
+    window.toggleClientFields = toggleClientFields;
+    window.togglePwd        = togglePwd;
+    window.editUser         = editUser;
+    window.saveUser         = saveUser;
+    window.deleteUser       = deleteUser;
+    window.confirmDelete    = confirmDelete;
+
+    // ─── Init ────────────────────────────────────────────────
+    await renderAll();
   });
 </script>
 </body>

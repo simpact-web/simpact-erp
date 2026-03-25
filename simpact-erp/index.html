@@ -286,9 +286,11 @@
   <script src="js/data.js"></script>
   <script src="js/auth.js"></script>
   <script>
-    // Si déjà connecté → redirect
-    const existing = SIMPACT_AUTH.getSession();
-    if (existing) SIMPACT_AUTH.redirectToHome(existing.role);
+    // Si déjà connecté → redirect (dans DOMContentLoaded pour éviter l'écran noir)
+    document.addEventListener("DOMContentLoaded", () => {
+      const existing = SIMPACT_AUTH.getSession();
+      if (existing) SIMPACT_AUTH.redirectToHome(existing.role);
+    });
 
     function doLogin() {
       const username = document.getElementById("username").value.trim();

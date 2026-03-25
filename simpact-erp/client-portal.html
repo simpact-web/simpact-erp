@@ -543,18 +543,24 @@
 <script src="js/auth.js"></script>
 <script src="js/messaging.js"></script>
 <script>
-// ─── Auth ───────────────────────────────────────────────
-const session = SIMPACT_AUTH.requireAuth(["client"]);
+// ─── Auth (dans DOMContentLoaded pour éviter la boucle de redirection) ──────
+let session = null;
 let CLIENT_ID = null;
 
-if (session) {
+document.addEventListener("DOMContentLoaded", () => {
+  session = SIMPACT_AUTH.requireAuth(["client"]);
+  if (!session) return; // requireAuth a déjà redirigé
+
   CLIENT_ID = session.clientId;
   document.getElementById("topClientName").textContent  = session.name;
   document.getElementById("topClientEmail").textContent = session.email || "";
   document.getElementById("topClientBadge").textContent = session.name.split(" ")[0];
   document.getElementById("welcomeTitle").textContent   = "Bonjour, " + session.name.split("—")[0].trim();
   document.getElementById("welcomeSub").textContent     = new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-}
+
+  renderDashboard();
+  renderConfigurator();
+});
 
 // ─── Navigation ─────────────────────────────────────────
 function showView(id) {
@@ -1101,9 +1107,7 @@ function sendClientMsg() {
   switchClientTab("sent");
 }
 
-// ─── Init ────────────────────────────────────────────────
-renderDashboard();
-renderConfigurator();
+// (Init déplacé dans DOMContentLoaded en haut du script)
 </script>
 </body>
 </html>
