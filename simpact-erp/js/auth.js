@@ -130,7 +130,13 @@ const SIMPACT_AUTH = {
 
   // ── Redirect selon rôle ─────────────────────────────────
   redirectToHome(role) {
-    window.location.href = this.ROLE_REDIRECT[role] || "index.html";
+    const target = this.ROLE_REDIRECT[role];
+    if (target) {
+      window.location.href = target;
+    } else {
+      // Rôle inconnu ou corrompu — nettoyer la session pour éviter une boucle de redirection infinie
+      localStorage.removeItem("simpact_session");
+    }
   },
 
   // ── Injecter le profil user dans le topbar ──────────────
