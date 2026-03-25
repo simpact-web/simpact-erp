@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMPACT ERP — Paramètres de coûts</title>
+  <link rel="stylesheet" href="css/simpact.css">
+  <style>
+    /* ── Layout ─────────────────────────────────────── */
+    .ca-layout { display:grid; grid-template-columns:1fr 360px; gap:24px; align-items:start; }
+    .ca-panel   { display:flex; flex-direction:column; gap:16px; }
+
+    /* ── Section card ───────────────────────────────── */
+    .ca-card {
+      background:var(--navy-mid); border:1px solid var(--navy-border);
+      border-radius:var(--radius-lg); overflow:hidden;
+    }
+    .ca-card-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 18px; cursor:pointer; user-select:none;
+      border-bottom:1px solid transparent; transition:border-color .2s;
+    }
+    .ca-card-header:hover { background:rgba(201,168,76,0.04); }
+    .ca-card-header.open { border-bottom-color:var(--navy-border); }
+    .ca-card-title {
+      display:flex; align-items:center; gap:10px;
+      font-size:12px; font-weight:700; text-transform:uppercase;
+      letter-spacing:1.6px; color:var(--text-secondary); font-family:'DM Mono',monospace;
+    }
+    .ca-card-title .icon {
+      width:28px; height:28px; border-radius:8px; background:var(--navy-dark);
+      display:flex; align-items:center; justify-content:center; font-size:14px;
+    }
+    .ca-card-arrow { color:var(--text-dim); font-size:10px; transition:transform .2s; }
+    .ca-card-arrow.open { transform:rotate(180deg); }
+    .ca-card-body { padding:18px; display:none; }
+    .ca-card-body.open { display:block; }
+
+    /* ── Champs formulaire ──────────────────────────── */
+    .ca-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .ca-grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .ca-field { display:flex; flex-direction:column; gap:5px; }
+    .ca-label {
+      font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1.4px;
+      color:var(--text-muted); font-family:'DM Mono',monospace;
+    }
+    .ca-label span { font-size:9px; color:var(--text-dim); font-weight:400; text-transform:none; letter-spacing:0; }
+    .ca-input {
+      background:var(--navy-dark); border:1px solid var(--navy-border); border-radius:8px;
+      padding:8px 12px; font-size:13px; font-weight:600; font-family:'DM Mono',monospace;
+      color:var(--gold); outline:none; transition:border-color .2s; width:100%;
+    }
+    .ca-input:focus { border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,168,76,0.1); }
+    .ca-input.derived { color:var(--text-secondary); font-weight:400; background:var(--navy-dark); cursor:not-allowed; }
+    .ca-unit {
+      font-size:9px; color:var(--text-dim); font-family:'DM Mono',monospace; margin-top:2px;
+    }
+
+    /* ── Table papier ──────────────────────────────── */
+    .pkgtable { width:100%; border-collapse:collapse; font-size:12px; }
+    .pkgtable th {
+      text-align:left; padding:6px 10px; font-size:9px; font-weight:700;
+      text-transform:uppercase; letter-spacing:1.2px; color:var(--text-muted);
+      font-family:'DM Mono',monospace; background:var(--navy-dark);
+      border-bottom:1px solid var(--navy-border);
+    }
+    .pkgtable td { padding:5px 8px; border-bottom:1px solid rgba(255,255,255,0.03); }
+    .pkgtable tr:hover td { background:rgba(201,168,76,0.03); }
+    .pkg-g { font-weight:700; color:var(--text-secondary); font-family:'DM Mono',monospace; font-size:12px; }
+    .pkg-fournisseur { color:var(--text-dim); font-size:11px; }
+    .pkg-input {
+      background:var(--navy-dark); border:1px solid var(--navy-border); border-radius:6px;
+      padding:5px 8px; font-size:12px; font-weight:600; font-family:'DM Mono',monospace;
+      color:var(--gold); outline:none; width:80px; text-align:right;
+    }
+    .pkg-input:focus { border-color:var(--gold); }
+
+    /* ── Table marges ──────────────────────────────── */
+    .mgt { width:100%; border-collapse:collapse; font-size:11px; }
+    .mgt th { padding:5px 8px; font-size:9px; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); font-family:'DM Mono',monospace; background:var(--navy-dark); border-bottom:1px solid var(--navy-border); text-align:center; }
+    .mgt td { padding:4px 6px; border-bottom:1px solid rgba(255,255,255,0.03); text-align:center; }
+    .mgt .prod-name { text-align:left; color:var(--text-secondary); font-weight:600; font-size:11px; padding-left:8px; }
+    .mg-input {
+      background:var(--navy-dark); border:1px solid var(--navy-border); border-radius:5px;
+      padding:3px 6px; font-size:11px; font-family:'DM Mono',monospace; font-weight:600;
+      color:var(--gold); outline:none; width:52px; text-align:center;
+    }
+    .mg-input:focus { border-color:var(--gold); }
+
+    /* ── Panel droit — CPC recap + simulateur ──────── */
+    .cpc-panel {
+      background:linear-gradient(160deg,var(--navy-mid),var(--navy-dark));
+      border:1px solid rgba(201,168,76,0.25); border-radius:var(--radius-xl);
+      position:sticky; top:80px; overflow:hidden;
+    }
+    .cpc-header { background:linear-gradient(135deg,var(--gold),var(--gold-dark)); padding:14px 18px; }
+    .cpc-body { padding:18px; }
+    .cpc-row { display:flex; justify-content:space-between; font-size:11px; margin-bottom:5px; }
+    .cpc-k { color:var(--text-muted); }
+    .cpc-v { font-family:'DM Mono',monospace; color:var(--text-primary); font-weight:600; }
+    .cpc-divider { border:none; border-top:1px solid var(--navy-border); margin:10px 0; }
+    .mo-calc-box {
+      background:var(--navy-dark); border:1px solid var(--navy-border); border-radius:8px;
+      padding:10px 12px; font-size:10px; margin-bottom:12px;
+    }
+    .mo-row { display:flex; justify-content:space-between; font-size:10px; margin-bottom:3px; }
+    .mo-k { color:var(--text-dim); }
+    .mo-v { font-family:'DM Mono',monospace; color:var(--text-muted); }
+    .mo-total { border-top:1px solid var(--navy-border); padding-top:5px; margin-top:4px; }
+    .mo-total .mo-k { color:var(--text-secondary); font-weight:700; }
+    .mo-total .mo-v { color:var(--gold); font-weight:700; }
+
+    /* ── Simulateur ─────────────────────────────────── */
+    .sim-row {
+      background:var(--navy-dark); border-radius:8px; padding:8px 12px;
+      margin-bottom:6px; font-size:11px;
+      border-left:3px solid var(--navy-border);
+      transition:border-color .2s;
+    }
+    .sim-row.changed { border-left-color:var(--gold); }
+    .sim-label { color:var(--text-muted); margin-bottom:3px; font-size:10px; }
+    .sim-prices { display:flex; align-items:center; gap:8px; }
+    .sim-old { color:var(--text-dim); text-decoration:line-through; font-family:'DM Mono',monospace; }
+    .sim-new { color:var(--gold); font-family:'DM Mono',monospace; font-weight:700; }
+    .sim-diff { font-size:10px; font-family:'DM Mono',monospace; }
+    .sim-diff.up   { color:#E05252; }
+    .sim-diff.down { color:#3DBA78; }
+    .sim-diff.same { color:var(--text-dim); }
+
+    /* ── Boutons action ─────────────────────────────── */
+    .ca-actions { display:flex; gap:10px; margin-top:20px; }
+    .btn-save {
+      flex:1; background:linear-gradient(135deg,var(--gold),var(--gold-dark));
+      color:var(--navy-dark); border:none; border-radius:10px; padding:13px;
+      font-size:13px; font-weight:700; cursor:pointer; transition:opacity .2s;
+    }
+    .btn-save:hover { opacity:.9; }
+    .btn-reset {
+      background:none; border:1px solid var(--navy-border); color:var(--text-muted);
+      border-radius:10px; padding:13px 18px; font-size:12px; cursor:pointer;
+      transition:border-color .2s;
+    }
+    .btn-reset:hover { border-color:var(--danger); color:var(--danger); }
+    .save-status {
+      font-size:11px; color:var(--text-dim); text-align:center; margin-top:8px;
+      font-family:'DM Mono',monospace;
+    }
+
+    /* ── Separateur de sous-section ─────────────────── */
+    .ca-sub { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1.4px;
+      color:var(--text-dim); font-family:'DM Mono',monospace; margin:14px 0 8px;
+      display:flex; align-items:center; gap:8px; }
+    .ca-sub::after { content:''; flex:1; height:1px; background:var(--navy-border); }
+
+    .tag { display:inline-flex; align-items:center; gap:4px; padding:2px 7px;
+      border-radius:5px; font-size:9px; font-weight:700; font-family:'DM Mono',monospace; }
+    .tag-azur { background:rgba(61,186,120,0.12); color:#3DBA78; border:1px solid rgba(61,186,120,0.25); }
+    .tag-km   { background:rgba(201,168,76,0.12);  color:var(--gold); border:1px solid rgba(201,168,76,0.25); }
+    .tag-lpct { background:rgba(100,160,255,0.12); color:#64a0ff; border:1px solid rgba(100,160,255,0.25); }
+    .tag-csp  { background:rgba(200,120,255,0.12); color:#c878ff; border:1px solid rgba(200,120,255,0.25); }
+  </style>
+</head>
+<body>
+<div class="erp-layout">
+  <header class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-logo">S</div>
+      <div class="brand-text"><div class="brand-name">SIMPACT</div><div class="brand-sub">ERP v5.0</div></div>
+    </div>
+    <div class="topbar-center"><span style="font-size:13px;color:var(--text-muted)">Paramètres de coûts — Comptabilité analytique</span></div>
+    <div class="topbar-right"><div class="user-chip" id="user-chip"></div></div>
+  </header>
+
+  <nav class="sidebar">
+    <div class="nav-section-label">Navigation</div>
+    <a href="dashboard.html" class="nav-item" data-page="dashboard"><span class="nav-icon">◈</span><span>Tableau de bord</span></a>
+    <a href="orders.html"    class="nav-item" data-page="orders"><span class="nav-icon">📋</span><span>Commandes</span></a>
+    <a href="configurator.html" class="nav-item" data-page="configurator"><span class="nav-icon">⚙</span><span>Configurateur prix</span></a>
+    <a href="stock.html"     class="nav-item" data-page="stock"><span class="nav-icon">📦</span><span>Stocks papier</span></a>
+    <div class="nav-separator"></div>
+    <a href="clients.html"   class="nav-item" data-page="clients"><span class="nav-icon">🏛</span><span>Clients</span></a>
+    <a href="reporting.html" class="nav-item" data-page="reporting"><span class="nav-icon">📊</span><span>Reporting</span></a>
+    <div class="nav-separator"></div>
+    <a href="messages.html"  class="nav-item" data-page="messages"><span class="nav-icon">✉</span><span>Messagerie</span></a>
+    <a href="admin.html"     class="nav-item" data-page="admin"><span class="nav-icon">🔐</span><span>Utilisateurs</span></a>
+    <a href="couts.html"     class="nav-item active" data-page="couts"><span class="nav-icon">🧮</span><span>Paramètres coûts</span></a>
+    <div class="nav-separator"></div>
+    <a href="#" class="nav-item" onclick="SIMPACT_AUTH.logout()"><span class="nav-icon">⎋</span><span>Déconnexion</span></a>
+  </nav>
+
+  <main class="main-content page-enter">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Paramètres de coûts</div>
+        <div class="page-subtitle" id="lastSavedLabel">Modifiez les paramètres — le configurateur de prix se met à jour immédiatement</div>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-secondary btn-sm" onclick="exportParams()">⬇ Exporter JSON</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('importFile').click()">⬆ Importer JSON</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importParams(this)">
+      </div>
+    </div>
+
+    <div class="ca-layout">
+      <!-- ── PANNEAU GAUCHE — formulaires ── -->
+      <div class="ca-panel" id="formPanel">
+
+        <!-- 1. MAIN D'OEUVRE V1000 -->
+        <div class="ca-card">
+          <div class="ca-card-header open" onclick="toggleCard(this)">
+            <div class="ca-card-title"><div class="icon">👷</div> Main d'œuvre — Canon V1000</div>
+            <span class="ca-card-arrow open">▼</span>
+          </div>
+          <div class="ca-card-body open">
+            <div class="ca-grid3">
+              <div class="ca-field">
+                <div class="ca-label">Nb opérateurs</div>
+                <input class="ca-input" type="number" min="1" max="10" step="1" id="mo_v1000_operators" oninput="recalc()">
+                <div class="ca-unit">opérateurs dédiés V1000</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Salaire brut <span>(DT/mois)</span></div>
+                <input class="ca-input" type="number" min="0" step="50" id="mo_v1000_salaireGrut" oninput="recalc()">
+                <div class="ca-unit">DT brut mensuel / opérateur</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Nb mois <span>(convention)</span></div>
+                <input class="ca-input" type="number" min="12" max="16" step="1" id="mo_v1000_nbMois" oninput="recalc()">
+                <div class="ca-unit">mois/an (dont primes)</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Charges sociales <span>(%)</span></div>
+                <input class="ca-input" type="number" min="0" max="50" step="0.25" id="mo_v1000_chargesPct" oninput="recalc()">
+                <div class="ca-unit">% charges patronales</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Vitesse machine <span>(ppm)</span></div>
+                <input class="ca-input" type="number" min="1" id="mo_v1000_ppmMachine" oninput="recalc()">
+                <div class="ca-unit">pages A4 / minute</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Uptime <span>(%)</span></div>
+                <input class="ca-input" type="number" min="1" max="100" step="5" id="mo_v1000_uptimePct" oninput="recalc()">
+                <div class="ca-unit">% exploitation réelle</div>
+              </div>
+            </div>
+            <div class="ca-field" style="margin-top:10px">
+              <div class="ca-label">Heures travaillées / an</div>
+              <input class="ca-input" type="number" min="100" step="100" id="mo_v1000_heuresAn" oninput="recalc()" style="max-width:160px">
+              <div class="ca-unit">heures productives / an (hors arrêts)</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. MAIN D'OEUVRE KM2100 -->
+        <div class="ca-card">
+          <div class="ca-card-header" onclick="toggleCard(this)">
+            <div class="ca-card-title"><div class="icon">👷</div> Main d'œuvre — KM AccurioPrint 2100</div>
+            <span class="ca-card-arrow">▼</span>
+          </div>
+          <div class="ca-card-body">
+            <div class="ca-grid3">
+              <div class="ca-field">
+                <div class="ca-label">Nb opérateurs</div>
+                <input class="ca-input" type="number" min="0" max="5" step="1" id="mo_km2100_operators" oninput="recalc()">
+                <div class="ca-unit">0 = partagé avec V1000</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Salaire brut <span>(DT/mois)</span></div>
+                <input class="ca-input" type="number" min="0" step="50" id="mo_km2100_salaireGrut" oninput="recalc()">
+                <div class="ca-unit">0 si déjà compté V1000</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Nb mois</div>
+                <input class="ca-input" type="number" min="12" max="16" step="1" id="mo_km2100_nbMois" oninput="recalc()">
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Vitesse machine <span>(ppm)</span></div>
+                <input class="ca-input" type="number" min="1" id="mo_km2100_ppmMachine" oninput="recalc()">
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Uptime <span>(%)</span></div>
+                <input class="ca-input" type="number" min="1" max="100" step="5" id="mo_km2100_uptimePct" oninput="recalc()">
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Heures / an</div>
+                <input class="ca-input" type="number" min="100" step="100" id="mo_km2100_heuresAn" oninput="recalc()">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. ÉNERGIE + TERRAIN -->
+        <div class="ca-card">
+          <div class="ca-card-header" onclick="toggleCard(this)">
+            <div class="ca-card-title"><div class="icon">⚡</div> Énergie & Coefficient terrain</div>
+            <span class="ca-card-arrow">▼</span>
+          </div>
+          <div class="ca-card-body">
+            <div class="ca-grid2">
+              <div class="ca-field">
+                <div class="ca-label">Énergie <span>(DT/click A4)</span></div>
+                <input class="ca-input" type="number" min="0" step="0.001" id="energie_dtParClickA4" oninput="recalc()">
+                <div class="ca-unit">Tarif STEG — consommation réelle</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Terrain V1000 <span>(coefficient)</span></div>
+                <input class="ca-input" type="number" min="0.5" max="1.2" step="0.01" id="terrain_v1000" oninput="recalc()">
+                <div class="ca-unit">0.90 = −10% vs constructeur</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Terrain KM2100</div>
+                <input class="ca-input" type="number" min="0.5" max="1.2" step="0.01" id="terrain_km2100" oninput="recalc()">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. CONSOMMABLES V1000 -->
+        <div class="ca-card">
+          <div class="ca-card-header" onclick="toggleCard(this)">
+            <div class="ca-card-title"><div class="icon">🖨</div> Consommables V1000 <span class="tag tag-azur" style="margin-left:6px">Source Azur Colors</span></div>
+            <span class="ca-card-arrow">▼</span>
+          </div>
+          <div class="ca-card-body">
+            <p style="font-size:11px;color:var(--text-dim);margin-bottom:12px">Base toner (DT/click A4) <b>AVANT</b> ajout de l'énergie et de la main-d'œuvre. Source : devis Azur Colors 05/03/2026.</p>
+            <div class="ca-grid3">
+              <div class="ca-field">
+                <div class="ca-label">Cartes de visite</div>
+                <input class="ca-input" type="number" min="0" step="0.001" id="consoV1000_cdv" oninput="recalc()">
+                <div class="ca-unit">≈30% couv toner</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Flyers</div>
+                <input class="ca-input" type="number" min="0" step="0.001" id="consoV1000_fly" oninput="recalc()">
+                <div class="ca-unit">≈20–25% couv toner</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Brochures</div>
+                <input class="ca-input" type="number" min="0" step="0.001" id="consoV1000_bro" oninput="recalc()">
+                <div class="ca-unit">≈15–20% couv toner</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Affiches</div>
+                <input class="ca-input" type="number" min="0" step="0.001" id="consoV1000_aff" oninput="recalc()">
+                <div class="ca-unit">≈40–50% couv toner</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Dépliants</div>
+                <input class="ca-input" type="number" min="0" step="0.001" id="consoV1000_dep" oninput="recalc()">
+                <div class="ca-unit">≈20% couv toner</div>
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">En-tête couleur</div>
+                <input class="ca-input" type="number" min="0" step="0.001" id="consoV1000_ent_cl" oninput="recalc()">
+                <div class="ca-unit">≈12% couv toner</div>
+              </div>
+            </div>
+            <div class="ca-sub">KM AccurioPrint 2100 N&B <span class="tag tag-km" style="margin-left:6px">Source SIMPACT terrain</span></div>
+            <div class="ca-grid2">
+              <div class="ca-field">
+                <div class="ca-label">Consommables N&B <span>(DT/click A4)</span></div>
+                <input class="ca-input" type="number" min="0" step="0.001" id="consoKM_nb" oninput="recalc()">
+                <div class="ca-unit">toner N&B + tambour + pièces</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. PRIX PAPIER -->
+        <div class="ca-card">
+          <div class="ca-card-header" onclick="toggleCard(this)">
+            <div class="ca-card-title"><div class="icon">📄</div> Prix papier <span style="font-size:9px;color:var(--text-dim);margin-left:6px">DT / kg</span></div>
+            <span class="ca-card-arrow">▼</span>
+          </div>
+          <div class="ca-card-body">
+            <div class="ca-sub">Papier couché <span class="tag tag-lpct" style="margin-left:6px">LPCT</span> <span class="tag tag-csp" style="margin-left:4px">CSP</span></div>
+            <table class="pkgtable">
+              <thead><tr><th>Grammage</th><th>Type</th><th>Fournisseur</th><th>Prix/kg (DT)</th></tr></thead>
+              <tbody id="pkgCoatedTable"></tbody>
+            </table>
+            <div class="ca-sub" style="margin-top:14px">Papier offset</div>
+            <table class="pkgtable">
+              <thead><tr><th>Grammage</th><th>Type</th><th>Fournisseur</th><th>Prix/kg (DT)</th></tr></thead>
+              <tbody id="pkgOffsetTable"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 6. FINITIONS -->
+        <div class="ca-card">
+          <div class="ca-card-header" onclick="toggleCard(this)">
+            <div class="ca-card-title"><div class="icon">✨</div> Finitions & Façonnage</div>
+            <span class="ca-card-arrow">▼</span>
+          </div>
+          <div class="ca-card-body">
+            <p style="font-size:11px;color:var(--text-dim);margin-bottom:12px">
+              Tarifs sous-traitants et prestataires. <b>face_sra3</b> = tarif par face d'une feuille SRA3 (320×450mm). <b>pièce</b> = tarif par exemplaire.
+            </p>
+            <div class="ca-grid2" id="finiGrid"></div>
+          </div>
+        </div>
+
+        <!-- 7. PRÉPRESSE / SETUP -->
+        <div class="ca-card">
+          <div class="ca-card-header" onclick="toggleCard(this)">
+            <div class="ca-card-title"><div class="icon">🎨</div> Prépresse & Setup</div>
+            <span class="ca-card-arrow">▼</span>
+          </div>
+          <div class="ca-card-body">
+            <p style="font-size:11px;color:var(--text-dim);margin-bottom:12px">Forfait fixe par commande (DT HT) couvrant la mise en page, le contrôle fichier et le setup machine.</p>
+            <div class="ca-grid3" id="setupGrid"></div>
+          </div>
+        </div>
+
+        <!-- 8. MARGES COMMERCIALES -->
+        <div class="ca-card">
+          <div class="ca-card-header" onclick="toggleCard(this)">
+            <div class="ca-card-title"><div class="icon">📈</div> Marges commerciales</div>
+            <span class="ca-card-arrow">▼</span>
+          </div>
+          <div class="ca-card-body">
+            <p style="font-size:11px;color:var(--text-dim);margin-bottom:12px">Marge brute cible par produit et par palier de quantité. Valeur en pourcentage (ex : 53 = 53%).</p>
+            <div id="margesPanel"></div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="ca-actions">
+          <button class="btn-save" onclick="saveParams()">💾 Enregistrer les paramètres</button>
+          <button class="btn-reset" onclick="resetParams()">↺ Réinitialiser</button>
+        </div>
+        <div class="save-status" id="saveStatus"></div>
+
+      </div><!-- fin form panel -->
+
+      <!-- ── PANNEAU DROIT — CPC + Simulateur ── -->
+      <div>
+        <div class="cpc-panel">
+          <div class="cpc-header">
+            <div style="font-size:13px;font-weight:700;color:var(--navy-dark)">CPC calculés en temps réel</div>
+            <div style="font-size:10px;color:rgba(10,22,40,0.65);margin-top:2px">(Conso + Énergie + MO) × Terrain</div>
+          </div>
+          <div class="cpc-body">
+
+            <!-- MO V1000 -->
+            <div class="mo-calc-box" id="moV1000Box"></div>
+
+            <!-- CPC V1000 -->
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-dim);font-family:'DM Mono',monospace;margin-bottom:6px">Canon V1000</div>
+            <div id="cpcV1000Panel"></div>
+            <hr class="cpc-divider">
+
+            <!-- MO KM -->
+            <div class="mo-calc-box" id="moKMBox"></div>
+
+            <!-- CPC KM -->
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-dim);font-family:'DM Mono',monospace;margin-bottom:6px">KM AccurioPrint 2100</div>
+            <div id="cpcKMPanel"></div>
+            <hr class="cpc-divider">
+
+            <!-- Simulateur -->
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-dim);font-family:'DM Mono',monospace;margin-bottom:8px">
+              Simulateur — impact sur les prix
+            </div>
+            <div id="simPanel"></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- fin ca-layout -->
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/params.js"></script>
+<script src="js/pricing.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const session = SIMPACT_AUTH.requireAuth(["superadmin"]);
+  if (session) SIMPACT_AUTH.renderUserChip(session);
+
+  loadForm();
+  renderPaperTable();
+  renderFinitions();
+  renderSetup();
+  renderMarges();
+  recalc();
+
+  // Afficher date dernière sauvegarde
+  const p = SIMPACT_PARAMS.P;
+  if (p.updatedAt) {
+    document.getElementById('lastSavedLabel').textContent =
+      `Dernière sauvegarde : ${p.updatedAt} par ${p.updatedBy || '—'}`;
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   ÉTAT LOCAL (travail en mémoire avant sauvegarde)
+───────────────────────────────────────────────────────────── */
+let WORKING = JSON.parse(JSON.stringify(SIMPACT_PARAMS.P));
+
+// Jobs de référence pour le simulateur
+const SIM_JOBS = [
+  { label:'CDV 500ex · 350g · 4/4',           id:'cdv', s:{fi:0,pa:0,co:0,fins:[],qty:500} },
+  { label:'Flyer A5 250ex · 135g · 4/4',       id:'fly', s:{fi:0,pa:1,co:0,fins:[],qty:250} },
+  { label:'Bro A4 · Piqûre · 16p · 100ex',     id:'bro', s:{fi:0,bi:0,pa2:0,pa:3,co:0,cov:0,pages:16,fins:[],qty:100} },
+  { label:'En-tête N&B · 500ex',               id:'ent', s:{fi:0,pa:0,co:1,fins:[],qty:500} },
+  { label:'Livre A5 · 96p · 100ex · DosCarré', id:'liv', s:{fi:0,pa:0,pa2:1,cov:0,pages:96,fins:['dos'],qty:100} },
+];
+
+// Prix de référence (calculés au chargement)
+let REF_PRICES = {};
+
+/* ─────────────────────────────────────────────────────────────
+   ACCORDÉON
+───────────────────────────────────────────────────────────── */
+function toggleCard(header) {
+  const isOpen = header.classList.contains('open');
+  const body = header.nextElementSibling;
+  const arrow = header.querySelector('.ca-card-arrow');
+  if (isOpen) {
+    header.classList.remove('open'); body.classList.remove('open'); arrow.classList.remove('open');
+  } else {
+    header.classList.add('open'); body.classList.add('open'); arrow.classList.add('open');
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   CHARGER LE FORMULAIRE DEPUIS WORKING
+───────────────────────────────────────────────────────────── */
+function loadForm() {
+  const p = WORKING;
+  // MO V1000
+  Object.entries(p.mo.v1000).forEach(([k,v]) => setVal(`mo_v1000_${k}`, v));
+  // MO KM
+  Object.entries(p.mo.km2100).forEach(([k,v]) => setVal(`mo_km2100_${k}`, v));
+  // Énergie
+  setVal('energie_dtParClickA4', p.energie.dtParClickA4);
+  // Terrain
+  setVal('terrain_v1000',  p.terrain.v1000);
+  setVal('terrain_km2100', p.terrain.km2100);
+  // Consommables V1000
+  Object.entries(p.consoV1000).forEach(([k,v]) => setVal(`consoV1000_${k}`, v));
+  // Consommables KM
+  setVal('consoKM_nb', p.consoKM.nb);
+}
+
+function setVal(id, v) {
+  const el = document.getElementById(id);
+  if (el) el.value = v;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TABLE PAPIER
+───────────────────────────────────────────────────────────── */
+const PKG_META = {
+  coated: {
+     90: { fournisseur:'CSP',  note:'130g assimilé' },
+    115: { fournisseur:'CSP',  note:'14/03/2026' },
+    135: { fournisseur:'CSP',  note:'14/03/2026' },
+    170: { fournisseur:'LPCT', note:'24/03/2026' },
+    200: { fournisseur:'CSP',  note:'14/03/2026' },
+    250: { fournisseur:'LPCT', note:'23/03/2026' },
+    300: { fournisseur:'LPCT', note:'12/03/2026' },
+    350: { fournisseur:'LPCT', note:'23+24/03' },
+    400: { fournisseur:'—',    note:'confirmé' },
+  },
+  offset: {
+     80: { fournisseur:'CSP',  note:'14/03/2026' },
+     90: { fournisseur:'—',    note:'interpolé' },
+    100: { fournisseur:'—',    note:'interpolé' },
+  },
+};
+
+function renderPaperTable() {
+  ['coated','offset'].forEach(type => {
+    const tbody = document.getElementById(type === 'coated' ? 'pkgCoatedTable' : 'pkgOffsetTable');
+    tbody.innerHTML = '';
+    const entries = Object.entries(WORKING.papier[type]).sort(([a],[b]) => +a - +b);
+    entries.forEach(([g, prix]) => {
+      const meta = PKG_META[type][g] || {};
+      const fTag = meta.fournisseur === 'LPCT' ? 'tag-lpct' : meta.fournisseur === 'CSP' ? 'tag-csp' : '';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="pkg-g">${g}g</td>
+        <td class="pkg-fournisseur">${type === 'coated' ? 'Couché' : 'Offset'}</td>
+        <td><span class="tag ${fTag}" style="font-size:8px">${meta.fournisseur||'—'}</span> <span style="font-size:9px;color:var(--text-dim)">${meta.note||''}</span></td>
+        <td>
+          <input class="pkg-input" type="number" min="0" step="0.01"
+            value="${prix}"
+            data-type="${type}" data-g="${g}"
+            oninput="updatePaper(this)">
+          <span style="font-size:9px;color:var(--text-dim);margin-left:4px">DT/kg</span>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  });
+}
+
+function updatePaper(el) {
+  const t = el.dataset.type, g = el.dataset.g;
+  WORKING.papier[t][g] = parseFloat(el.value) || 0;
+  recalc();
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TABLE FINITIONS
+───────────────────────────────────────────────────────────── */
+const FINI_LABELS = {
+  pelliculage_mat:      { icon:'🎨', typeLabel:'par face SRA3', color:'var(--gold)' },
+  pelliculage_brillant: { icon:'✨', typeLabel:'par face SRA3', color:'var(--gold)' },
+  coins_arrondis:       { icon:'⬭',  typeLabel:'par carte', color:'var(--text-secondary)' },
+  vernis_uv:            { icon:'💫', typeLabel:'par pièce',  color:'var(--text-secondary)' },
+  pliage:               { icon:'📐', typeLabel:'par pièce',  color:'var(--text-secondary)' },
+  piqure_agrafes:       { icon:'📎', typeLabel:'par ex.',    color:'#64a0ff' },
+  reliure_spirale:      { icon:'🌀', typeLabel:'par ex.',    color:'#64a0ff' },
+  dos_carre_colle:      { icon:'📖', typeLabel:'par ex.',    color:'#64a0ff' },
+  oeillet:              { icon:'🔩', typeLabel:'par pièce',  color:'var(--text-secondary)' },
+};
+
+function renderFinitions() {
+  const grid = document.getElementById('finiGrid');
+  grid.innerHTML = '';
+  Object.entries(WORKING.finitions).forEach(([key, val]) => {
+    const meta = FINI_LABELS[key] || { icon:'•', typeLabel:'', color:'var(--text-secondary)' };
+    const div = document.createElement('div');
+    div.className = 'ca-field';
+    div.innerHTML = `
+      <div class="ca-label">${meta.icon} ${val.label}</div>
+      <input class="ca-input" type="number" min="0" step="0.005"
+        value="${val.dt}" data-fkey="${key}" oninput="updateFini(this)">
+      <div class="ca-unit" style="color:${meta.color}">${meta.typeLabel} — DT</div>`;
+    grid.appendChild(div);
+  });
+}
+
+function updateFini(el) {
+  WORKING.finitions[el.dataset.fkey].dt = parseFloat(el.value) || 0;
+  recalc();
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TABLE SETUP
+───────────────────────────────────────────────────────────── */
+const SETUP_LABELS = {
+  cdv:'Cartes de visite', fly:'Flyers', bro:'Brochures',
+  aff:'Affiches', ent:'En-tête', dep:'Dépliants', liv:'Livres N&B',
+};
+
+function renderSetup() {
+  const grid = document.getElementById('setupGrid');
+  grid.innerHTML = '';
+  Object.entries(WORKING.prepresse).forEach(([key, val]) => {
+    const div = document.createElement('div');
+    div.className = 'ca-field';
+    div.innerHTML = `
+      <div class="ca-label">${SETUP_LABELS[key]||key}</div>
+      <input class="ca-input" type="number" min="0" step="1"
+        value="${val}" data-skey="${key}" oninput="updateSetup(this)">
+      <div class="ca-unit">DT / commande</div>`;
+    grid.appendChild(div);
+  });
+}
+
+function updateSetup(el) {
+  WORKING.prepresse[el.dataset.skey] = parseFloat(el.value) || 0;
+  recalc();
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TABLE MARGES
+───────────────────────────────────────────────────────────── */
+function renderMarges() {
+  const panel = document.getElementById('margesPanel');
+  panel.innerHTML = '';
+  const allQty = [25,50,100,200,250,500,1000,2000];
+
+  Object.entries(WORKING.marges).forEach(([pid, cfg]) => {
+    const name = SETUP_LABELS[pid] || pid;
+    const hasPaliers = cfg.paliers && cfg.paliers.length > 0;
+
+    const div = document.createElement('div');
+    div.style.marginBottom = '14px';
+
+    if (!hasPaliers) {
+      // Marge fixe — un seul champ
+      div.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <span style="font-size:11px;font-weight:700;color:var(--text-secondary);min-width:120px">${name}</span>
+          <input class="mg-input" type="number" min="0" max="100" step="1"
+            value="${Math.round(cfg.defaut*100)}"
+            data-pid="${pid}" data-idx="defaut" oninput="updateMarge(this)">
+          <span class="ca-unit">%</span>
+        </div>`;
+    } else {
+      // Marges par palier
+      let html = `<div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px">${name}</div>`;
+      html += `<table class="mgt"><thead><tr>`;
+      cfg.paliers.forEach(q => { html += `<th>${q>=1000?q/1000+'k':q}ex</th>`; });
+      html += `</tr></thead><tbody><tr>`;
+      cfg.paliers.forEach((q,i) => {
+        html += `<td><input class="mg-input" type="number" min="0" max="100" step="1"
+          value="${Math.round((cfg.marges[i]||cfg.defaut)*100)}"
+          data-pid="${pid}" data-idx="${i}" oninput="updateMarge(this)"></td>`;
+      });
+      html += `</tr></tbody></table>`;
+      div.innerHTML = html;
+    }
+    panel.appendChild(div);
+  });
+}
+
+function updateMarge(el) {
+  const pid = el.dataset.pid, idx = el.dataset.idx;
+  const val = (parseFloat(el.value) || 0) / 100;
+  if (idx === 'defaut') {
+    WORKING.marges[pid].defaut = val;
+  } else {
+    WORKING.marges[pid].marges[parseInt(idx)] = val;
+    // Recalculer defaut = marge médiane
+    const ms = WORKING.marges[pid].marges;
+    WORKING.marges[pid].defaut = ms[Math.floor(ms.length/2)] || val;
+  }
+  recalc();
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RECALCUL CPC + SIMULATEUR
+───────────────────────────────────────────────────────────── */
+function readWorkingFromForm() {
+  const get = id => { const el = document.getElementById(id); return el ? parseFloat(el.value) : null; };
+  WORKING.mo.v1000.operators    = get('mo_v1000_operators')    || WORKING.mo.v1000.operators;
+  WORKING.mo.v1000.salaireGrut  = get('mo_v1000_salaireGrut')  || WORKING.mo.v1000.salaireGrut;
+  WORKING.mo.v1000.nbMois       = get('mo_v1000_nbMois')        || WORKING.mo.v1000.nbMois;
+  WORKING.mo.v1000.chargesPct   = get('mo_v1000_chargesPct')    ?? WORKING.mo.v1000.chargesPct;
+  WORKING.mo.v1000.ppmMachine   = get('mo_v1000_ppmMachine')   || WORKING.mo.v1000.ppmMachine;
+  WORKING.mo.v1000.uptimePct    = get('mo_v1000_uptimePct')    || WORKING.mo.v1000.uptimePct;
+  WORKING.mo.v1000.heuresAn     = get('mo_v1000_heuresAn')     || WORKING.mo.v1000.heuresAn;
+  WORKING.mo.km2100.operators   = get('mo_km2100_operators')   ?? WORKING.mo.km2100.operators;
+  WORKING.mo.km2100.salaireGrut = get('mo_km2100_salaireGrut') ?? WORKING.mo.km2100.salaireGrut;
+  WORKING.mo.km2100.nbMois      = get('mo_km2100_nbMois')      || WORKING.mo.km2100.nbMois;
+  WORKING.mo.km2100.ppmMachine  = get('mo_km2100_ppmMachine')  || WORKING.mo.km2100.ppmMachine;
+  WORKING.mo.km2100.uptimePct   = get('mo_km2100_uptimePct')   || WORKING.mo.km2100.uptimePct;
+  WORKING.mo.km2100.heuresAn    = get('mo_km2100_heuresAn')    || WORKING.mo.km2100.heuresAn;
+  WORKING.energie.dtParClickA4  = get('energie_dtParClickA4')  ?? WORKING.energie.dtParClickA4;
+  WORKING.terrain.v1000         = get('terrain_v1000')          || WORKING.terrain.v1000;
+  WORKING.terrain.km2100        = get('terrain_km2100')         || WORKING.terrain.km2100;
+  ['cdv','fly','bro','aff','dep','ent_cl'].forEach(k => {
+    const v = get(`consoV1000_${k}`); if (v !== null) WORKING.consoV1000[k] = v;
+  });
+  const kmNb = get('consoKM_nb'); if (kmNb !== null) WORKING.consoKM.nb = kmNb;
+}
+
+function recalc() {
+  readWorkingFromForm();
+
+  // Calcul MO
+  const moV = SIMPACT_PARAMS.computeMODetails(WORKING.mo.v1000);
+  const moK = SIMPACT_PARAMS.computeMODetails(WORKING.mo.km2100);
+
+  // Afficher MO V1000
+  document.getElementById('moV1000Box').innerHTML = `
+    <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-family:'DM Mono',monospace">Masse salariale V1000</div>
+    <div class="mo-row"><span class="mo-k">${WORKING.mo.v1000.operators} op. × ${WORKING.mo.v1000.salaireGrut} DT × ${WORKING.mo.v1000.nbMois} mois × (1+${WORKING.mo.v1000.chargesPct}%)</span></div>
+    <div class="mo-row"><span class="mo-k">Masse salariale / an</span><span class="mo-v">${moV.masseSalariale.toFixed(0)} DT</span></div>
+    <div class="mo-row"><span class="mo-k">Capacité (${WORKING.mo.v1000.ppmMachine}ppm × ${WORKING.mo.v1000.uptimePct}% × ${WORKING.mo.v1000.heuresAn}h × 60)</span><span class="mo-v">${(moV.capaciteClicks/1000000).toFixed(2)}M clicks/an</span></div>
+    <div class="mo-row mo-total"><span class="mo-k">MO / click A4</span><span class="mo-v">${moV.moPerClick.toFixed(5)} DT</span></div>`;
+
+  // Afficher MO KM
+  document.getElementById('moKMBox').innerHTML = `
+    <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-family:'DM Mono',monospace">Masse salariale KM2100</div>
+    <div class="mo-row"><span class="mo-k">Capacité (${WORKING.mo.km2100.ppmMachine}ppm × ${WORKING.mo.km2100.uptimePct}% × ${WORKING.mo.km2100.heuresAn}h × 60)</span><span class="mo-v">${(moK.capaciteClicks/1000000).toFixed(2)}M clicks/an</span></div>
+    <div class="mo-row mo-total"><span class="mo-k">MO / click A4</span><span class="mo-v">${moK.moPerClick.toFixed(5)} DT</span></div>`;
+
+  // Calcul CPC
+  const CPC = SIMPACT_PARAMS.computeCPC(WORKING);
+  const E = WORKING.energie.dtParClickA4;
+  const TV = WORKING.terrain.v1000;
+
+  // CPC V1000
+  const cpcV1000 = [
+    ['CDV',         WORKING.consoV1000.cdv,    CPC.cdv],
+    ['Flyers',      WORKING.consoV1000.fly,    CPC.fly],
+    ['Brochures',   WORKING.consoV1000.bro,    CPC.bro],
+    ['Affiches',    WORKING.consoV1000.aff,    CPC.aff],
+    ['Dépliants',   WORKING.consoV1000.dep,    CPC.dep],
+    ['En-tête coul.',WORKING.consoV1000.ent_cl,CPC.ent_cl],
+  ];
+  document.getElementById('cpcV1000Panel').innerHTML = cpcV1000.map(([l,base,cpc]) =>
+    `<div class="cpc-row">
+      <span class="cpc-k">${l} <span style="font-size:9px;color:var(--text-dim)">(conso ${base.toFixed(4)})</span></span>
+      <span class="cpc-v">${cpc.toFixed(4)} DT</span>
+    </div>`
+  ).join('');
+
+  // CPC KM
+  document.getElementById('cpcKMPanel').innerHTML = `
+    <div class="cpc-row">
+      <span class="cpc-k">N&B (conso ${WORKING.consoKM.nb})</span>
+      <span class="cpc-v">${CPC.ent_nb.toFixed(4)} DT</span>
+    </div>`;
+
+  // Simulateur
+  runSimulator(CPC);
+}
+
+function runSimulator(cpc) {
+  // Construire un SIMPACT_PRICING temporaire avec les paramètres WORKING
+  // On réutilise le moteur existant mais avec les PRODS reconstruits avec les nouveaux CPC
+  const panel = document.getElementById('simPanel');
+
+  // Calculer avec les paramètres actuels (WORKING)
+  // On doit patcher temporairement SIMPACT_PARAMS.P
+  const backup = JSON.parse(JSON.stringify(SIMPACT_PARAMS.P));
+  Object.assign(SIMPACT_PARAMS.P, WORKING);
+  Object.assign(SIMPACT_PARAMS.P.papier, WORKING.papier);
+  Object.assign(SIMPACT_PARAMS.P.finitions, WORKING.finitions);
+  Object.assign(SIMPACT_PARAMS.P.prepresse, WORKING.prepresse);
+  Object.assign(SIMPACT_PARAMS.P.marges, WORKING.marges);
+
+  // Reconstruire le pricing avec les nouveaux CPC
+  const newCPC = SIMPACT_PARAMS.computeCPC(WORKING);
+  // Patch CPC dans les PRODS existants
+  SIMPACT_PRICING.PRODS.forEach(p => {
+    p.fins.forEach(f => { /* taux lus via finRate() */ });
+    if (p.colors) p.colors.forEach(c => {
+      if (c.cpc === undefined) return;
+      const map = {[SIMPACT_PRICING.CPC.cdv]:newCPC.cdv,[SIMPACT_PRICING.CPC.fly]:newCPC.fly,
+        [SIMPACT_PRICING.CPC.bro]:newCPC.bro,[SIMPACT_PRICING.CPC.aff]:newCPC.aff,
+        [SIMPACT_PRICING.CPC.dep]:newCPC.dep,[SIMPACT_PRICING.CPC.ent_nb]:newCPC.ent_nb,
+        [SIMPACT_PRICING.CPC.ent_cl]:newCPC.ent_cl,[SIMPACT_PRICING.CPC.liv_nb]:newCPC.liv_nb};
+      if (c.cpc in map) c.cpc = map[c.cpc];
+      if (c.cpcCov in map) c.cpcCov = map[c.cpcCov];
+      if (c.cpcInt in map) c.cpcInt = map[c.cpcInt];
+    });
+    if (p.cpcNb) p.cpcNb = newCPC.liv_nb;
+    if (p.cpcCov) p.cpcCov = newCPC.bro;
+  });
+
+  let html = '';
+  SIM_JOBS.forEach(job => {
+    const prod = SIMPACT_PRICING.PRODS.find(x => x.id === job.id);
+    const r = prod ? SIMPACT_PRICING.compute(prod, job.s) : null;
+    const newHT = r ? r.finalHT : '—';
+    const refHT = REF_PRICES[job.label];
+    const changed = refHT !== undefined && newHT !== refHT;
+    const diff = changed ? newHT - refHT : 0;
+    const diffClass = diff > 0 ? 'up' : diff < 0 ? 'down' : 'same';
+    const diffStr  = diff !== 0 ? (diff>0?'+':'')+diff+' DT' : '—';
+
+    html += `<div class="sim-row ${changed?'changed':''}">
+      <div class="sim-label">${job.label}</div>
+      <div class="sim-prices">
+        ${refHT !== undefined && changed ? `<span class="sim-old">${refHT} DT</span>` : ''}
+        <span class="sim-new">${newHT} DT</span>
+        <span class="sim-diff ${diffClass}">${diffStr}</span>
+      </div>
+    </div>`;
+  });
+  panel.innerHTML = html;
+
+  // Restaurer
+  Object.assign(SIMPACT_PARAMS.P, backup);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SAUVEGARDER
+───────────────────────────────────────────────────────────── */
+function saveParams() {
+  readWorkingFromForm();
+  const saved = SIMPACT_PARAMS.save(WORKING, 'Admin');
+  Object.assign(SIMPACT_PARAMS.P, saved);
+
+  // Fixer les nouveaux prix de référence
+  REF_PRICES = {};
+  const cpc = SIMPACT_PARAMS.computeCPC(WORKING);
+  SIMPACT_PRICING.PRODS.forEach(p => {
+    SIM_JOBS.filter(j=>j.id===p.id).forEach(job=>{
+      const r = SIMPACT_PRICING.compute(p, job.s);
+      if (r) REF_PRICES[job.label] = r.finalHT;
+    });
+  });
+
+  document.getElementById('lastSavedLabel').textContent =
+    `Dernière sauvegarde : ${saved.updatedAt} — Paramètres actifs sur tous les modules`;
+  document.getElementById('saveStatus').textContent = `✓ Enregistré le ${new Date().toLocaleString('fr-FR')}`;
+  setTimeout(() => document.getElementById('saveStatus').textContent = '', 5000);
+  showToast('✓ Paramètres enregistrés — prix mis à jour', 'success');
+}
+
+function resetParams() {
+  if (!confirm('Réinitialiser tous les paramètres aux valeurs par défaut ?')) return;
+  WORKING = JSON.parse(JSON.stringify(SIMPACT_PARAMS.DEFAULTS));
+  SIMPACT_PARAMS.reset();
+  loadForm();
+  renderPaperTable();
+  renderFinitions();
+  renderSetup();
+  renderMarges();
+  REF_PRICES = {};
+  recalc();
+  showToast('Paramètres réinitialisés aux valeurs par défaut', 'warning');
+}
+
+/* ─────────────────────────────────────────────────────────────
+   EXPORT / IMPORT JSON
+───────────────────────────────────────────────────────────── */
+function exportParams() {
+  readWorkingFromForm();
+  const blob = new Blob([JSON.stringify(WORKING, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `simpact-params-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+function importParams(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      WORKING = SIMPACT_PARAMS.deepMerge(JSON.parse(JSON.stringify(SIMPACT_PARAMS.DEFAULTS)), imported);
+      loadForm();
+      renderPaperTable();
+      renderFinitions();
+      renderSetup();
+      renderMarges();
+      recalc();
+      showToast('✓ Paramètres importés — vérifiez et enregistrez', 'success');
+    } catch(err) {
+      showToast('Erreur lors de l\'import JSON', 'error');
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+// ── Init prix de référence ──────────────────────────────────
+window.addEventListener('load', () => {
+  SIM_JOBS.forEach(job => {
+    const prod = SIMPACT_PRICING.PRODS.find(x => x.id === job.id);
+    const r = prod ? SIMPACT_PRICING.compute(prod, job.s) : null;
+    if (r) REF_PRICES[job.label] = r.finalHT;
+  });
+  recalc();
+});
+</script>
+</body>
+</html>

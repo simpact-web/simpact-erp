@@ -1,40 +1,20 @@
-/* ═══════════════════════════════════════════════════════
-   SIMPACT PRICING ENGINE v5.0 — Source unique de vérité
-   Utilisé par : configurator.html ET client-portal.html
-   Tous les prix HT sont des entiers arrondis au sup.
-   ═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   SIMPACT PRICING ENGINE v5.1
+   Moteur de calcul — lit ses paramètres depuis SIMPACT_PARAMS
+   Utilisé par : configurator.html, client-portal.html
+   ═══════════════════════════════════════════════════════════════ */
 
 const SIMPACT_PRICING = (function () {
 
-  /* ── CPC Canon V1000 — Source Azur Colors 05/03/2026 ── */
-  const E  = 0.002;                    // énergie DT/click  (corrigé 24/03/2026)
-  const T  = 0.90;                     // -10% terrain
-  const MO = 38885 / 7800000;          // main-d'oeuvre DT/click
+  /* ── Paramètres dynamiques depuis SIMPACT_PARAMS ── */
+  const P   = SIMPACT_PARAMS.P;
+  const CPC = SIMPACT_PARAMS.computeCPC(P);
+  const PKG = P.papier;
+  const A4A = 0.210 * 0.297;
 
-  const CPC = {
-    cdv:    +((0.2281 + E + MO) * T).toFixed(4),
-    fly:    +((0.2069 + E + MO) * T).toFixed(4),
-    bro:    +((0.1706 + E + MO) * T).toFixed(4),
-    aff:    +((0.2939 + E + MO) * T).toFixed(4),
-    dep:    +((0.1905 + E + MO) * T).toFixed(4),
-    ent_nb: +((0.011  + E + MO) * T).toFixed(4),  // KM AccurioPrint 2100 — consommables 0.011 DT/click
-    ent_cl: +((0.1247 + E + MO) * T).toFixed(4),
-    liv_nb: +((0.011  + E + MO) * T).toFixed(4),  // KM AccurioPrint 2100 — consommables 0.011 DT/click
-  };
-
-  const A4A = 0.210 * 0.297;   // surface A4 en m²
-
-  /* ── Prix papier DT/kg ─────────────────────────────── */
-  // Prix papier DT/kg — PRIX D'ACHAT RÉELS SIMPACT (fiches fournisseurs LPCT + CSP mars 2026)
-  // LPCT : 300g=3.630, 350g=3.750, 250g=3.650, 170g=3.650
-  // CSP  : 80g offset=3.500, 130g couché=3.480, 200g couché=3.480
-  const PKG = {
-    coated: { 90:3.48, 115:3.48, 135:3.48, 170:3.65, 200:3.48, 250:3.65, 300:3.63, 350:3.75, 400:3.90 },  // 400g confirmé
-    offset: { 80:3.50, 90:3.55, 100:3.60 },
-  };
   const kp = (g, t) => (PKG[t] || PKG.coated)[g] || 3.50;
 
-  /* ── Imposition ───────────────────────────────────── */
+  /* ── Imposition ──────────────────────────────────── */
   function poses(pw, ph, sw, sh) {
     const B = 0.003, G = 0.002;
     const fw = pw + B*2 + G, fh = ph + B*2 + G;
@@ -45,11 +25,12 @@ const SIMPACT_PRICING = (function () {
 
   /* ── Gâche ──────────────────────────────────────── */
   function waste(sNet, qty) {
-    const r = qty < 500 ? 0.08 : qty < 2000 ? 0.05 : 0.03;
-    return Math.max(10, Math.ceil(sNet * r));
+    const tr = P.gache.tranches;
+    const taux = (tr.find(t => qty <= t.max) || tr[tr.length-1]).taux;
+    return Math.max(P.gache.minimum, Math.ceil(sNet * taux));
   }
 
-  /* ── Arrondi HT : granularité fine pour que les choix papier soient visibles ─ */
+  /* ── Arrondi HT ────────────────────────────────── */
   function roundHT(x) {
     if (x <= 0)   return 0;
     if (x < 10)   return Math.ceil(x);
@@ -58,19 +39,45 @@ const SIMPACT_PRICING = (function () {
     return Math.ceil(x / 10) * 10;
   }
 
-  /* ── Marge par quantité ────────────────────────── */
+  /* ── Marge par quantité ─────────────────────────── */
   function getMargin(p, qty) {
-    if (!p.margins) return p.margin;
-    let idx = p.qty.length - 1;
-    for (let i = 0; i < p.qty.length; i++) {
-      if (qty <= p.qty[i]) { idx = i; break; }
+    const mp = P.marges[p.id];
+    if (!mp || !mp.paliers.length) {
+      // Fallback sur la marge directe du produit
+      if (!p.margins) return mp ? mp.defaut : p.margin;
+      let idx = p.qty.length - 1;
+      for (let i = 0; i < p.qty.length; i++) { if (qty <= p.qty[i]) { idx = i; break; } }
+      return p.margins[idx];
     }
-    return p.margins[idx];
+    let idx = mp.paliers.length - 1;
+    for (let i = 0; i < mp.paliers.length; i++) { if (qty <= mp.paliers[i]) { idx = i; break; } }
+    return mp.marges[idx] !== undefined ? mp.marges[idx] : mp.defaut;
   }
 
-  /* ══════════════════════════════════════════════════
+  function getSetup(p) {
+    return P.prepresse[p.id] !== undefined ? P.prepresse[p.id] : p.setup;
+  }
+
+  /* ── Taux finitions depuis params ───────────────── */
+  function finRate(finId) {
+    const fin = P.finitions;
+    const map = {
+      pm: fin.pelliculage_mat.dt,
+      pb: fin.pelliculage_brillant.dt,
+      co: fin.coins_arrondis.dt,
+      vu: fin.vernis_uv.dt,
+      pl: fin.pliage.dt,
+      piqure:  fin.piqure_agrafes.dt,
+      spirale: fin.reliure_spirale.dt,
+      dos:     fin.dos_carre_colle.dt,
+      oe:      fin.oeillet.dt,
+    };
+    return map[finId] !== undefined ? map[finId] : null;
+  }
+
+  /* ════════════════════════════════════════════════════
      CATALOGUE PRODUITS
-     ══════════════════════════════════════════════════ */
+     ════════════════════════════════════════════════════ */
   const PRODS = [
 
     /* ── CARTES DE VISITE ─────────────────────────── */
@@ -92,14 +99,12 @@ const SIMPACT_PRICING = (function () {
         {id:"nb",label:"Noir & Blanc R/V",  sides:2, cpc:CPC.ent_nb},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.10},
-        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.10},
-        {id:"co",label:"Coins arrondis",        t:"pp", r:.020},
-        {id:"vu",label:"Vernis UV sélectif",    t:"pp", r:.035},
+        {id:"pm",label:"Pelliculage Mat",     t:"ps"},
+        {id:"pb",label:"Pelliculage Brillant", t:"ps"},
+        {id:"co",label:"Coins arrondis",       t:"pp"},
+        {id:"vu",label:"Vernis UV sélectif",   t:"pp"},
       ],
-      qty:[50,100,250,500,1000,2000],
-      margins:[.40,.42,.45,.47,.48,.48],
-      margin:.45, setup:12,
+      qty:   [50,100,250,500,1000,2000], setup:12,
     },
 
     /* ── FLYERS ────────────────────────────────────── */
@@ -123,12 +128,10 @@ const SIMPACT_PRICING = (function () {
         {id:"nb",label:"Noir & Blanc R/V",  sides:2, cpc:CPC.ent_nb},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.10},
-        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.10},
+        {id:"pm",label:"Pelliculage Mat",     t:"ps"},
+        {id:"pb",label:"Pelliculage Brillant", t:"ps"},
       ],
-      qty:[50,100,250,500,1000,2000],
-      margins:[.35,.43,.41,.47,.40,.32],
-      margin:.41, setup:10,
+      qty:[50,100,250,500,1000,2000], setup:10,
     },
 
     /* ── BROCHURES ─────────────────────────────────── */
@@ -140,9 +143,9 @@ const SIMPACT_PRICING = (function () {
       ],
       sheet:{w:.320, h:.450},
       bindings:[
-        {id:"piqure", label:"Piqûre (agrafé)", cost:.08},
-        {id:"spirale",label:"Reliure spirale", cost:.45},
-        {id:"dos",    label:"Dos carré collé", cost:.10},
+        {id:"piqure", label:"Piqûre (agrafé)"},
+        {id:"spirale",label:"Reliure spirale"},
+        {id:"dos",    label:"Dos carré collé"},
       ],
       cPapers:[
         {id:"300m",label:"300g Couché Mat",       g:300, type:"coated"},
@@ -173,11 +176,10 @@ const SIMPACT_PRICING = (function () {
         {id:"nb", label:"Noir & Blanc intégral",   cSides:2,iSides:2, cpcCov:CPC.ent_nb, cpcInt:CPC.ent_nb},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat couv.",      t:"pc", r:.10},
-        {id:"pb",label:"Pelliculage Brillant couv.", t:"pc", r:.10},
+        {id:"pm",label:"Pelliculage Mat couv.",      t:"pc"},
+        {id:"pb",label:"Pelliculage Brillant couv.", t:"pc"},
       ],
-      qty:[25,50,100,250,500,1000],
-      margin:.53, setup:18,
+      qty:[25,50,100,250,500,1000], setup:18,
     },
 
     /* ── AFFICHES ──────────────────────────────────── */
@@ -203,12 +205,11 @@ const SIMPACT_PRICING = (function () {
         {id:"nb",label:"Noir & Blanc recto", sides:1, cpc:CPC.ent_nb},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.10},
-        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.10},
-        {id:"oe",label:"Œillets ×4",           t:"pp", r:.050},
+        {id:"pm",label:"Pelliculage Mat",     t:"ps"},
+        {id:"pb",label:"Pelliculage Brillant", t:"ps"},
+        {id:"oe",label:"Œillets ×4",          t:"pp"},
       ],
-      qty:[5,10,25,50,100,250],
-      margin:.64, setup:15,
+      qty:[5,10,25,50,100,250], setup:15,
     },
 
     /* ── PAPIER EN-TÊTE ────────────────────────────── */
@@ -225,8 +226,7 @@ const SIMPACT_PRICING = (function () {
         {id:"1c",label:"1 couleur Pantone",  sides:1, cpc:CPC.ent_nb},
       ],
       fins:[],
-      qty:[25,50,100,200,500,1000,2000],
-      margin:.55, setup:8,
+      qty:[25,50,100,200,500,1000,2000], setup:8,
     },
 
     /* ── DÉPLIANTS ─────────────────────────────────── */
@@ -250,13 +250,11 @@ const SIMPACT_PRICING = (function () {
         {id:"40",label:"Quadri recto (4/0)",sides:1, cpc:CPC.dep},
       ],
       fins:[
-        {id:"pm",label:"Pelliculage Mat",      t:"ps", r:.10},
-        {id:"pb",label:"Pelliculage Brillant",  t:"ps", r:.10},
-        {id:"pl",label:"Pliage",               t:"pp", r:.015},
+        {id:"pm",label:"Pelliculage Mat",     t:"ps"},
+        {id:"pb",label:"Pelliculage Brillant", t:"ps"},
+        {id:"pl",label:"Pliage",              t:"pp"},
       ],
-      qty:[25,50,100,200,500,1000,2000],
-      margins:[.38,.36,.41,.41,.46,.45,.48],
-      margin:.41, setup:12,
+      qty:[25,50,100,200,500,1000,2000], setup:12,
     },
 
     /* ── LIVRES N&B ────────────────────────────────── */
@@ -285,27 +283,28 @@ const SIMPACT_PRICING = (function () {
       ],
       colors:[{id:"nb",label:"N&B int. + Couv quadri"}],
       fins:[
-        {id:"piqure", label:"Agrafé (piqûre)",           t:"pp", r:.08},
-        {id:"spirale",label:"Reliure spirale",            t:"pp", r:.12},
-        {id:"dos",    label:"Dos carré collé",            t:"pp", r:.10},
-        {id:"pm",     label:"Pelliculage Mat (couv)",      t:"ps", r:.10},  // 0.10 DT/face SRA3 couverture
-        {id:"pb",     label:"Pelliculage Brillant (couv)", t:"ps", r:.10},
+        {id:"piqure", label:"Agrafé (piqûre)",           t:"pp"},
+        {id:"spirale",label:"Reliure spirale",            t:"pp"},
+        {id:"dos",    label:"Dos carré collé",            t:"pp"},
+        {id:"pm",     label:"Pelliculage Mat (couv)",     t:"ps"},
+        {id:"pb",     label:"Pelliculage Brillant (couv)",t:"ps"},
       ],
-      qty:[10,25,50,100,250,500],
-      margin:.41, setup:20, cpcNb:CPC.liv_nb, cpcCov:CPC.bro,
+      qty:[10,25,50,100,250,500], setup:20,
+      cpcNb:CPC.liv_nb, cpcCov:CPC.bro,
     },
   ];
 
-  /* ══════════════════════════════════════════════════
+  /* ════════════════════════════════════════════════════
      MOTEUR DE CALCUL
-     ══════════════════════════════════════════════════ */
+     ════════════════════════════════════════════════════ */
 
   function calcFins(defs, ids, sNet, q) {
     let fc = 0; const fr = [];
     for (const id of ids) {
       const f = defs.find(x => x.id === id); if (!f) continue;
-      const c = f.t === "ps" ? sNet*f.r : f.t === "pp" ? q*f.r : f.r;
-      fc += c; fr.push({l:f.label, c, t:f.t});
+      const r = finRate(id) !== null ? finRate(id) : (f.r || 0);
+      const c = f.t === "ps" ? sNet*r : f.t === "pp" ? q*r : r;
+      fc += c; fr.push({l:f.label, c, t:f.t, r});
     }
     return {fc, fr};
   }
@@ -314,7 +313,8 @@ const SIMPACT_PRICING = (function () {
     let fc = 0; const fr = [];
     for (const id of ids) {
       const f = defs.find(x => x.id === id); if (!f) continue;
-      const c = f.t === "pc" ? cT*f.r : f.t === "pp" ? q*f.r : f.r;
+      const r = finRate(id) !== null ? finRate(id) : (f.r || 0);
+      const c = f.t === "pc" ? cT*r : f.t === "pp" ? q*r : r;
       fc += c; fr.push({l:f.label, c});
     }
     return {fc, fr};
@@ -327,16 +327,16 @@ const SIMPACT_PRICING = (function () {
     if (!fmt||!pap||!col) return null;
     const sh=fmt.sheet, sa=sh.w*sh.h, a4e=sa/A4A;
     const {n:ps_calc, o:or}=poses(fmt.w, fmt.h, sh.w, sh.h);
-    const ps = fmt.psOverride || ps_calc;          // pose fixée manuellement si psOverride
+    const ps = fmt.psOverride || ps_calc;
     const sNet=Math.ceil(q/ps);
-    const sw = fmt.noWaste ? 0 : waste(sNet,q);    // pas de gâche si noWaste
+    const sw = fmt.noWaste ? 0 : waste(sNet,q);
     const sT=sNet+sw;
     const kps=(pap.g/1000)*sa, kprice=kp(pap.g, pap.type);
     const paperCost=sT*kps*kprice;
     const cpcUsed=col.cpc;
     const machineCost=sT*a4e*col.sides*cpcUsed;
     const {fc, fr}=calcFins(p.fins, fins, sNet, q);
-    const setup=p.setup, tot=paperCost+machineCost+setup+fc;
+    const setup=getSetup(p), tot=paperCost+machineCost+setup+fc;
     const margin=getMargin(p, q);
     const rawHT=tot/(1-margin);
     const finalHT=roundHT(rawHT*(1-disc/100));
@@ -359,39 +359,38 @@ const SIMPACT_PRICING = (function () {
     const cp=p.cPapers[pa2]||p.cPapers[0];
     const ip=p.iPapers[pa]||p.iPapers[0];
     const col=p.colors[ci]||p.colors[0];
-    const binding=p.bindings[bi]||p.bindings[0];
+    const bindingId=(p.bindings[bi]||p.bindings[0]).id;
+    const bindingLabel=(p.bindings[bi]||p.bindings[0]).label;
+    const bindingCostRate = finRate(bindingId) !== null ? finRate(bindingId) : (P.finitions[{piqure:'piqure_agrafes',spirale:'reliure_spirale',dos:'dos_carre_colle'}[bindingId]]?.dt || 0.08);
     const covType=p.covTypes[cov]||p.covTypes[0];
     const fmt=p.formats[fi];
     const sh=p.sheet, sa=sh.w*sh.h, a4e=sa/A4A;
-    // ps = poses par face (A4→2, A5→4)
-    // Règle prepress : 1 SRA3 = ps × 2 faces = pagesPerSheet
-    //   A4 : 2×2 = 4 pages/SRA3  |  A5 : 4×2 = 8 pages/SRA3
     const {n:ps}=poses(fmt.piece.w, fmt.piece.h, sh.w, sh.h);
-    const pps=ps*2;                          // pages par SRA3 (recto+verso)
-    const iSpc=pages/pps;                    // SRA3 int/ex — exact (demi-cahier autorisé)
-    // Couverture : 4 pages ÷ pps → A4: 1 SRA3/ex, A5: 2 couv/SRA3
-    const iNet=Math.ceil(q*pages/pps);       // ceil pour obtenir un entier
-    const cNet=Math.ceil(q*4/pps);           // A4: ceil(q×4/4)=q, A5: ceil(q×4/8)=ceil(q/2)
+    const pps=ps*2;
+    const iSpc=pages/pps;
+    const iNet=Math.ceil(q*pages/pps);
+    const cNet=Math.ceil(q*4/pps);
     const cW=waste(cNet,q), iW=waste(iNet,q);
     const cT=cNet+cW, iT=iNet+iW;
     const cpCost=cT*(cp.g/1000)*sa*kp(cp.g, cp.type);
     const ipCost=iT*(ip.g/1000)*sa*kp(ip.g, ip.type);
     const cmCost=cT*a4e*covType.sides*col.cpcCov;
     const imCost=iT*a4e*col.iSides*col.cpcInt;
-    const bindingCost=q*binding.cost;
+    const bindingCost=q*bindingCostRate;
     const {fc, fr}=calcFinsBooklet(p.fins, fins, cT, q);
-    const setup=p.setup;
+    const setup=getSetup(p);
     const tot=cpCost+ipCost+cmCost+imCost+bindingCost+setup+fc;
-    const rawHT=tot/(1-p.margin);
+    const margin=getMargin(p, q);
+    const rawHT=tot/(1-margin);
     const finalHT=roundHT(rawHT*(1-disc/100));
     return {
-      ps,sNet:cNet+iNet,sw:cW+iW,sT:cT+iT,sa,a4e,
+      ps,sNet:cNet+iNet,sw:cW+iW,sT:cT+iT,sa,a4e,cT,iT,
       paperCost:cpCost+ipCost, machineCost:cmCost+imCost, bindingCost, setup, fc, fr, tot,
       cpCost,ipCost,cmCost,imCost,
-      finalHT, finalTTC:finalHT*1.19, unit:finalHT/q, margin:p.margin, disc,
+      finalHT, finalTTC:finalHT*1.19, unit:finalHT/q, margin, disc,
       info:`${ps} poses/${fmt.label} — ${iSpc}int+1couv/ex`,
       sheetInfo:`${pages+4}p total · Couv:${cT}f Int:${iT}f`,
-      isBooklet:true, cp, ip, pages:pages+4, bindingLabel:binding.label,
+      isBooklet:true, cp, ip, pages:pages+4, bindingLabel,
     };
   }
 
@@ -406,24 +405,25 @@ const SIMPACT_PRICING = (function () {
     const fmt=p.formats[fi];
     const sh=p.sheet, sa=sh.w*sh.h, a4e=sa/A4A;
     const {n:ps}=poses(fmt.pd.w, fmt.pd.h, sh.w, sh.h);
-    const pps=ps*2;                          // A5→8 pages/SRA3, A4→4 pages/SRA3
-    const iSpc=pages/pps;                    // exact — demi-cahier possible
+    const pps=ps*2;
+    const iSpc=pages/pps;
     const iNet=Math.ceil(q*pages/pps), iW=waste(iNet,q), iT=iNet+iW;
     const cNet=Math.ceil(q*4/pps), cW=Math.max(5,Math.ceil(cNet*.05)), cT=cNet+cW;
     const ipCost=iT*(pap.g/1000)*sa*kp(pap.g, pap.type);
     const cpCost=cT*(cp.g/1000)*sa*kp(cp.g, cp.type);
     const imCost=iT*a4e*2*p.cpcNb;
     const cmCost=cT*a4e*covType.sides*p.cpcCov;
-    const {fc, fr}=calcFins(p.fins, fins, cNet, q);  // cNet = nb feuilles couverture
-    const setup=p.setup;
+    const {fc, fr}=calcFins(p.fins, fins, cNet, q);
+    const setup=getSetup(p);
     const tot=ipCost+cpCost+imCost+cmCost+setup+fc;
-    const rawHT=tot/(1-p.margin);
+    const margin=getMargin(p, q);
+    const rawHT=tot/(1-margin);
     const finalHT=roundHT(rawHT*(1-disc/100));
     return {
-      ps,sNet:iNet+cNet,sw:iW+cW,sT:iT+cT,sa,a4e,
+      ps,sNet:iNet+cNet,sw:iW+cW,sT:iT+cT,sa,a4e,cT,
       paperCost:ipCost+cpCost, machineCost:imCost+cmCost, setup, fc, fr, tot,
       ipCost,cpCost,imCost,cmCost,
-      finalHT, finalTTC:finalHT*1.19, unit:finalHT/q, margin:p.margin, disc,
+      finalHT, finalTTC:finalHT*1.19, unit:finalHT/q, margin, disc,
       info:`${ps} poses/${fmt.label} — ${iSpc}int+1couv/ex`,
       sheetInfo:`${pages}p int · Int:${iT}f Couv:${cT}f`,
       isBook:true, pages, cpLabel:cp.label, pap,
