@@ -283,7 +283,8 @@
     </div>
   </div>
 
-  <script src="js/data.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/db.js"></script>
   <script src="js/auth.js"></script>
   <script>
     // Si déjà connecté → redirect (dans DOMContentLoaded pour éviter l'écran noir)
@@ -307,8 +308,9 @@
       btn.textContent = "Connexion…";
       btn.disabled = true;
 
-      setTimeout(() => {
-        const result = SIMPACT_AUTH.login(username, password);
+      // Login async — attend la réponse Supabase
+      setTimeout(async () => {
+        const result = await SIMPACT_AUTH.login(username, password);
         if (result.success) {
           btn.textContent = "✓ Connecté";
           errBox.classList.remove("show");
@@ -319,7 +321,7 @@
           btn.textContent = "Se connecter";
           btn.disabled = false;
         }
-      }, 600);
+      }, 300);
     }
 
     function fillLogin(u, p) {

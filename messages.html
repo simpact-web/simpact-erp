@@ -256,9 +256,9 @@
 <!-- Input fichier caché -->
 <input type="file" id="fileInput" style="display:none" accept=".pdf,.jpg,.jpeg,.png,.zip" onchange="handleFileAttach(event)">
 
-<script src="js/data.js"></script>
+<script src="js/supabase.js"></script>
+  <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
-<script src="js/messaging.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
