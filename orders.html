@@ -253,8 +253,8 @@ const STATUS_CONFIG = {
   cancelled:  { label:"Annulé",     badge:"badge-cancelled",  icon:"✕",  next:null,          nextLabel:null },
 };
 
-function renderPipeline(){
-  const orders = DB.getOrders();
+async function renderPipeline(){
+  const orders = await DB.getOrders();
   const counts = {};
   ["received","bat","production","done"].forEach(s => counts[s] = orders.filter(o=>o.status===s).length);
   document.getElementById("pipeline").innerHTML = Object.entries(counts).map(([s,c])=>`
@@ -265,18 +265,18 @@ function renderPipeline(){
   `).join("");
 }
 
-function renderClientFilter(){
+async function renderClientFilter(){
   const sel = document.getElementById("clientFilter");
-  DB.getClients().forEach(c => {
+  await DB.getClients().forEach(c => {
     const o = document.createElement("option"); o.value=c.id; o.textContent=c.name; sel.appendChild(o);
   });
 }
 
-function filterOrders(){
+async function filterOrders(){
   const q = document.getElementById("searchInput").value.toLowerCase();
   const st = document.getElementById("statusFilter").value;
   const cl = document.getElementById("clientFilter").value;
-  let orders = DB.getOrders();
+  let orders = await DB.getOrders();
   if(st) orders = orders.filter(o=>o.status===st);
   if(cl) orders = orders.filter(o=>o.clientId===cl);
   if(q)  orders = orders.filter(o=>(o.id+o.clientName+o.product).toLowerCase().includes(q));
@@ -306,7 +306,7 @@ function renderTable(orders){
 }
 
 function openDetail(id){
-  const o = DB.getOrder(id);
+  const o = await DB.getOrder(id);
   if(!o) return;
   const sc = STATUS_CONFIG[o.status]||{};
   const tl = (o.timeline||[]);
@@ -380,16 +380,16 @@ function advanceStatus(id, newStatus){
   renderPipeline(); filterOrders();
 }
 
-function openNewOrderModal(){
+async function openNewOrderModal(){
   const sel = document.getElementById("nc-client");
   sel.innerHTML = "";
-  DB.getClients().forEach(c => { const o=document.createElement("option"); o.value=c.id; o.textContent=c.name; sel.appendChild(o); });
+  await DB.getClients().forEach(c => { const o=document.createElement("option"); o.value=c.id; o.textContent=c.name; sel.appendChild(o); });
   document.getElementById("newOrderModal").style.display="flex";
 }
 
 function createOrder(){
   const clientId = document.getElementById("nc-client").value;
-  const client   = DB.getClient(clientId);
+  const client   = await DB.getClient(clientId);
   const priceHT  = parseFloat(document.getElementById("nc-price").value)||0;
   const order = DB.createOrder({
     clientId, clientName: client?.name||"—",
@@ -409,7 +409,7 @@ function createOrder(){
   renderPipeline(); filterOrders();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const session = SIMPACT_AUTH.requireAuth(["superadmin","team","client"]);
   if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("orders"); }
   renderPipeline(); renderClientFilter(); filterOrders();

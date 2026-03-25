@@ -175,7 +175,7 @@
   <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("DOMContentLoaded", async () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin"]);
 if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("admin"); }
 
@@ -201,7 +201,7 @@ function saveUsers(users) {
 const ROLE_COLORS = { superadmin:"var(--gold)", team:"var(--info)", client:"var(--success)" };
 const ROLE_LABELS = { superadmin:"Super Admin", team:"Équipe", client:"Client" };
 
-function renderAll() {
+async function renderAll() {
   const users = getUsers();
   ["superadmin","team","client"].forEach(role => {
     const list = users.filter(u => u.role === role);
@@ -213,7 +213,7 @@ function renderAll() {
 
 function userCard(u) {
   const color = ROLE_COLORS[u.role] || "var(--text-muted)";
-  const client = u.clientId ? DB.getClient(u.clientId) : null;
+  const client = u.clientId ? await DB.getClient(u.clientId) : null;
   const isSelf = u.id === session.userId;
 
   return `<div class="user-card">
@@ -252,7 +252,7 @@ function openModal(userId = null) {
   // Remplir dropdown clients
   const sel = document.getElementById("edit-clientId");
   sel.innerHTML = `<option value="">— Aucun —</option>`;
-  DB.getClients().forEach(c => {
+  await DB.getClients().forEach(c => {
     const o = document.createElement("option"); o.value=c.id; o.textContent=c.name; sel.appendChild(o);
   });
 
@@ -287,7 +287,7 @@ function togglePwd() {
 
 function editUser(id) { openModal(id); }
 
-function saveUser() {
+async function saveUser() {
   const id       = document.getElementById("edit-id").value;
   const name     = document.getElementById("edit-name").value.trim();
   const username = document.getElementById("edit-username").value.trim().toLowerCase();

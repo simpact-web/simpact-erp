@@ -169,14 +169,14 @@
   <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("DOMContentLoaded", async () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
 if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("stock"); }
 
 let currentStockId = null;
 
-function renderAll(){
-  const stock = DB.getStock();
+async function renderAll(){
+  const stock = await DB.getStock();
   renderKPIs(stock); renderAlerts(stock); renderGrid(stock);
 }
 
@@ -238,7 +238,7 @@ function renderGrid(stock){
 
 function openDetail(id){
   currentStockId = id;
-  const s = DB.getStockItem(id);
+  const s = await DB.getStockItem(id);
   if(!s) return;
   document.getElementById("detailStockTitle").textContent = s.name;
   const fmtDt = iso => new Date(iso).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
@@ -266,7 +266,7 @@ function openDetail(id){
 
 function openMvtModal(stockId, type){
   const sel = document.getElementById("mvt-stock");
-  sel.innerHTML = DB.getStock().map(s=>`<option value="${s.id}" ${s.id===stockId?"selected":""}>${s.name} (${s.qty.toLocaleString("fr-FR")} feuilles)</option>`).join("");
+  sel.innerHTML = await DB.getStock().map(s=>`<option value="${s.id}" ${s.id===stockId?"selected":""}>${s.name} (${s.qty.toLocaleString("fr-FR")} feuilles)</option>`).join("");
   document.getElementById("mvt-type").value = type||"in";
   document.getElementById("mvt-qty").value  = "";
   document.getElementById("mvt-note").value = "";
@@ -274,13 +274,13 @@ function openMvtModal(stockId, type){
   document.getElementById("mvtModal").style.display="flex";
 }
 
-function saveMvt(){
+async function saveMvt(){
   const stockId = document.getElementById("mvt-stock").value;
   const type    = document.getElementById("mvt-type").value;
   const qty     = parseInt(document.getElementById("mvt-qty").value)||0;
   const note    = document.getElementById("mvt-note").value;
   if(!qty) { showToast("Saisissez une quantité valide","error"); return; }
-  const s = DB.getStockItem(stockId);
+  const s = await DB.getStockItem(stockId);
   if(type==="out"&&s&&qty>s.qty){ showToast("Stock insuffisant","error"); return; }
   DB.addStockMovement(stockId, type, qty, note);
   document.getElementById("mvtModal").style.display="none";
@@ -305,7 +305,7 @@ function addNewStock(){
   showToast("Support ajouté !","success"); renderAll();
 }
 
-function openAddStockModal(){ document.getElementById("addStockModal").style.display="flex"; }
+async function openAddStockModal(){ document.getElementById("addStockModal").style.display="flex"; }
 
 renderAll();
   });

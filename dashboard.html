@@ -236,13 +236,12 @@
   <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("DOMContentLoaded", async () => {
   // ── Auth ────────────────────────────────────────────────
   const session = SIMPACT_AUTH.requireAuth(["superadmin", "team"]);
   if (session) {
     SIMPACT_AUTH.renderUserChip(session);
     SIMPACT_AUTH.setActiveNav("dashboard");
-    // Masquer admin nav si pas superadmin
     if (session.role !== "superadmin") {
       const adminNav = document.getElementById("adminNav");
       if (adminNav) adminNav.style.display = "none";
@@ -258,9 +257,13 @@
   }
   greeting();
 
+  // ── Chargement initial des données ──────────────────────
+  const [orders, clients, stock] = await Promise.all([
+    DB.getOrders(), DB.getClients(), DB.getStock()
+  ]);
+
   // ── KPIs ────────────────────────────────────────────────
   function renderKPIs() {
-    const orders  = DB.getOrders();
     const caTotal = orders.reduce((s, o) => s + (o.priceHT || 0), 0);
     const caMonth = orders
       .filter(o => new Date(o.createdAt) >= new Date(new Date().setDate(1)))
@@ -302,13 +305,13 @@
   }
 
   function renderOrders() {
-    const orders = DB.getOrders().slice(0, 6);
+    const recentOrders = orders.slice(0, 6);
     const tbody  = document.getElementById("ordersBody");
     if (!orders.length) {
       tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:24px">Aucune commande</td></tr>`;
       return;
     }
-    tbody.innerHTML = orders.map(o => `
+    tbody.innerHTML = recentOrders.map(o => `
       <tr>
         <td><span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--gold)">${o.id}</span></td>
         <td style="color:var(--text-primary)">${o.clientName}</td>
@@ -322,16 +325,15 @@
     `).join("");
 
     // Badge commandes en attente
-    const pending = DB.getOrders().filter(o => ["received","bat"].includes(o.status)).length;
-    document.getElementById("pendingBadge").textContent = pending;
-    document.getElementById("pendingBadge").style.display = pending ? "inline" : "none";
+    const pending2 = orders.filter(o => ["received","bat"].includes(o.status)).length;
+    document.getElementById("pendingBadge").textContent = pending2;
+    document.getElementById("pendingBadge").style.display = pending2 ? "inline" : "none";
   }
   renderOrders();
 
   // ── Graphe CA par client ────────────────────────────────
   function renderClientChart() {
-    const orders  = DB.getOrders();
-    const clients = DB.getClients();
+    // orders + clients already loaded
     const byClient = {};
     orders.forEach(o => {
       byClient[o.clientName] = (byClient[o.clientName] || 0) + (o.priceHT || 0);
@@ -356,7 +358,7 @@
 
   // ── Alertes stock ───────────────────────────────────────
   function renderStockAlerts() {
-    const stock = DB.getStock();
+    // stock already loaded
     const alerts = stock.filter(s => s.qty <= s.minAlert);
     const el = document.getElementById("stockAlerts");
 
@@ -388,7 +390,6 @@
 
   // ── Timeline activité ───────────────────────────────────
   function renderTimeline() {
-    const orders = DB.getOrders();
     const events = [];
 
     orders.forEach(o => {

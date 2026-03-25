@@ -285,7 +285,7 @@
   <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("DOMContentLoaded", async () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin"]);
 if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("reporting"); }
 
@@ -332,8 +332,8 @@ function showTab(id){
 }
 
 // ── Tab CA ─────────────────────────────────────────────
-function renderCA(){
-  const orders = DB.getOrders();
+async function renderCA(){
+  const orders = await DB.getOrders();
   const done   = orders.filter(o=>o.status==="done");
   const caTotal= orders.reduce((s,o)=>s+(o.priceHT||0),0);
   const caDone = done.reduce((s,o)=>s+(o.priceHT||0),0);
@@ -406,7 +406,7 @@ function renderCA(){
 }
 
 // ── Tab Marges ─────────────────────────────────────────
-function renderMargins(){
+async function renderMargins(){
   function marginPill(m){
     const cls=m>40?"margin-good":m>25?"margin-mid":"margin-bad";
     return `<span class="margin-pill ${cls}">${m.toFixed(1)}%</span>`;
@@ -430,9 +430,9 @@ function renderMargins(){
 }
 
 // ── Tab Clients ────────────────────────────────────────
-function renderClients(){
-  const orders  = DB.getOrders();
-  const clients = DB.getClients();
+async function renderClients(){
+  const orders  = await DB.getOrders();
+  const clients = await DB.getClients();
   document.getElementById("clientBody").innerHTML = clients.map(c=>{
     const co = orders.filter(o=>o.clientId===c.id);
     const ca = co.reduce((s,o)=>s+(o.priceHT||0),0);
@@ -464,7 +464,7 @@ const FIN = {
 };
 
 // ── Échéancier 18 mois ─────────────────────────────────
-function renderEcheancier(){
+async function renderEcheancier(){
   const bars = document.getElementById("echeancierBars");
   if(!bars) return;
 
@@ -502,7 +502,7 @@ function renderEcheancier(){
 }
 
 // ── Simulateur ROI ─────────────────────────────────────
-function updateROI(){
+async function updateROI(){
   const vol  = parseInt(document.getElementById("volSlider").value);
   const sell = parseFloat(document.getElementById("sellSlider").value);
   document.getElementById("volVal").textContent  = (vol/1000).toFixed(0)+"k";

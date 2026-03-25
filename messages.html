@@ -261,7 +261,7 @@
   <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("DOMContentLoaded", async () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
 if (session) { SIMPACT_AUTH.renderUserChip(session); }
 
@@ -292,7 +292,7 @@ function switchFolder(folder) {
 }
 
 function getMsgsForFolder() {
-  const all = MSG.getAll();
+  const all = await MSG.getAll();
   if (currentFolder === "inbox") return all.filter(m => m.toId === session.userId && m.type !== "auto");
   if (currentFolder === "sent")  return all.filter(m => m.fromId === session.userId);
   if (currentFolder === "auto")  return all.filter(m => m.toId === session.userId && m.type === "auto");
@@ -300,7 +300,7 @@ function getMsgsForFolder() {
 }
 
 // ── Liste ────────────────────────────────────────────────
-function renderList() {
+async function renderList() {
   const msgs = getMsgsForFolder();
   document.getElementById("msgCount").textContent = msgs.length + " message" + (msgs.length !== 1 ? "s" : "");
 
@@ -343,7 +343,7 @@ function renderList() {
   }).join("");
 
   // Unread count
-  const unread = MSG.unreadCount(session.userId);
+  const unread = await MSG.unreadCount(session.userId);
   const badge  = document.getElementById("unread-count");
   badge.textContent = unread;
   badge.className   = "folder-count" + (unread ? "" : " zero");
@@ -355,7 +355,7 @@ function openMsg(id) {
   MSG.markRead(id);
   renderList();
 
-  const m = MSG.getAll().find(x => x.id === id);
+  const m = await MSG.getAll().find(x => x.id === id);
   if (!m) return;
 
   const isSent    = m.fromId === session.userId;
@@ -395,7 +395,7 @@ function openMsg(id) {
 }
 
 function downloadAttachment(msgId) {
-  const m = MSG.getAll().find(x => x.id === msgId);
+  const m = await MSG.getAll().find(x => x.id === msgId);
   if (!m?.attachment?.data) return;
   const a   = document.createElement("a");
   a.href    = m.attachment.data;
@@ -423,7 +423,7 @@ function showEmpty() {
 
 // ── Répondre ─────────────────────────────────────────────
 function openReply(msgId) {
-  const m = MSG.getAll().find(x => x.id === msgId);
+  const m = await MSG.getAll().find(x => x.id === msgId);
   if (!m) return;
   replyTo = m;
   openCompose(m.fromId, m.fromName, "Re: " + m.subject, `\n\n---\nDe : ${m.fromName}\n${m.body}`);
@@ -538,7 +538,7 @@ function sendMsg() {
 }
 
 // ── Contacts sidebar ─────────────────────────────────────
-function renderContacts() {
+async function renderContacts() {
   const users = getUsers().filter(u => u.id !== session.userId);
   const groups = { client: "Clients", team: "Équipe", superadmin: "Admin" };
 
