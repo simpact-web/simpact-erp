@@ -274,11 +274,11 @@ const ROLE_COLORS = { superadmin:"var(--gold)", team:"var(--info)", client:"var(
 const ROLE_LABELS = { superadmin:"Super Admin", team:"Équipe", client:"Client" };
 
 // ── Dossiers ────────────────────────────────────────────
-function getUsers() {
+async function getUsers() {
   return JSON.parse(localStorage.getItem("simpact_users_custom") || "null") || SIMPACT_AUTH.USERS;
 }
 
-function switchFolder(folder) {
+async function switchFolder(folder) {
   currentFolder = folder;
   currentMsgId  = null;
   document.querySelectorAll(".folder-item").forEach(el => el.classList.remove("active"));
@@ -291,7 +291,7 @@ function switchFolder(folder) {
   showEmpty();
 }
 
-function getMsgsForFolder() {
+async function getMsgsForFolder() {
   const all = await MSG.getAll();
   if (currentFolder === "inbox") return all.filter(m => m.toId === session.userId && m.type !== "auto");
   if (currentFolder === "sent")  return all.filter(m => m.fromId === session.userId);
@@ -350,7 +350,7 @@ async function renderList() {
 }
 
 // ── Lecture ──────────────────────────────────────────────
-function openMsg(id) {
+async function openMsg(id) {
   currentMsgId = id;
   MSG.markRead(id);
   renderList();
@@ -394,7 +394,7 @@ function openMsg(id) {
   `;
 }
 
-function downloadAttachment(msgId) {
+async function downloadAttachment(msgId) {
   const m = await MSG.getAll().find(x => x.id === msgId);
   if (!m?.attachment?.data) return;
   const a   = document.createElement("a");
@@ -403,7 +403,7 @@ function downloadAttachment(msgId) {
   a.click();
 }
 
-function deleteMsg(id) {
+async function deleteMsg(id) {
   if (!confirm("Supprimer ce message ?")) return;
   MSG.delete(id);
   showEmpty();
@@ -411,7 +411,7 @@ function deleteMsg(id) {
   showToast("Message supprimé", "success");
 }
 
-function showEmpty() {
+async function showEmpty() {
   document.getElementById("msgReader").innerHTML = `
     <div class="msg-empty">
       <div class="msg-empty-icon">✉</div>
@@ -422,7 +422,7 @@ function showEmpty() {
 }
 
 // ── Répondre ─────────────────────────────────────────────
-function openReply(msgId) {
+async function openReply(msgId) {
   const m = await MSG.getAll().find(x => x.id === msgId);
   if (!m) return;
   replyTo = m;
@@ -430,7 +430,7 @@ function openReply(msgId) {
 }
 
 // ── Composition ──────────────────────────────────────────
-function openCompose(toId = "", toName = "", subject = "", prefillBody = "") {
+async function openCompose(toId = "", toName = "", subject = "", prefillBody = "") {
   pendingAttach = null;
   const recipients = MSG.getRecipientsFor(session.role, session.userId);
 
@@ -478,7 +478,7 @@ function openCompose(toId = "", toName = "", subject = "", prefillBody = "") {
 }
 
 // ── Pièce jointe ─────────────────────────────────────────
-function handleFileAttach(event) {
+async function handleFileAttach(event) {
   const file = event.target.files[0];
   if (!file) return;
 
@@ -506,7 +506,7 @@ function handleFileAttach(event) {
 }
 
 // ── Envoi ────────────────────────────────────────────────
-function sendMsg() {
+async function sendMsg() {
   const toVal   = (document.getElementById("c-to")?.value || "").split("|");
   const toId    = toVal[0];
   const toName  = toVal[1];

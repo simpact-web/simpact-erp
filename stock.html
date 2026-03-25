@@ -180,7 +180,7 @@ async function renderAll(){
   renderKPIs(stock); renderAlerts(stock); renderGrid(stock);
 }
 
-function renderKPIs(stock){
+async function renderKPIs(stock){
   const totalSheets = stock.reduce((s,i)=>s+i.qty,0);
   const totalValue  = stock.reduce((s,i)=>s+i.qty*(i.price||0),0);
   const alerts      = stock.filter(s=>s.qty<=s.minAlert).length;
@@ -198,7 +198,7 @@ function renderKPIs(stock){
     </div>`).join("");
 }
 
-function renderAlerts(stock){
+async function renderAlerts(stock){
   const alerts = stock.filter(s=>s.qty<=s.minAlert);
   document.getElementById("stockAlerts").innerHTML = alerts.length ? alerts.map(s=>{
     const pct = s.qty===0 ? 0 : (s.qty/s.minAlert*100).toFixed(0);
@@ -211,7 +211,7 @@ function renderAlerts(stock){
   }).join("") : "";
 }
 
-function renderGrid(stock){
+async function renderGrid(stock){
   document.getElementById("stockGrid").innerHTML = stock.map(s=>{
     const pct    = Math.min(s.qty/Math.max(s.minAlert*2,1)*100,100).toFixed(0);
     const isLow  = s.qty<=s.minAlert;
@@ -236,7 +236,7 @@ function renderGrid(stock){
   }).join("");
 }
 
-function openDetail(id){
+async function openDetail(id){
   currentStockId = id;
   const s = await DB.getStockItem(id);
   if(!s) return;
@@ -264,7 +264,7 @@ function openDetail(id){
   document.getElementById("detailModal").style.display="flex";
 }
 
-function openMvtModal(stockId, type){
+async function openMvtModal(stockId, type){
   const sel = document.getElementById("mvt-stock");
   sel.innerHTML = await DB.getStock().map(s=>`<option value="${s.id}" ${s.id===stockId?"selected":""}>${s.name} (${s.qty.toLocaleString("fr-FR")} feuilles)</option>`).join("");
   document.getElementById("mvt-type").value = type||"in";
@@ -288,7 +288,7 @@ async function saveMvt(){
   renderAll();
 }
 
-function addNewStock(){
+async function addNewStock(){
   const item = {
     id: "s"+(Date.now()),
     name:     document.getElementById("as-name").value,

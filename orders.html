@@ -283,7 +283,7 @@ async function filterOrders(){
   renderTable(orders);
 }
 
-function renderTable(orders){
+async function renderTable(orders){
   const fmtDate = iso => new Date(iso).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"});
   document.getElementById("ordersBody").innerHTML = orders.length ? orders.map(o => {
     const sc = STATUS_CONFIG[o.status]||STATUS_CONFIG.received;
@@ -305,7 +305,7 @@ function renderTable(orders){
   }).join("") : `<tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:32px">Aucune commande trouvée</td></tr>`;
 }
 
-function openDetail(id){
+async function openDetail(id){
   const o = await DB.getOrder(id);
   if(!o) return;
   const sc = STATUS_CONFIG[o.status]||{};
@@ -368,7 +368,7 @@ function openDetail(id){
   document.getElementById("detailModal").style.display="flex";
 }
 
-function advanceStatus(id, newStatus){
+async function advanceStatus(id, newStatus){
   const notes = { bat:"BAT envoyé au client", production:"BAT validé — lancement production", done:"Livraison effectuée", cancelled:"Commande annulée" };
   const updated = DB.updateOrderStatus(id, newStatus, notes[newStatus]||"");
   if (newStatus === "done" && updated) {
@@ -387,7 +387,7 @@ async function openNewOrderModal(){
   document.getElementById("newOrderModal").style.display="flex";
 }
 
-function createOrder(){
+async function createOrder(){
   const clientId = document.getElementById("nc-client").value;
   const client   = await DB.getClient(clientId);
   const priceHT  = parseFloat(document.getElementById("nc-price").value)||0;

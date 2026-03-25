@@ -182,7 +182,7 @@ if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("ad
 // ─── Stockage utilisateurs (localStorage) ────────────────
 const USERS_KEY = "simpact_users_custom";
 
-function getUsers() {
+async function getUsers() {
   const custom = JSON.parse(localStorage.getItem(USERS_KEY) || "null");
   if (custom) return custom;
   // Copier les users de auth.js la première fois
@@ -191,7 +191,7 @@ function getUsers() {
   return base;
 }
 
-function saveUsers(users) {
+async function saveUsers(users) {
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
   // Synchroniser avec SIMPACT_AUTH pour la session courante
   SIMPACT_AUTH.USERS = users;
@@ -211,7 +211,7 @@ async function renderAll() {
   });
 }
 
-function userCard(u) {
+async function userCard(u) {
   const color = ROLE_COLORS[u.role] || "var(--text-muted)";
   const client = u.clientId ? await DB.getClient(u.clientId) : null;
   const isSelf = u.id === session.userId;
@@ -238,7 +238,7 @@ function userCard(u) {
 }
 
 // ─── Modal ───────────────────────────────────────────────
-function openModal(userId = null) {
+async function openModal(userId = null) {
   document.getElementById("edit-id").value       = userId || "";
   document.getElementById("edit-name").value     = "";
   document.getElementById("edit-avatar").value   = "";
@@ -273,19 +273,19 @@ function openModal(userId = null) {
   document.getElementById("userModal").style.display = "flex";
 }
 
-function closeModal() { document.getElementById("userModal").style.display = "none"; }
+async function closeModal() { document.getElementById("userModal").style.display = "none"; }
 
-function toggleClientFields() {
+async function toggleClientFields() {
   const role = document.getElementById("edit-role").value;
   document.getElementById("clientFields").style.display = role === "client" ? "block" : "none";
 }
 
-function togglePwd() {
+async function togglePwd() {
   const inp = document.getElementById("edit-password");
   inp.type = inp.type === "password" ? "text" : "password";
 }
 
-function editUser(id) { openModal(id); }
+async function editUser(id) { openModal(id); }
 
 async function saveUser() {
   const id       = document.getElementById("edit-id").value;
@@ -330,13 +330,13 @@ async function saveUser() {
 // ─── Suppression ─────────────────────────────────────────
 let deleteTargetId = null;
 
-function deleteUser(id, name) {
+async function deleteUser(id, name) {
   deleteTargetId = id;
   document.getElementById("deleteUserName").textContent = name;
   document.getElementById("deleteModal").style.display = "flex";
 }
 
-function confirmDelete() {
+async function confirmDelete() {
   if (!deleteTargetId) return;
   const users = getUsers().filter(u => u.id !== deleteTargetId);
   saveUsers(users);
