@@ -120,21 +120,21 @@
   </div>
 </div>
 
-<script src="js/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/supabase.js"></script>
   <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("DOMContentLoaded", async () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
 if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("clients"); }
 
 const SECTOR_COLORS = { Banque:"#4a9fd4", Assurance:"#3dba78", Industrie:"#c9a84c", Administration:"#e05050", Autre:"#7a9ab8" };
 const INITIALS = name => name.split(" ").filter(w=>w.length>2).slice(0,2).map(w=>w[0]).join("").toUpperCase() || "??";
 
-function renderKPIs(){
-  const clients= DB.getClients();
-  const orders = DB.getOrders();
-  const caTotal= orders.reduce((s,o)=>s+(o.priceHT||0),0);
+async function renderKPIs(){
+  const [clients, orders] = await Promise.all([DB.getClients(), DB.getOrders()]);
+  const caTotal = orders.reduce((s,o)=>s+(o.priceHT||0),0);
   document.getElementById("clientKPIs").innerHTML = [
     {label:"Total clients",value:clients.length,unit:"",icon:"🏛",color:"blue"},
     {label:"Banques",value:clients.filter(c=>c.sector==="Banque").length,unit:"",icon:"🏦",color:"gold"},
@@ -143,8 +143,8 @@ function renderKPIs(){
   ].map(k=>`<div class="kpi-card ${k.color}"><div class="kpi-icon">${k.icon}</div><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}<span class="kpi-unit">${k.unit}</span></div></div>`).join("");
 }
 
-function renderGrid(clients){
-  const orders = DB.getOrders();
+async function renderGrid(clients){
+  const orders = await DB.getOrders();
   document.getElementById("clientGrid").innerHTML = clients.map(c=>{
     const co = orders.filter(o=>o.clientId===c.id);
     const ca = co.reduce((s,o)=>s+(o.priceHT||0),0);
@@ -153,10 +153,7 @@ function renderGrid(clients){
     <div class="client-card" onclick="openDetail('${c.id}')">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
         <div class="cc-avatar" style="background:${color}20;border:1px solid ${color}40;color:${color}">${INITIALS(c.name)}</div>
-        <div>
-          <div class="cc-name">${c.name}</div>
-          <div class="cc-sector">${c.sector||"—"}</div>
-        </div>
+        <div><div class="cc-name">${c.name}</div><div class="cc-sector">${c.sector||"—"}</div></div>
       </div>
       <div style="display:flex;justify-content:space-between;padding:12px 0;border-top:1px solid var(--navy-border);border-bottom:1px solid var(--navy-border);margin-bottom:12px">
         <div class="cc-stat"><div class="val">${co.length}</div><div class="lbl">Commandes</div></div>
@@ -174,17 +171,17 @@ function renderGrid(clients){
   }).join("") || `<div style="grid-column:1/-1;text-align:center;color:var(--text-dim);padding:40px">Aucun client trouvé</div>`;
 }
 
-function filterClients(q){
+async function filterClients(q){
   const sector = document.getElementById("sectorFilter").value;
-  let cl = DB.getClients();
+  let cl = await DB.getClients();
   if(sector) cl = cl.filter(c=>c.sector===sector);
   if(q)      cl = cl.filter(c=>(c.name+c.contact+c.sector).toLowerCase().includes(q.toLowerCase()));
-  renderGrid(cl);
+  await renderGrid(cl);
 }
 
-function openDetail(id){
-  const c = DB.getClient(id); if(!c) return;
-  const orders = DB.getOrders({clientId:id});
+async function openDetail(id){
+  const [c, orders] = await Promise.all([DB.getClient(id), DB.getOrders({clientId:id})]);
+  if(!c) return;
   const ca = orders.reduce((s,o)=>s+(o.priceHT||0),0);
   const color = SECTOR_COLORS[c.sector]||"#7a9ab8";
   const SC={received:"badge-received",bat:"badge-bat",production:"badge-production",done:"badge-done",cancelled:"badge-cancelled"};
@@ -195,7 +192,7 @@ function openDetail(id){
       <div class="card"><div class="card-body">
         <div class="card-title" style="margin-bottom:12px">Informations</div>
         ${[["Contact",c.contact||"—"],["Email",c.email||"—"],["Téléphone",c.phone||"—"],
-           ["Adresse",c.address||"—"],["MF/TVA",c.tva||"—"],["Remise",c.remise+"% accordée"]
+           ["Adresse",c.address||"—"],["MF/TVA",c.tva||"—"],["Remise",(c.remise||0)+"% accordée"]
         ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px">
           <span style="color:var(--text-muted)">${k}</span><span style="color:var(--text-primary);text-align:right;max-width:60%">${v}</span>
         </div>`).join("")}
@@ -223,24 +220,26 @@ function openDetail(id){
             <td>${o.product}</td>
             <td style="font-family:'DM Mono',monospace">${(o.qty||0).toLocaleString("fr-FR")}</td>
             <td style="font-family:'DM Mono',monospace;font-weight:600">${(o.priceHT||0).toFixed(2)} DT</td>
-            <td style="font-size:11px;color:var(--text-muted)">${new Date(o.createdAt).toLocaleDateString("fr-FR")}</td>
+            <td style="font-size:11px;color:var(--text-muted)">${new Date(o.createdAt||o.created_at).toLocaleDateString("fr-FR")}</td>
             <td><span class="badge ${SC[o.status]||""}">${SL[o.status]||o.status}</span></td>
           </tr>`).join("") || `<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:20px">Aucune commande</td></tr>`}
           </tbody>
         </table>
       </div>
-    </div>
-  `;
+    </div>`;
   document.getElementById("detailModal").style.display="flex";
 }
+// Exposer globalement pour les onclick HTML
+window.openDetail = openDetail;
+window.filterClients = filterClients;
 
 function openNewClientModal(){ document.getElementById("newClientModal").style.display="flex"; }
+window.openNewClientModal = openNewClientModal;
 
-function saveNewClient(){
+async function saveNewClient(){
   const name = document.getElementById("nc-name").value.trim();
   if(!name){ showToast("Nom requis","error"); return; }
   const c = {
-    id: "c"+(Date.now()),
     name, sector: document.getElementById("nc-sector").value,
     contact: document.getElementById("nc-contact").value,
     email:   document.getElementById("nc-email").value,
@@ -248,15 +247,17 @@ function saveNewClient(){
     address: document.getElementById("nc-address").value,
     tva:     document.getElementById("nc-tva").value,
     remise:  parseInt(document.getElementById("nc-remise").value)||0,
-    userId: null,
+    user_id: null,
   };
-  DB.saveClient(c);
+  const created = await DB.saveClient(c);
+  if(!created){ showToast("Erreur lors de la création","error"); return; }
   document.getElementById("newClientModal").style.display="none";
   showToast(`Client "${name}" créé !`,"success");
-  renderKPIs(); filterClients("");
+  await renderKPIs(); await filterClients("");
 }
+window.saveNewClient = saveNewClient;
 
-renderKPIs(); filterClients("");
+await renderKPIs(); await filterClients("");
   });
 </script>
 </body>
