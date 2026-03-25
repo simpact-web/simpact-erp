@@ -266,7 +266,8 @@ async function openDetail(id){
 
 async function openMvtModal(stockId, type){
   const sel = document.getElementById("mvt-stock");
-  sel.innerHTML = await DB.getStock().map(s=>`<option value="${s.id}" ${s.id===stockId?"selected":""}>${s.name} (${s.qty.toLocaleString("fr-FR")} feuilles)</option>`).join("");
+  const stock = await DB.getStock();
+  sel.innerHTML = stock.map(s=>`<option value="${s.id}" ${s.id===stockId?"selected":""}>${s.name} (${s.qty.toLocaleString("fr-FR")} feuilles)</option>`).join("");
   document.getElementById("mvt-type").value = type||"in";
   document.getElementById("mvt-qty").value  = "";
   document.getElementById("mvt-note").value = "";
@@ -282,32 +283,40 @@ async function saveMvt(){
   if(!qty) { showToast("Saisissez une quantité valide","error"); return; }
   const s = await DB.getStockItem(stockId);
   if(type==="out"&&s&&qty>s.qty){ showToast("Stock insuffisant","error"); return; }
-  DB.addStockMovement(stockId, type, qty, note);
+  const result = await DB.addStockMovement(stockId, type, qty, note);
+  if(!result){ showToast("Erreur lors de l'enregistrement","error"); return; }
   document.getElementById("mvtModal").style.display="none";
   showToast(`${type==="in"?"Entrée":"Sortie"} de ${qty.toLocaleString("fr-FR")} feuilles enregistrée`, "success");
-  renderAll();
+  await renderAll();
 }
 
 async function addNewStock(){
-  const item = {
-    id: "s"+(Date.now()),
-    name:     document.getElementById("as-name").value,
+  const name = document.getElementById("as-name").value.trim();
+  if(!name){ showToast("Nom requis","error"); return; }
+  const result = await DB.saveStockItem({
+    name,
     format:   document.getElementById("as-format").value,
     supplier: document.getElementById("as-supplier").value,
     qty:      parseInt(document.getElementById("as-qty").value)||0,
     minAlert: parseInt(document.getElementById("as-alert").value)||1000,
     price:    parseFloat(document.getElementById("as-price").value)||0,
-    unit: "feuilles", history: [],
-  };
-  if(!item.name){ showToast("Nom requis","error"); return; }
-  DB.push(DB.KEYS.stock, item);
+    unit: "feuilles",
+  });
+  if(!result){ showToast("Erreur lors de la création","error"); return; }
   document.getElementById("addStockModal").style.display="none";
-  showToast("Support ajouté !","success"); renderAll();
+  showToast("Support ajouté !","success"); await renderAll();
 }
 
 async function openAddStockModal(){ document.getElementById("addStockModal").style.display="flex"; }
 
-renderAll();
+// Exposer globalement pour les onclick HTML
+window.openMvtModal     = openMvtModal;
+window.openAddStockModal= openAddStockModal;
+window.saveMvt          = saveMvt;
+window.addNewStock      = addNewStock;
+window.openDetail       = openDetail;
+
+await renderAll();
   });
 </script>
 </body>
