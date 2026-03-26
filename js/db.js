@@ -109,7 +109,10 @@ const DB = {
       .insert({ ...client, id })
       .select()
       .single();
-    if (error) { console.error('saveClient:', error); return null; }
+    if (error) {
+      console.error('saveClient error:', error);
+      throw new Error(error.message || error.details || JSON.stringify(error));
+    }
     return data;
   },
 
