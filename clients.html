@@ -279,10 +279,11 @@
         address: document.getElementById("nc-address").value,
         tva:     document.getElementById("nc-tva").value,
         remise:  parseInt(document.getElementById("nc-remise").value)||0,
-        user_id: null,
       };
 
-      const created = await DB.saveClient(c);
+      let created;
+      try { created = await DB.saveClient(c); }
+      catch(err){ showToast("Erreur : " + (err.message||"inconnue"), "error"); return; }
       if(!created){ showToast("Erreur lors de la création du client","error"); return; }
 
       // Créer un compte portail si identifiant + mot de passe fournis

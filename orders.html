@@ -267,7 +267,8 @@ async function renderPipeline(){
 
 async function renderClientFilter(){
   const sel = document.getElementById("clientFilter");
-  await DB.getClients().forEach(c => {
+  const clients = await DB.getClients();
+  clients.forEach(c => {
     const o = document.createElement("option"); o.value=c.id; o.textContent=c.name; sel.appendChild(o);
   });
 }
@@ -370,28 +371,31 @@ async function openDetail(id){
 
 async function advanceStatus(id, newStatus){
   const notes = { bat:"BAT envoyé au client", production:"BAT validé — lancement production", done:"Livraison effectuée", cancelled:"Commande annulée" };
-  const updated = DB.updateOrderStatus(id, newStatus, notes[newStatus]||"");
-  if (newStatus === "done" && updated) {
-    MSG.autoNotifyDelivery(updated);
-    showToast("✅ Livraison confirmée — client notifié automatiquement", "success");
+  const updated = await DB.updateOrderStatus(id, newStatus, notes[newStatus]||"");
+  if(!updated){ showToast("Erreur lors de la mise à jour","error"); return; }
+  if (newStatus === "done") {
+    if(typeof MSG !== "undefined") await MSG.autoNotifyDelivery(updated);
+    showToast("Livraison confirmée — client notifié automatiquement", "success");
   } else {
     showToast("Commande mise à jour → " + (STATUS_CONFIG[newStatus]?.label||newStatus), "success");
   }
-  renderPipeline(); filterOrders();
+  await renderPipeline(); await filterOrders();
 }
 
 async function openNewOrderModal(){
   const sel = document.getElementById("nc-client");
   sel.innerHTML = "";
-  await DB.getClients().forEach(c => { const o=document.createElement("option"); o.value=c.id; o.textContent=c.name; sel.appendChild(o); });
+  const clients = await DB.getClients();
+  clients.forEach(c => { const o=document.createElement("option"); o.value=c.id; o.textContent=c.name; sel.appendChild(o); });
   document.getElementById("newOrderModal").style.display="flex";
 }
 
 async function createOrder(){
   const clientId = document.getElementById("nc-client").value;
+  if(!clientId){ showToast("Sélectionnez un client","error"); return; }
   const client   = await DB.getClient(clientId);
   const priceHT  = parseFloat(document.getElementById("nc-price").value)||0;
-  const order = DB.createOrder({
+  const order = await DB.createOrder({
     clientId, clientName: client?.name||"—",
     product:  document.getElementById("nc-product").value,
     qty:      parseInt(document.getElementById("nc-qty").value)||0,
@@ -404,15 +408,16 @@ async function createOrder(){
     },
     note: document.getElementById("nc-note").value,
   });
+  if(!order){ showToast("Erreur lors de la création","error"); return; }
   document.getElementById("newOrderModal").style.display="none";
   showToast(`Commande ${order.id} créée !`,"success");
-  renderPipeline(); filterOrders();
+  await renderPipeline(); await filterOrders();
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
   const session = SIMPACT_AUTH.requireAuth(["superadmin","team","client"]);
   if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("orders"); }
-  renderPipeline(); renderClientFilter(); filterOrders();
+  await renderPipeline(); await renderClientFilter(); await filterOrders();
 });
 </script>
 </body>
