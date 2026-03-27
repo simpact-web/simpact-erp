@@ -1401,7 +1401,7 @@ async function renderClientMessages() {
     : await MSG.getSent(session.userId);
 
   // Badge non lus
-  const unread = MSG.unreadCount(session.userId);
+  const unread = await MSG.unreadCount(session.userId);
   const badge  = document.getElementById("tab-unread-count");
   if (badge) { badge.textContent = unread; badge.style.display = unread ? "inline" : "none"; }
 
@@ -1447,15 +1447,15 @@ async function renderClientMessages() {
   }).join("");
 
   // Re-render badge après markRead
-  const newUnread = MSG.unreadCount(session.userId);
+  const newUnread = await MSG.unreadCount(session.userId);
   if (badge)     { badge.textContent     = newUnread; badge.style.display     = newUnread ? "inline" : "none"; }
   if (sideBadge) { sideBadge.textContent = newUnread; sideBadge.style.display = newUnread ? "inline" : "none"; }
 }
 
-function openClientMsg(id) {
-  const m = MSG.getAll().find(x => x.id === id);
+async function openClientMsg(id) {
+  const m = await MSG.get(id);
   if (!m) return;
-  MSG.markRead(id);
+  await MSG.markRead(id);
 
   const fmtDt = iso => new Date(iso).toLocaleString("fr-FR",{day:"2-digit",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"});
 
@@ -1485,21 +1485,20 @@ function openClientMsg(id) {
     </div>`;
 }
 
-function dlAttach(msgId) {
-  const m = MSG.getAll().find(x => x.id === msgId);
+async function dlAttach(msgId) {
+  const m = await MSG.get(msgId);
   if (!m?.attachment?.data) return;
   const a = document.createElement("a"); a.href=m.attachment.data; a.download=m.attachment.name; a.click();
 }
 
-function openClientReply(msgId) {
-  const m = MSG.getAll().find(x => x.id === msgId);
+async function openClientReply(msgId) {
+  const m = await MSG.get(msgId);
   if (!m) return;
   openClientCompose(m.fromId, m.fromName, "Re: "+m.subject, `\n\n---\nDe : ${m.fromName}\n${m.body}`);
 }
 
-function openClientCompose(toId="", toName="", subject="", prefillBody="") {
-  const users     = JSON.parse(localStorage.getItem("simpact_users_custom")||"null")||[];
-  const recipients= MSG.getRecipientsFor(session.role, session.userId);
+async function openClientCompose(toId="", toName="", subject="", prefillBody="") {
+  const recipients = await MSG.getRecipientsFor(session.role, session.userId);
 
   document.getElementById("clientMsgReader").innerHTML = `
     <div style="background:var(--navy-mid);border:1px solid var(--navy-border);border-radius:var(--radius-xl);padding:24px;margin-top:8px">

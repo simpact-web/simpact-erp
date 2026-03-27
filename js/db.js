@@ -379,6 +379,13 @@ const DB = {
     if (error) console.error('markMessageRead:', error);
   },
 
+  async getMessage(id) {
+    const { data, error } = await this.supa.from('messages').select('*').eq('id', id).single();
+    if (error) return null;
+    return { ...data, fromId: data.from_id, fromName: data.from_name, fromRole: data.from_role,
+             toId: data.to_id, toName: data.to_name, toRole: data.to_role, createdAt: data.created_at };
+  },
+
   async deleteMessage(id) {
     const { error } = await this.supa.from('messages').delete().eq('id', id);
     if (error) { console.error('deleteMessage:', error); return false; }
@@ -466,11 +473,18 @@ const DB = {
 // ── Compatibilité MSG (messaging) — wrapper async ──────────────
 const MSG = {
   async send(opts)               { return DB.sendMessage(opts); },
+  async get(id)                  { return DB.getMessage(id); },
   async getAll()                 { return DB.getMessages(); },
   async getInbox(userId)         { return DB.getMessages({ toId: userId }); },
   async getSent(userId)          { return DB.getMessages({ fromId: userId }); },
   async markRead(id)             { return DB.markMessageRead(id); },
+  async delete(id)               { return DB.deleteMessage(id); },
   async unreadCount(userId)      { return DB.unreadCount(userId); },
+  async getRecipientsFor(role, userId) {
+    const users = await DB.getUsers();
+    if (role === 'client') return users.filter(u => u.role === 'superadmin' || u.role === 'team');
+    return users.filter(u => u.id !== userId);
+  },
   fmtDate(iso) {
     return new Date(iso).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
   },
