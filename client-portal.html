@@ -249,6 +249,180 @@
   }
   .cp-select:focus { border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,168,76,.1); }
   .cp-select option { background:var(--navy-dark); color:var(--text-primary); }
+
+    /* ═══════════════════════════════════════════════════════
+       WIZARD 3 ÉTAPES
+       ═══════════════════════════════════════════════════════ */
+    .wz-header {
+      background: var(--navy-mid);
+      border: 1px solid var(--navy-border);
+      border-radius: var(--radius-xl);
+      padding: 24px 28px;
+      margin-bottom: 24px;
+    }
+    .wz-steps {
+      display: flex; align-items: center; gap: 0;
+      margin-bottom: 18px;
+    }
+    .wz-step {
+      display: flex; align-items: center; gap: 10px;
+      flex: 1; position: relative;
+    }
+    .wz-step:not(:last-child)::after {
+      content: ''; position: absolute; left: calc(50% + 20px);
+      right: calc(-50% + 20px); top: 18px;
+      height: 2px; background: var(--navy-border);
+      transition: background .3s;
+    }
+    .wz-step.done:not(:last-child)::after { background: var(--gold); }
+    .wz-dot {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 2px solid var(--navy-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700;
+      font-family: 'DM Mono', monospace;
+      color: var(--text-dim);
+      background: var(--navy-dark);
+      transition: all .3s; flex-shrink: 0;
+      position: relative; z-index: 1;
+    }
+    .wz-step.active .wz-dot {
+      border-color: var(--gold); color: var(--gold);
+      box-shadow: 0 0 0 4px rgba(201,168,76,0.15);
+    }
+    .wz-step.done .wz-dot {
+      border-color: var(--gold); background: var(--gold);
+      color: var(--navy-dark);
+    }
+    .wz-step-info { flex: 1; min-width: 0; }
+    .wz-step-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1.4px; color: var(--text-dim);
+      font-family: 'DM Mono', monospace;
+      transition: color .3s;
+    }
+    .wz-step.active .wz-step-label { color: var(--gold); }
+    .wz-step.done  .wz-step-label  { color: var(--text-muted); }
+    .wz-step-sub {
+      font-size: 10px; color: var(--text-dim); margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .wz-step.done .wz-step-sub { color: var(--gold); }
+
+    /* Panels des étapes */
+    .wz-panel { display: none; }
+    .wz-panel.active { display: block; animation: pageEnter .25s ease; }
+
+    /* Étape 1 : cards produits */
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .product-card {
+      background: var(--navy-dark);
+      border: 2px solid var(--navy-border);
+      border-radius: var(--radius-lg);
+      padding: 20px 16px;
+      cursor: pointer;
+      transition: all .2s;
+      text-align: center;
+    }
+    .product-card:hover {
+      border-color: rgba(201,168,76,0.4);
+      background: rgba(201,168,76,0.04);
+      transform: translateY(-2px);
+    }
+    .product-card.selected {
+      border-color: var(--gold);
+      background: rgba(201,168,76,0.08);
+      box-shadow: 0 0 0 3px rgba(201,168,76,0.12);
+    }
+    .product-card-icon {
+      font-size: 28px; margin-bottom: 10px; display: block;
+    }
+    .product-card-name {
+      font-size: 12px; font-weight: 700; color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    .product-card-desc {
+      font-size: 10px; color: var(--text-dim); line-height: 1.4;
+    }
+    .product-card.selected .product-card-name { color: var(--gold); }
+
+    /* Étape 2 : options */
+    .wz-options-layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 20px;
+      align-items: start;
+    }
+    .wz-price-aside {
+      background: var(--navy-mid);
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      position: sticky; top: 80px;
+    }
+    .wz-price-header {
+      background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+      padding: 14px 18px;
+    }
+    .wz-price-body { padding: 16px; }
+    .wz-price-big {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 42px; font-weight: 600;
+      color: var(--gold); line-height: 1;
+      margin: 10px 0 4px;
+    }
+
+    /* Étape 3 : récap */
+    .recap-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .recap-card {
+      background: var(--navy-dark);
+      border: 1px solid var(--navy-border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+    }
+    .recap-card-title {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1.4px; color: var(--text-dim);
+      font-family: 'DM Mono', monospace; margin-bottom: 12px;
+    }
+    .recap-row {
+      display: flex; justify-content: space-between;
+      font-size: 12px; margin-bottom: 7px;
+    }
+    .recap-row .rk { color: var(--text-muted); }
+    .recap-row .rv { color: var(--text-primary); font-weight: 500; text-align: right; }
+    .recap-total-box {
+      background: linear-gradient(135deg, var(--navy-mid), var(--navy-dark));
+      border: 1px solid rgba(201,168,76,0.25);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    /* Nav boutons wizard */
+    .wz-nav {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid var(--navy-border);
+    }
+    .wz-nav-right { display: flex; gap: 10px; align-items: center; }
+
+    @media (max-width: 768px) {
+      .wz-options-layout { grid-template-columns: 1fr; }
+      .wz-price-aside { position: static; }
+      .recap-grid { grid-template-columns: 1fr; }
+      .product-grid { grid-template-columns: repeat(3, 1fr); }
+    }
   </style>
 </head>
 <body>
@@ -360,73 +534,117 @@
 
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ VUE CONFIGURATEUR -->
     <div class="cp-view" id="view-configurator">
-      <div class="page-header">
-        <div>
-          <div class="page-title">Nouvelle commande</div>
-          <div class="page-subtitle">Configurez votre produit et soumettez directement à SIMPACT</div>
+      <!-- En-tête wizard avec indicateur d'étapes -->
+      <div class="wz-header">
+        <div class="page-title" style="margin-bottom:4px">Nouvelle commande</div>
+        <div class="page-subtitle" style="margin-bottom:20px">Configurez votre produit en 3 étapes</div>
+        <div class="wz-steps">
+          <div class="wz-step" id="wz-step-1">
+            <div class="wz-dot" id="wz-dot-1">1</div>
+            <div class="wz-step-info">
+              <div class="wz-step-label">Produit</div>
+              <div class="wz-step-sub" id="wz-sub-1">Choisissez un produit</div>
+            </div>
+          </div>
+          <div class="wz-step" id="wz-step-2">
+            <div class="wz-dot" id="wz-dot-2">2</div>
+            <div class="wz-step-info">
+              <div class="wz-step-label">Personnaliser</div>
+              <div class="wz-step-sub" id="wz-sub-2">Format, papier, quantité</div>
+            </div>
+          </div>
+          <div class="wz-step" id="wz-step-3">
+            <div class="wz-dot" id="wz-dot-3">3</div>
+            <div class="wz-step-info">
+              <div class="wz-step-label">Confirmer</div>
+              <div class="wz-step-sub" id="wz-sub-3">Vérifier et envoyer</div>
+            </div>
+          </div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 320px;gap:24px" id="configLayout">
-        <!-- Panneau gauche : options — tout en dropdowns -->
-        <div>
-          <!-- Produit — garde les chips visuels (navigation principale) -->
-          <div class="config-step">
-            <div style="margin-bottom:12px"><span class="cp-field-num">1</span>
-              <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.6px;color:var(--text-muted);font-family:'DM Mono',monospace">Produit</span>
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px" id="cp-productChips"></div>
-          </div>
-          <!-- Zone dynamique complète — rendue par renderCpChips() -->
-          <div id="cp-dynFields"></div>
-          <!-- Finitions -->
-          <div class="config-step" id="cp-finitionsStep" style="display:none">
-            <div style="margin-bottom:12px"><span class="cp-field-num">★</span>
-              <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.6px;color:var(--text-muted);font-family:'DM Mono',monospace">Finitions <span style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">(optionnel)</span></span>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="cp-finitions"></div>
-          </div>
-          <!-- Note -->
-          <div class="config-step">
-            <div style="margin-bottom:12px"><span class="cp-field-num">✎</span>
-              <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.6px;color:var(--text-muted);font-family:'DM Mono',monospace">Instructions particulières</span>
-            </div>
-            <textarea class="form-control" id="cp-note" rows="3" placeholder="Ex : Pantone 485, livraison urgente, format spécial…"></textarea>
+
+      <!-- ÉTAPE 1 : Choix du produit -->
+      <div class="wz-panel active" id="wz-panel-1">
+        <div class="product-grid" id="wz-product-grid"></div>
+        <div class="wz-nav">
+          <div></div>
+          <div class="wz-nav-right">
+            <span style="font-size:12px;color:var(--text-dim)" id="wz-hint-1">Sélectionnez un produit pour continuer</span>
           </div>
         </div>
+      </div>
 
-        <!-- Panneau droit : prix -->
-        <div>
-          <div class="price-sticky">
-            <div class="ps-header">
-              <div style="font-size:13px;font-weight:700;color:var(--navy-dark)" id="ps-product">—</div>
-              <div style="font-size:11px;color:rgba(10,22,40,0.65);margin-top:2px" id="ps-specs">—</div>
-            </div>
-            <div class="ps-body">
-              <div id="ps-summary"></div>
-              <div class="ps-price">
-                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Total HT</div>
-                <div style="font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:600;color:var(--gold);line-height:1" id="ps-priceHT">—</div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:4px" id="ps-unit">—</div>
-                <div style="font-size:12px;color:var(--text-secondary);margin-top:5px" id="ps-ttc">—</div>
+      <!-- ÉTAPE 2 : Options / personnalisation -->
+      <div class="wz-panel" id="wz-panel-2">
+        <div class="wz-options-layout">
+          <!-- Options dynamiques (réutilise la logique existante) -->
+          <div>
+            <div id="cp-dynFields"></div>
+            <div id="cp-finitionsStep" style="display:none">
+              <div class="config-step">
+                <div style="margin-bottom:10px">
+                  <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.6px;color:var(--text-muted);font-family:'DM Mono',monospace">★ Finitions <span style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">(optionnel)</span></span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="cp-finitions"></div>
               </div>
-
-              <!-- Paliers -->
+            </div>
+          </div>
+          <!-- Prix en direct -->
+          <div class="wz-price-aside">
+            <div class="wz-price-header">
+              <div style="font-size:12px;font-weight:700;color:var(--navy-dark)" id="ps-product">—</div>
+              <div style="font-size:10px;color:rgba(10,22,40,0.6);margin-top:2px" id="ps-specs">—</div>
+            </div>
+            <div class="wz-price-body">
+              <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Prix HT</div>
+              <div class="wz-price-big" id="ps-priceHT">—</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px" id="ps-unit">—</div>
+              <div style="font-size:11px;color:var(--text-secondary);margin-bottom:16px" id="ps-ttc">—</div>
               <div style="margin-bottom:14px">
                 <div style="font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-family:'DM Mono',monospace">Paliers quantité</div>
                 <table style="width:100%;font-size:11px;border-collapse:collapse" id="ps-paliers"></table>
               </div>
-
-              <!-- CTA -->
-              <button class="btn btn-primary" style="width:100%;padding:14px;font-size:14px" onclick="submitOrder()">
-                📤 Envoyer la demande à SIMPACT
-              </button>
-              <div style="font-size:10px;color:var(--text-dim);text-align:center;margin-top:8px;line-height:1.5">
-                Votre demande sera traitée sous 24h.<br>Un BAT vous sera envoyé avant impression.
-              </div>
             </div>
           </div>
         </div>
+        <div class="wz-nav">
+          <button class="btn btn-secondary" onclick="wzGo(1)">← Retour</button>
+          <div class="wz-nav-right">
+            <button class="btn btn-primary" onclick="wzGo(3)" id="wz-btn-2">Récapitulatif →</button>
+          </div>
+        </div>
       </div>
+
+      <!-- ÉTAPE 3 : Récapitulatif & Confirmation -->
+      <div class="wz-panel" id="wz-panel-3">
+        <div class="recap-grid" id="wz-recap-content"></div>
+
+        <div class="recap-total-box" style="margin-top:20px">
+          <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Total de votre commande</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:52px;font-weight:600;color:var(--gold);line-height:1" id="wz-recap-price">—</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:6px" id="wz-recap-ttc">—</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px" id="wz-recap-unit">—</div>
+        </div>
+
+        <!-- Note optionnelle -->
+        <div style="margin-bottom:20px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:8px">✎ Instructions particulières <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">(optionnel)</span></div>
+          <textarea class="form-control" id="cp-note" rows="3" placeholder="Pantone 485, livraison urgente, format spécial…" style="resize:none"></textarea>
+        </div>
+
+        <div class="wz-nav">
+          <button class="btn btn-secondary" onclick="wzGo(2)">← Modifier</button>
+          <div class="wz-nav-right">
+            <div style="font-size:11px;color:var(--text-dim);text-align:right;line-height:1.5;margin-right:12px">
+              Traitement sous 24h<br>BAT avant impression
+            </div>
+            <button class="btn btn-primary" style="padding:14px 28px;font-size:14px" onclick="submitOrder()">
+              📤 Envoyer la demande
+            </button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ VUE HISTORIQUE -->
@@ -569,9 +787,9 @@ function showView(id) {
   document.getElementById("view-"+id)?.classList.add("active");
   document.querySelector(`.nav-item[data-page="${id}"]`)?.classList.add("active");
 
-  if(id === "dashboard")    renderDashboard();
-  if(id === "orders")       renderActiveOrders();
-  if(id === "history")      renderHistory();
+  if(id === "dashboard")    renderDashboard().catch(console.error);
+  if(id === "orders")       renderActiveOrders().catch(console.error);
+  if(id === "history")      renderHistory().catch(console.error);
   if(id === "configurator") renderConfigurator();
   if(id === "messages")     { switchClientTab("inbox"); renderClientMessages(); }
 }
@@ -621,8 +839,8 @@ function orderCard(o, compact = false) {
 }
 
 // ─── DASHBOARD ──────────────────────────────────────────
-function renderDashboard() {
-  const all     = DB.getOrders({ clientId: CLIENT_ID });
+async function renderDashboard() {
+  const all     = await DB.getOrders({ clientId: CLIENT_ID });
   const active  = all.filter(o => ["received","bat","production"].includes(o.status));
   const done    = all.filter(o => o.status === "done");
   const caTotal = all.reduce((s,o) => s+(o.priceHT||0), 0);
@@ -659,8 +877,8 @@ function renderDashboard() {
 }
 
 // ─── COMMANDES EN COURS ──────────────────────────────────
-function renderActiveOrders() {
-  const active = DB.getOrders({ clientId: CLIENT_ID })
+async function renderActiveOrders() {
+  const active = (await DB.getOrders({ clientId: CLIENT_ID }))
     .filter(o => ["received","bat","production"].includes(o.status));
   document.getElementById("allActiveOrders").innerHTML = active.length
     ? active.map(o => orderCard(o)).join("")
@@ -671,8 +889,8 @@ function renderActiveOrders() {
 }
 
 // ─── HISTORIQUE ─────────────────────────────────────────
-function renderHistory() {
-  const orders = DB.getOrders({ clientId: CLIENT_ID });
+async function renderHistory() {
+  const orders = await DB.getOrders({ clientId: CLIENT_ID });
   document.getElementById("historyBody").innerHTML = orders.length
     ? orders.map(o => `<tr>
         <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold)">${o.id}</td>
@@ -687,8 +905,8 @@ function renderHistory() {
 }
 
 // ─── DÉTAIL COMMANDE ─────────────────────────────────────
-function openDetail(id) {
-  const o = DB.getOrder(id);
+async function openDetail(id) {
+  const o = await DB.getOrder(id);
   if (!o) return;
 
   document.getElementById("dp-ref").textContent     = o.id;
@@ -768,7 +986,142 @@ function closeDetail() {
 // ─── CONFIGURATEUR CLIENT ─────────────────────────────────────
 // Moteur : SIMPACT_PRICING — même source que l'admin
 
-function renderConfigurator() { renderCpChips(); updateCpPrice(); }
+// ═══════════════════════════════════════════════════════
+// WIZARD 3 ÉTAPES
+// ═══════════════════════════════════════════════════════
+let wzStep = 1;
+
+const PRODUCT_DESC = {
+  cdv:  "Recto/verso, coins ronds, pelliculage — format standard 85×55mm",
+  fly:  "A5, A4 — idéal pour promotions, événements, publicité",
+  bro:  "Piqûre, dos carré — A4 ou A5, 8 à 48 pages",
+  aff:  "A3 à A1 — impression recto haute résolution",
+  ent:  "Papier à en-tête A4 — offset premium N&B ou couleur",
+  dep:  "A4 triptyque, A5 — bi ou trifold, 4/4 ou 4/0",
+  liv:  "Livres N&B A5/A4 — couverture quadri, intérieur offset",
+};
+
+function wzUpdateSteps() {
+  [1,2,3].forEach(n => {
+    const s = document.getElementById("wz-step-"+n);
+    if (!s) return;
+    s.classList.remove("active","done");
+    if (n < wzStep) s.classList.add("done");
+    else if (n === wzStep) s.classList.add("active");
+    // Mettre à jour dot
+    const dot = document.getElementById("wz-dot-"+n);
+    if (dot) dot.textContent = n < wzStep ? "✓" : n;
+  });
+}
+
+function wzGo(step) {
+  // Validation avant de passer à l'étape 2
+  if (step === 2 && wzStep === 1) {
+    // Un produit doit être sélectionné
+    renderCpChips(); updateCpPrice();
+  }
+  // Validation avant de passer à l'étape 3
+  if (step === 3) {
+    const p = PRODUCTS[cfg.pi];
+    const state = cfgToState();
+    const res = SIMPACT_PRICING.compute(p, state);
+    if (!res) {
+      showToast("Veuillez compléter tous les paramètres obligatoires.", "error");
+      return;
+    }
+    // Mettre à jour sous-titre étape 2
+    const sub2 = document.getElementById("wz-sub-2");
+    if (sub2) {
+      const qty = state.qty;
+      sub2.textContent = p.name + " · " + qty.toLocaleString("fr-FR") + " ex.";
+    }
+    renderWzRecap(p, state, res);
+  }
+  // Masquer tous les panels
+  document.querySelectorAll(".wz-panel").forEach(el => el.classList.remove("active"));
+  document.getElementById("wz-panel-"+step)?.classList.add("active");
+  wzStep = step;
+  wzUpdateSteps();
+  // Scroller en haut du configurateur
+  document.getElementById("view-configurator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderWzProductGrid() {
+  const grid = document.getElementById("wz-product-grid");
+  if (!grid) return;
+  grid.innerHTML = PRODUCTS.map((pr, i) => `
+    <div class="product-card ${cfg.pi === i ? "selected" : ""}" onclick="wzSelectProduct(${i})">
+      <span class="product-card-icon">${pr.icon}</span>
+      <div class="product-card-name">${pr.name}</div>
+      <div class="product-card-desc">${PRODUCT_DESC[pr.id] || ""}</div>
+    </div>`).join("");
+}
+
+function wzSelectProduct(i) {
+  cfg = {pi:i, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null};
+  // Mettre à jour sous-titre étape 1
+  const sub1 = document.getElementById("wz-sub-1");
+  if (sub1) sub1.textContent = PRODUCTS[i].name;
+  // Passer directement à l'étape 2
+  wzGo(2);
+}
+
+function renderWzRecap(p, state, res) {
+  const qty = state.qty;
+  const finNames = cfg.fins.map(i => p.fins[i]?.label).filter(Boolean);
+
+  const rows1 = [
+    ["Produit",   p.name],
+    ["Format",    p.formats[cfg.fi]?.label || "—"],
+    ...(res.isBooklet ? [
+      ["Reliure",      p.bindings[cfg.bi]?.label || "—"],
+      ["Pages int.",   (cfg.pages || "?") + "p"],
+      ["Papier couv.", p.cPapers[cfg.pa2]?.label || "—"],
+      ["Papier int.",  p.iPapers[cfg.pa]?.label || "—"],
+    ] : []),
+    ...(res.isBook ? [
+      ["Pages N&B",    (cfg.pages || "?") + "p"],
+      ["Papier couv.", p.cPapers[cfg.pa2]?.label || "—"],
+      ["Papier int.",  p.papers[cfg.pa]?.label || "—"],
+    ] : []),
+    ...(!res.isBooklet && !res.isBook ? [
+      ["Support",      p.papers[cfg.pa]?.label || "—"],
+      ["Impression",   p.colors[cfg.co]?.label || "—"],
+    ] : []),
+  ];
+
+  const rows2 = [
+    ["Quantité",  qty.toLocaleString("fr-FR") + " ex."],
+    ["Prix / ex.", res.unit.toFixed(3) + " DT"],
+    ...finNames.map(l => [l, "✓"]),
+    ["Feuilles SRA3", (res.sT || "—").toString()],
+    ["Délai estimé", "3 à 5 jours ouvrés"],
+  ];
+
+  document.getElementById("wz-recap-content").innerHTML = `
+    <div class="recap-card">
+      <div class="recap-card-title">Produit & Spécifications</div>
+      ${rows1.map(([k,v]) => `<div class="recap-row"><span class="rk">${k}</span><span class="rv">${v}</span></div>`).join("")}
+    </div>
+    <div class="recap-card">
+      <div class="recap-card-title">Quantité & Détails</div>
+      ${rows2.map(([k,v]) => `<div class="recap-row"><span class="rk">${k}</span><span class="rv" style="${v==="✓"?"color:var(--success)":""}">${v}</span></div>`).join("")}
+    </div>`;
+
+  document.getElementById("wz-recap-price").textContent = res.finalHT + " DT";
+  document.getElementById("wz-recap-ttc").textContent   = "TTC (TVA 19%) : " + (res.finalHT * 1.19).toFixed(2) + " DT";
+  document.getElementById("wz-recap-unit").textContent  = res.unit.toFixed(3) + " DT / exemplaire";
+}
+
+function renderConfigurator() {
+  wzStep = 1;
+  wzUpdateSteps();
+  document.querySelectorAll(".wz-panel").forEach(el => el.classList.remove("active"));
+  document.getElementById("wz-panel-1")?.classList.add("active");
+  renderWzProductGrid();
+  renderCpChips();
+  updateCpPrice();
+}
 
 const PRODUCTS = SIMPACT_PRICING.PRODS;
 
@@ -812,10 +1165,7 @@ function cpQtyField(p, n) {
 
 // Produit selector (garde chips visuels pour navigation principale)
 function renderProductChips() {
-  document.getElementById("cp-productChips").innerHTML = PRODUCTS.map((pr,i) =>
-    `<div style="padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:500;border:1px solid ${cfg.pi===i?"var(--gold)":"var(--navy-border)"};background:${cfg.pi===i?"rgba(201,168,76,0.1)":"var(--navy-dark)"};color:${cfg.pi===i?"var(--gold)":"var(--text-muted)"};transition:all .15s"
-      onclick="cfg={pi:${i},fi:0,pa:0,co:0,qi:2,fins:[],pages:null,bi:0,pa2:0,cov:0,qLibre:null};renderCpChips();updateCpPrice()">${pr.icon} ${pr.name}</div>`
-  ).join("");
+  // Géré par renderWzProductGrid() dans le wizard
 }
 
 function renderCpChips() {
@@ -990,10 +1340,10 @@ function updateCpPrice() {
 }
 
 // ─── SOUMETTRE UNE COMMANDE ──────────────────────────────────
-function submitOrder() {
+async function submitOrder() {
   const p     = PRODUCTS[cfg.pi];
   const qty   = cfg.qLibre ?? p.qty[Math.min(cfg.qi, p.qty.length-1)] ?? p.qty[0];
-  const client = DB.getClient(CLIENT_ID);
+  const client = await DB.getClient(CLIENT_ID);
   const state = cfgToState(qty);
   const res   = SIMPACT_PRICING.compute(p, state);
   if (!res) {
@@ -1003,7 +1353,7 @@ function submitOrder() {
   const priceHT  = res.finalHT;
   const finNames = cfg.fins.map(i => p.fins[i]?.label).filter(Boolean);
 
-  const order = DB.createOrder({
+  const order = await DB.createOrder({
     clientId:   CLIENT_ID,
     clientName: client?.name || session.name,
     product:    p.name,
@@ -1044,10 +1394,10 @@ function switchClientTab(tab) {
   renderClientMessages();
 }
 
-function renderClientMessages() {
+async function renderClientMessages() {
   const msgs = clientMsgTab === "inbox"
-    ? MSG.getInbox(session.userId)
-    : MSG.getSent(session.userId);
+    ? await MSG.getInbox(session.userId)
+    : await MSG.getSent(session.userId);
 
   // Badge non lus
   const unread = MSG.unreadCount(session.userId);
