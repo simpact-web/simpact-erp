@@ -567,9 +567,10 @@ function toggleAdmin(){
   renderPrice();
 }
 
-function loadClientSelector(){
+async function loadClientSelector(){
   const sel=document.getElementById("clientSel");
-  DB.getClients().forEach(c=>{
+  const clients = await DB.getClients();
+  clients.forEach(c=>{
     const o=document.createElement("option");
     o.value=c.remise||0;
     o.textContent=`${c.name}${c.remise?` (−${c.remise}%)`:""}`;
@@ -579,7 +580,7 @@ function loadClientSelector(){
 
 function onClient(){S.disc=parseInt(document.getElementById("clientSel").value)||0;renderPrice();}
 
-function openOrderModal(){
+async function openOrderModal(){
   const p=P(),q=Q(),state=getState();
   const res=SIMPACT_PRICING.compute(p,state);
   if(!res) return;
@@ -587,6 +588,7 @@ function openOrderModal(){
   const fmt=p.formats[S.fi];
   const pap=p.type==="booklet"?p.iPapers?.[S.pa]:p.papers?.[S.pa];
   const col=p.colors[S.co];
+  const allClients = await DB.getClients();
 
   const overlay=document.createElement("div");
   overlay.className="modal-overlay";
@@ -616,7 +618,7 @@ function openOrderModal(){
         </div>
       </div>
       <div class="form-group"><label class="form-label">Client</label>
-        <select class="form-control" id="oc-cl">${DB.getClients().map(c=>`<option value="${c.id}">${c.name}</option>`).join("")}</select>
+        <select class="form-control" id="oc-cl">${allClients.map(c=>`<option value="${c.id}">${c.name}</option>`).join("")}</select>
       </div>
       <div class="form-group"><label class="form-label">Note interne</label>
         <textarea class="form-control" id="oc-nt" rows="2" placeholder="Instructions particulières…"></textarea>
@@ -629,11 +631,11 @@ function openOrderModal(){
   </div>`;
 
   document.body.appendChild(overlay);
-  document.getElementById("oc-ok").onclick=()=>{
+  document.getElementById("oc-ok").onclick=async()=>{
     const cid=document.getElementById("oc-cl").value;
     const note=document.getElementById("oc-nt").value.trim();
-    const cl=DB.getClient(cid);
-    const order=DB.createOrder({
+    const cl = await DB.getClient(cid);
+    const order = await DB.createOrder({
       clientId:cid,clientName:cl?.name||"—",
       product:p.name,qty:q,
       priceHT:res.finalHT,priceTTC:+(res.finalHT*1.19).toFixed(2),
@@ -646,6 +648,7 @@ function openOrderModal(){
       },
       note,
     });
+    if(!order){ showToast("Erreur lors de la création de la commande","error"); return; }
     overlay.remove();
     showToast(`✓ Commande ${order.id} créée pour ${cl?.name}`,"success");
     setTimeout(()=>window.location.href="orders.html",1000);
