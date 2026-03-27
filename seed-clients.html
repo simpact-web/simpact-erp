@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>SIMPACT — Import clients</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: monospace; background: #0a0f18; color: #e2e8f0; padding: 32px; max-width: 800px; }
+    h2 { color: #c9a84c; }
+    .log { background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; margin-top: 16px; max-height: 60vh; overflow-y: auto; line-height: 1.8; }
+    .ok  { color: #3dba78; }
+    .err { color: #ef4444; }
+    .inf { color: #4a9fd4; }
+    .warn { color: #f59e0b; }
+    button { background: #c9a84c; color: #0a0f18; border: none; padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 16px; margin-right: 10px; }
+    button.sec { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+<h2>SIMPACT ERP — Import clients & comptes portail</h2>
+<p>Commencez par le diagnostic pour vérifier la connexion Supabase, puis lancez l'import.</p>
+<button class="sec" onclick="runDiag()">🔍 Diagnostic connexion</button>
+<button id="btn" onclick="runSeed()">▶ Lancer l'import (22 clients)</button>
+<div class="log" id="log"><div class="inf">En attente…</div></div>
+
+<script>
+const SUPA_URL = 'https://yqileqqxpihnyaauwmtr.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxaWxlcWd4cGlobnlhYXV3bXRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mjc4MTMsImV4cCI6MjA5MDAwMzgxM30.UGU_3OwlVkPZZylJPY3Wjl7WEe1-uNistfEmk5B_HUo';
+
+const CLIENTS = [
+  {id:'c-ubci',      name:'UBCI',             sector:'Banque',    remise:0},
+  {id:'c-attijari',  name:'Attijari',          sector:'Banque',    remise:0},
+  {id:'c-atb',       name:'ATB bank',          sector:'Banque',    remise:0},
+  {id:'c-amen',      name:'Amen Bank',         sector:'Banque',    remise:0},
+  {id:'c-biat',      name:'BIAT',              sector:'Banque',    remise:0},
+  {id:'c-zitouna',   name:'Zitouna Bank',      sector:'Banque',    remise:0},
+  {id:'c-btk',       name:'BTK Bank',          sector:'Banque',    remise:0},
+  {id:'c-qnb',       name:'QNB Bank',          sector:'Banque',    remise:0},
+  {id:'c-tsb',       name:'TSB Bank',          sector:'Banque',    remise:0},
+  {id:'c-bte',       name:'BTE Bank',          sector:'Banque',    remise:0},
+  {id:'c-bt',        name:'BT Bank',           sector:'Banque',    remise:0},
+  {id:'c-star',      name:'STAR',              sector:'Assurance', remise:0},
+  {id:'c-astree',    name:'Astree',            sector:'Assurance', remise:0},
+  {id:'c-comar',     name:'Comar',             sector:'Assurance', remise:0},
+  {id:'c-carte',     name:'La Carte',          sector:'Assurance', remise:0},
+  {id:'c-gat',       name:'GAT Assurance',     sector:'Assurance', remise:0},
+  {id:'c-maghrebia', name:'Maghrebia',         sector:'Assurance', remise:0},
+  {id:'c-biatassur', name:'Biat Assurance',    sector:'Assurance', remise:0},
+  {id:'c-lloyd',     name:'Lloyd Assurances',  sector:'Assurance', remise:0},
+  {id:'c-mae',       name:'MAE Assurance',     sector:'Assurance', remise:0},
+  {id:'c-takaful',   name:'Zitouna Takaful',   sector:'Assurance', remise:0},
+  {id:'c-takafulia', name:'At-Takafulia',      sector:'Assurance', remise:0},
+];
+
+const USERS = [
+  {id:'u-ubci',      username:'ubci',      password:'ubci2026',      name:'UBCI',             role:'client', avatar:'UB', email:'', permissions:['client-portal'], client_id:'c-ubci'},
+  {id:'u-attijari',  username:'attijari',  password:'attijari2026',  name:'Attijari',          role:'client', avatar:'AT', email:'', permissions:['client-portal'], client_id:'c-attijari'},
+  {id:'u-atb',       username:'atb',       password:'atb2026',       name:'ATB bank',          role:'client', avatar:'AT', email:'', permissions:['client-portal'], client_id:'c-atb'},
+  {id:'u-amen',      username:'amen',      password:'amen2026',      name:'Amen Bank',         role:'client', avatar:'AM', email:'', permissions:['client-portal'], client_id:'c-amen'},
+  {id:'u-biat',      username:'biat',      password:'biat2026',      name:'BIAT',              role:'client', avatar:'BI', email:'', permissions:['client-portal'], client_id:'c-biat'},
+  {id:'u-zitouna',   username:'zitouna',   password:'zitouna2026',   name:'Zitouna Bank',      role:'client', avatar:'ZI', email:'', permissions:['client-portal'], client_id:'c-zitouna'},
+  {id:'u-btk',       username:'btk',       password:'btk2026',       name:'BTK Bank',          role:'client', avatar:'BT', email:'', permissions:['client-portal'], client_id:'c-btk'},
+  {id:'u-qnb',       username:'qnb',       password:'qnb2026',       name:'QNB Bank',          role:'client', avatar:'QN', email:'', permissions:['client-portal'], client_id:'c-qnb'},
+  {id:'u-tsb',       username:'tsb',       password:'tsb2026',       name:'TSB Bank',          role:'client', avatar:'TS', email:'', permissions:['client-portal'], client_id:'c-tsb'},
+  {id:'u-bte',       username:'bte',       password:'bte2026',       name:'BTE Bank',          role:'client', avatar:'BT', email:'', permissions:['client-portal'], client_id:'c-bte'},
+  {id:'u-bt',        username:'bt',        password:'bt2026',        name:'BT Bank',           role:'client', avatar:'BT', email:'', permissions:['client-portal'], client_id:'c-bt'},
+  {id:'u-star',      username:'star',      password:'star2026',      name:'STAR',              role:'client', avatar:'ST', email:'', permissions:['client-portal'], client_id:'c-star'},
+  {id:'u-astree',    username:'astree',    password:'astree2026',    name:'Astree',            role:'client', avatar:'AS', email:'', permissions:['client-portal'], client_id:'c-astree'},
+  {id:'u-comar',     username:'comar2026', password:'comar2026',     name:'Comar',             role:'client', avatar:'CO', email:'', permissions:['client-portal'], client_id:'c-comar'},
+  {id:'u-carte',     username:'carte',     password:'carte2026',     name:'La Carte',          role:'client', avatar:'LC', email:'', permissions:['client-portal'], client_id:'c-carte'},
+  {id:'u-gat',       username:'gat',       password:'gat2026',       name:'GAT Assurance',     role:'client', avatar:'GA', email:'', permissions:['client-portal'], client_id:'c-gat'},
+  {id:'u-maghrebia', username:'maghrebia', password:'maghrebia2026', name:'Maghrebia',         role:'client', avatar:'MA', email:'', permissions:['client-portal'], client_id:'c-maghrebia'},
+  {id:'u-biatassur', username:'biatassur', password:'biatassur2026', name:'Biat Assurance',    role:'client', avatar:'BA', email:'', permissions:['client-portal'], client_id:'c-biatassur'},
+  {id:'u-lloyd',     username:'lloyd',     password:'lloyd2026',     name:'Lloyd Assurances',  role:'client', avatar:'LL', email:'', permissions:['client-portal'], client_id:'c-lloyd'},
+  {id:'u-mae',       username:'mae',       password:'mae2026',       name:'MAE Assurance',     role:'client', avatar:'MA', email:'', permissions:['client-portal'], client_id:'c-mae'},
+  {id:'u-takaful',   username:'takaful',   password:'takaful2026',   name:'Zitouna Takaful',   role:'client', avatar:'ZT', email:'', permissions:['client-portal'], client_id:'c-takaful'},
+  {id:'u-takafulia', username:'takafulia', password:'takafulia2026', name:'At-Takafulia',      role:'client', avatar:'AT', email:'', permissions:['client-portal'], client_id:'c-takafulia'},
+];
+
+function log(msg, cls='inf') {
+  const el = document.getElementById('log');
+  el.innerHTML += `<div class="${cls}">${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function runDiag() {
+  document.getElementById('log').innerHTML = '';
+  log('── Diagnostic connexion Supabase ────────────────');
+  log('URL : ' + SUPA_URL);
+
+  // Test 1 : fetch brut
+  try {
+    const r = await fetch(SUPA_URL + '/rest/v1/', {
+      headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY }
+    });
+    log('✓ Connexion HTTP OK — statut ' + r.status, r.ok ? 'ok' : 'warn');
+  } catch(e) {
+    log('✗ Connexion impossible : ' + e.message, 'err');
+    log('→ Cause probable : réseau/FAI bloque Supabase, ou URL incorrecte', 'warn');
+    log('→ Essayez de désactiver tout VPN / extension de navigateur', 'warn');
+    return;
+  }
+
+  // Test 2 : lecture table clients
+  const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+  const { data, error } = await supa.from('clients').select('id').limit(1);
+  if (error) {
+    log('✗ Erreur lecture table clients : ' + error.message, 'err');
+  } else {
+    log('✓ Table clients accessible — ' + (data?.length || 0) + ' ligne(s) lues', 'ok');
+    log('Connexion Supabase opérationnelle. Vous pouvez lancer l\'import.', 'ok');
+  }
+}
+
+async function runSeed() {
+  document.getElementById('btn').disabled = true;
+  document.getElementById('log').innerHTML = '';
+  const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+  log('── Insertion des clients ─────────────────────────');
+  const { error: ce } = await supa.from('clients').upsert(CLIENTS, { onConflict: 'id', ignoreDuplicates: true });
+  if (ce) {
+    log('ERREUR clients : ' + ce.message, 'err');
+  } else {
+    log('✓ ' + CLIENTS.length + ' clients insérés', 'ok');
+  }
+
+  log('── Insertion des comptes portail ─────────────────');
+  const { error: ue } = await supa.from('utilisateurs').upsert(USERS, { onConflict: 'id', ignoreDuplicates: true });
+  if (ue) {
+    log('ERREUR utilisateurs : ' + ue.message, 'err');
+  } else {
+    log('✓ ' + USERS.length + ' comptes utilisateurs insérés', 'ok');
+  }
+
+  log('── Vérification ─────────────────────────────────');
+  const { data: checkC } = await supa.from('clients').select('id,name').in('id', CLIENTS.map(c=>c.id));
+  log('Clients présents en base : ' + (checkC?.length||0) + '/' + CLIENTS.length, checkC?.length===CLIENTS.length?'ok':'err');
+
+  const { data: checkU } = await supa.from('utilisateurs').select('id,username').in('id', USERS.map(u=>u.id));
+  log('Utilisateurs présents en base : ' + (checkU?.length||0) + '/' + USERS.length, checkU?.length===USERS.length?'ok':'err');
+
+  log('── Terminé ──────────────────────────────────────');
+  document.getElementById('btn').textContent = '✓ Import terminé';
+}
+</script>
+</body>
+</html>
