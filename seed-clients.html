@@ -5,24 +5,21 @@
   <title>SIMPACT — Import clients</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    body { font-family: monospace; background: #0a0f18; color: #e2e8f0; padding: 32px; max-width: 800px; }
+    body { font-family: monospace; background: #0a0f18; color: #e2e8f0; padding: 32px; }
     h2 { color: #c9a84c; }
-    .log { background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; margin-top: 16px; max-height: 60vh; overflow-y: auto; line-height: 1.8; }
+    .log { background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; margin-top: 16px; max-height: 70vh; overflow-y: auto; }
     .ok  { color: #3dba78; }
     .err { color: #ef4444; }
     .inf { color: #4a9fd4; }
-    .warn { color: #f59e0b; }
-    button { background: #c9a84c; color: #0a0f18; border: none; padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 16px; margin-right: 10px; }
-    button.sec { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
+    button { background: #c9a84c; color: #0a0f18; border: none; padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 16px; }
     button:disabled { opacity: 0.4; cursor: not-allowed; }
   </style>
 </head>
 <body>
 <h2>SIMPACT ERP — Import clients & comptes portail</h2>
-<p>Commencez par le diagnostic pour vérifier la connexion Supabase, puis lancez l'import.</p>
-<button class="sec" onclick="runDiag()">🔍 Diagnostic connexion</button>
-<button id="btn" onclick="runSeed()">▶ Lancer l'import (22 clients)</button>
-<div class="log" id="log"><div class="inf">En attente…</div></div>
+<p>Cliquez sur le bouton pour insérer les 22 clients et leurs comptes dans Supabase.</p>
+<button id="btn" onclick="runSeed()">▶ Lancer l'import</button>
+<div class="log" id="log"></div>
 
 <script>
 const SUPA_URL = 'https://yqileqqxpihnyaauwmtr.supabase.co';
@@ -84,38 +81,8 @@ function log(msg, cls='inf') {
   el.scrollTop = el.scrollHeight;
 }
 
-async function runDiag() {
-  document.getElementById('log').innerHTML = '';
-  log('── Diagnostic connexion Supabase ────────────────');
-  log('URL : ' + SUPA_URL);
-
-  // Test 1 : fetch brut
-  try {
-    const r = await fetch(SUPA_URL + '/rest/v1/', {
-      headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY }
-    });
-    log('✓ Connexion HTTP OK — statut ' + r.status, r.ok ? 'ok' : 'warn');
-  } catch(e) {
-    log('✗ Connexion impossible : ' + e.message, 'err');
-    log('→ Cause probable : réseau/FAI bloque Supabase, ou URL incorrecte', 'warn');
-    log('→ Essayez de désactiver tout VPN / extension de navigateur', 'warn');
-    return;
-  }
-
-  // Test 2 : lecture table clients
-  const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
-  const { data, error } = await supa.from('clients').select('id').limit(1);
-  if (error) {
-    log('✗ Erreur lecture table clients : ' + error.message, 'err');
-  } else {
-    log('✓ Table clients accessible — ' + (data?.length || 0) + ' ligne(s) lues', 'ok');
-    log('Connexion Supabase opérationnelle. Vous pouvez lancer l\'import.', 'ok');
-  }
-}
-
 async function runSeed() {
   document.getElementById('btn').disabled = true;
-  document.getElementById('log').innerHTML = '';
   const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
   log('── Insertion des clients ─────────────────────────');
@@ -123,7 +90,7 @@ async function runSeed() {
   if (ce) {
     log('ERREUR clients : ' + ce.message, 'err');
   } else {
-    log('✓ ' + CLIENTS.length + ' clients insérés', 'ok');
+    log(`✓ ${CLIENTS.length} clients insérés`, 'ok');
   }
 
   log('── Insertion des comptes portail ─────────────────');
@@ -131,15 +98,15 @@ async function runSeed() {
   if (ue) {
     log('ERREUR utilisateurs : ' + ue.message, 'err');
   } else {
-    log('✓ ' + USERS.length + ' comptes utilisateurs insérés', 'ok');
+    log(`✓ ${USERS.length} comptes utilisateurs insérés`, 'ok');
   }
 
   log('── Vérification ─────────────────────────────────');
   const { data: checkC } = await supa.from('clients').select('id,name').in('id', CLIENTS.map(c=>c.id));
-  log('Clients présents en base : ' + (checkC?.length||0) + '/' + CLIENTS.length, checkC?.length===CLIENTS.length?'ok':'err');
+  log(`Clients présents en base : ${checkC?.length || 0}/${CLIENTS.length}`, checkC?.length === CLIENTS.length ? 'ok' : 'err');
 
   const { data: checkU } = await supa.from('utilisateurs').select('id,username').in('id', USERS.map(u=>u.id));
-  log('Utilisateurs présents en base : ' + (checkU?.length||0) + '/' + USERS.length, checkU?.length===USERS.length?'ok':'err');
+  log(`Utilisateurs présents en base : ${checkU?.length || 0}/${USERS.length}`, checkU?.length === USERS.length ? 'ok' : 'err');
 
   log('── Terminé ──────────────────────────────────────');
   document.getElementById('btn').textContent = '✓ Import terminé';
