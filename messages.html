@@ -355,7 +355,7 @@ async function openMsg(id) {
   MSG.markRead(id);
   renderList();
 
-  const m = await MSG.getAll().find(x => x.id === id);
+  const m = (await MSG.getAll()).find(x => x.id === id);
   if (!m) return;
 
   const isSent    = m.fromId === session.userId;
@@ -395,7 +395,7 @@ async function openMsg(id) {
 }
 
 async function downloadAttachment(msgId) {
-  const m = await MSG.getAll().find(x => x.id === msgId);
+  const m = (await MSG.getAll()).find(x => x.id === msgId);
   if (!m?.attachment?.data) return;
   const a   = document.createElement("a");
   a.href    = m.attachment.data;
@@ -423,7 +423,7 @@ async function showEmpty() {
 
 // ── Répondre ─────────────────────────────────────────────
 async function openReply(msgId) {
-  const m = await MSG.getAll().find(x => x.id === msgId);
+  const m = (await MSG.getAll()).find(x => x.id === msgId);
   if (!m) return;
   replyTo = m;
   openCompose(m.fromId, m.fromName, "Re: " + m.subject, `\n\n---\nDe : ${m.fromName}\n${m.body}`);
