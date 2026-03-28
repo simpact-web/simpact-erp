@@ -27,9 +27,9 @@
   --gold-glow:    rgba(201,168,76,0.15);
 
   --text-primary:   #1a2b3c;
-  --text-secondary: #5a7a96;
-  --text-muted:     #8aa8c0;
-  --text-dim:       #b0c4d8;
+  --text-secondary: #3a5f7d;
+  --text-muted:     #6080a0;
+  --text-dim:       #96b0c8;
 
   --success: #3dba78;
   --warning: #e8a030;
@@ -352,7 +352,7 @@ input, select, textarea { font-family: inherit; }
   display: block; margin-bottom: 6px;
   font-size: 11px; font-weight: 700;
   letter-spacing: 1px; text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-family: 'DM Mono', monospace;
 }
 .form-control {
