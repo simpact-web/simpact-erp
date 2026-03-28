@@ -199,7 +199,8 @@
     <a href="reporting.html" class="nav-item" data-page="reporting"><span class="nav-icon">📊</span><span>Reporting</span></a>
     <div class="nav-separator"></div>
     <a href="messages.html"  class="nav-item active" data-page="messages"><span class="nav-icon">✉</span><span>Messagerie</span></a>
-    <a href="admin.html"     class="nav-item" data-page="admin"><span class="nav-icon">🔐</span><span>Utilisateurs</span></a>
+    <a href="admin.html"     class="nav-item" data-page="admin" id="adminNav"><span class="nav-icon">🔐</span><span>Utilisateurs</span></a>
+    <a href="couts.html"     class="nav-item" data-page="couts" id="coutsNav"><span class="nav-icon">🧮</span><span>Paramètres coûts</span></a>
     <div class="nav-separator"></div>
     <a href="#" class="nav-item" onclick="SIMPACT_AUTH.logout()"><span class="nav-icon">⎋</span><span>Déconnexion</span></a>
   </nav>
@@ -263,7 +264,13 @@
 <script>
   document.addEventListener("DOMContentLoaded", async () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
-if (session) { SIMPACT_AUTH.renderUserChip(session); }
+if (session) {
+  SIMPACT_AUTH.renderUserChip(session);
+  if(session.role !== "superadmin"){
+    document.getElementById("adminNav")?.style.setProperty("display","none");
+    document.getElementById("coutsNav")?.style.setProperty("display","none");
+  }
+}
 
 let currentFolder  = "inbox";
 let currentMsgId   = null;

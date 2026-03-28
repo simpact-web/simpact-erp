@@ -41,6 +41,11 @@
     <a href="clients.html" class="nav-item" data-page="clients"><span class="nav-icon">🏛</span><span>Clients</span></a>
     <a href="reporting.html" class="nav-item" data-page="reporting"><span class="nav-icon">📊</span><span>Reporting</span></a>
     <div class="nav-separator"></div>
+    <div class="nav-section-label">Administration</div>
+    <a href="messages.html" class="nav-item" data-page="messages"><span class="nav-icon">✉</span><span>Messagerie</span></a>
+    <a href="admin.html" class="nav-item" data-page="admin" id="adminNav"><span class="nav-icon">🔐</span><span>Utilisateurs</span></a>
+    <a href="couts.html" class="nav-item" data-page="couts" id="coutsNav"><span class="nav-icon">🧮</span><span>Paramètres coûts</span></a>
+    <div class="nav-separator"></div>
     <a href="#" class="nav-item" onclick="SIMPACT_AUTH.logout()"><span class="nav-icon">⎋</span><span>Déconnexion</span></a>
   </nav>
 
@@ -146,7 +151,14 @@
 <script>
   document.addEventListener("DOMContentLoaded", async () => {
     const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
-    if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("clients"); }
+    if(session){
+      SIMPACT_AUTH.renderUserChip(session);
+      SIMPACT_AUTH.setActiveNav("clients");
+      if(session.role !== "superadmin"){
+        document.getElementById("adminNav")?.style.setProperty("display","none");
+        document.getElementById("coutsNav")?.style.setProperty("display","none");
+      }
+    }
 
     const SECTOR_COLORS = { Banque:"#4a9fd4", Assurance:"#3dba78", Industrie:"#c9a84c", Administration:"#e05050", Autre:"#7a9ab8" };
     const INITIALS = name => name.split(" ").filter(w=>w.length>2).slice(0,2).map(w=>w[0]).join("").toUpperCase() || "??";

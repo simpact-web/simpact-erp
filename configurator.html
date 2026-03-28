@@ -107,8 +107,8 @@
     <a href="reporting.html" class="nav-item" data-page="reporting"><span class="nav-icon">📊</span><span>Reporting</span></a>
     <div class="nav-separator"></div>
     <a href="messages.html" class="nav-item" data-page="messages"><span class="nav-icon">✉</span><span>Messagerie</span></a>
-    <a href="admin.html" class="nav-item" data-page="admin"><span class="nav-icon">🔐</span><span>Utilisateurs</span></a>
-    <a href="couts.html" class="nav-item" data-page="couts"><span class="nav-icon">🧮</span><span>Paramètres coûts</span></a>
+    <a href="admin.html" class="nav-item" data-page="admin" id="adminNav"><span class="nav-icon">🔐</span><span>Utilisateurs</span></a>
+    <a href="couts.html" class="nav-item" data-page="couts" id="coutsNav"><span class="nav-icon">🧮</span><span>Paramètres coûts</span></a>
     <div class="nav-separator"></div>
     <a href="#" class="nav-item" onclick="SIMPACT_AUTH.logout()"><span class="nav-icon">⎋</span><span>Déconnexion</span></a>
   </nav>
@@ -665,6 +665,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if(isAdmin){
       document.querySelectorAll(".admin-only").forEach(el=>el.style.removeProperty("display"));
       loadClientSelector();
+    } else {
+      document.getElementById("adminNav")?.style.setProperty("display","none");
+      document.getElementById("coutsNav")?.style.setProperty("display","none");
     }
   }
   renderAll();
