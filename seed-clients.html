@@ -94,19 +94,29 @@ async function runSeed() {
   }
 
   log('── Insertion des comptes portail ─────────────────');
-  // On upsert sur username (contrainte unique) pour éviter les doublons
-  const { error: ue } = await supa.from('utilisateurs').upsert(USERS, { onConflict: 'username', ignoreDuplicates: false });
-  if (ue) {
-    log('ERREUR utilisateurs : ' + ue.message, 'err');
-  } else {
-    log(`✓ ${USERS.length} comptes utilisateurs insérés`, 'ok');
+  let inserted = 0, updated = 0, failed = 0;
+  for (const u of USERS) {
+    const { error: ie } = await supa.from('utilisateurs').insert(u);
+    if (!ie) { inserted++; continue; }
+    if (ie.code === '23505') {
+      // Username déjà pris — mettre à jour client_id et password sans changer l'id
+      const { error: ue2 } = await supa.from('utilisateurs')
+        .update({ client_id: u.client_id, password: u.password, role: u.role, permissions: u.permissions })
+        .eq('username', u.username);
+      if (!ue2) { updated++; } else { failed++; log('Erreur update ' + u.username + ' : ' + ue2.message, 'err'); }
+    } else {
+      failed++;
+      log('Erreur insert ' + u.username + ' : ' + ie.message, 'err');
+    }
   }
+  const cls = failed === 0 ? 'ok' : 'warn';
+  log(`✓ ${inserted} créés · ${updated} mis à jour · ${failed} échecs`, cls);
 
   log('── Vérification ─────────────────────────────────');
   const { data: checkC } = await supa.from('clients').select('id,name').in('id', CLIENTS.map(c=>c.id));
   log(`Clients présents en base : ${checkC?.length || 0}/${CLIENTS.length}`, checkC?.length === CLIENTS.length ? 'ok' : 'err');
 
-  const { data: checkU } = await supa.from('utilisateurs').select('id,username').in('id', USERS.map(u=>u.id));
+  const { data: checkU } = await supa.from('utilisateurs').select('id,username').in('username', USERS.map(u=>u.username));
   log(`Utilisateurs présents en base : ${checkU?.length || 0}/${USERS.length}`, checkU?.length === USERS.length ? 'ok' : 'err');
 
   log('── Terminé ──────────────────────────────────────');
