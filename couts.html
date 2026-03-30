@@ -275,6 +275,11 @@
                 <input class="ca-input" type="number" min="12" max="16" step="1" id="mo_km2100_nbMois" oninput="recalc()">
               </div>
               <div class="ca-field">
+                <div class="ca-label">Charges sociales <span>(%)</span></div>
+                <input class="ca-input" type="number" min="0" max="50" step="0.25" id="mo_km2100_chargesPct" oninput="recalc()">
+                <div class="ca-unit">% charges patronales</div>
+              </div>
+              <div class="ca-field">
                 <div class="ca-label">Vitesse machine <span>(ppm)</span></div>
                 <input class="ca-input" type="number" min="1" id="mo_km2100_ppmMachine" oninput="recalc()">
               </div>
@@ -481,7 +486,7 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const session = SIMPACT_AUTH.requireAuth(["superadmin"]);
-  if (session) SIMPACT_AUTH.renderUserChip(session);
+  if (session) { SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("couts"); }
 
   loadForm();
   renderPaperTable();
@@ -743,6 +748,7 @@ function readWorkingFromForm() {
   WORKING.mo.km2100.operators   = get('mo_km2100_operators')   ?? WORKING.mo.km2100.operators;
   WORKING.mo.km2100.salaireGrut = get('mo_km2100_salaireGrut') ?? WORKING.mo.km2100.salaireGrut;
   WORKING.mo.km2100.nbMois      = get('mo_km2100_nbMois')      || WORKING.mo.km2100.nbMois;
+  WORKING.mo.km2100.chargesPct  = get('mo_km2100_chargesPct')  ?? WORKING.mo.km2100.chargesPct;
   WORKING.mo.km2100.ppmMachine  = get('mo_km2100_ppmMachine')  || WORKING.mo.km2100.ppmMachine;
   WORKING.mo.km2100.uptimePct   = get('mo_km2100_uptimePct')   || WORKING.mo.km2100.uptimePct;
   WORKING.mo.km2100.heuresAn    = get('mo_km2100_heuresAn')    || WORKING.mo.km2100.heuresAn;
@@ -805,41 +811,27 @@ function recalc() {
     </div>`;
 
   // Simulateur
-  runSimulator(CPC);
+  runSimulator();
 }
 
-function runSimulator(cpc) {
-  // Construire un SIMPACT_PRICING temporaire avec les paramètres WORKING
-  // On réutilise le moteur existant mais avec les PRODS reconstruits avec les nouveaux CPC
+function runSimulator() {
   const panel = document.getElementById('simPanel');
 
-  // Calculer avec les paramètres actuels (WORKING)
-  // On doit patcher temporairement SIMPACT_PARAMS.P
-  const backup = JSON.parse(JSON.stringify(SIMPACT_PARAMS.P));
-  Object.assign(SIMPACT_PARAMS.P, WORKING);
-  Object.assign(SIMPACT_PARAMS.P.papier, WORKING.papier);
+  // Appliquer temporairement les CPC calculés depuis WORKING
+  const workingCPC = SIMPACT_PARAMS.computeCPC(WORKING);
+  SIMPACT_PRICING.refreshCPC(workingCPC);
+
+  // Patch params contextuels (papier, finitions, marges, prepresse)
+  const origPapier    = JSON.parse(JSON.stringify(SIMPACT_PARAMS.P.papier));
+  const origFinitions = JSON.parse(JSON.stringify(SIMPACT_PARAMS.P.finitions));
+  const origPrepresse = JSON.parse(JSON.stringify(SIMPACT_PARAMS.P.prepresse));
+  const origMarges    = JSON.parse(JSON.stringify(SIMPACT_PARAMS.P.marges));
+  const origGache     = JSON.parse(JSON.stringify(SIMPACT_PARAMS.P.gache));
+  Object.assign(SIMPACT_PARAMS.P.papier,    WORKING.papier);
   Object.assign(SIMPACT_PARAMS.P.finitions, WORKING.finitions);
   Object.assign(SIMPACT_PARAMS.P.prepresse, WORKING.prepresse);
-  Object.assign(SIMPACT_PARAMS.P.marges, WORKING.marges);
-
-  // Reconstruire le pricing avec les nouveaux CPC
-  const newCPC = SIMPACT_PARAMS.computeCPC(WORKING);
-  // Patch CPC dans les PRODS existants
-  SIMPACT_PRICING.PRODS.forEach(p => {
-    p.fins.forEach(f => { /* taux lus via finRate() */ });
-    if (p.colors) p.colors.forEach(c => {
-      if (c.cpc === undefined) return;
-      const map = {[SIMPACT_PRICING.CPC.cdv]:newCPC.cdv,[SIMPACT_PRICING.CPC.fly]:newCPC.fly,
-        [SIMPACT_PRICING.CPC.bro]:newCPC.bro,[SIMPACT_PRICING.CPC.aff]:newCPC.aff,
-        [SIMPACT_PRICING.CPC.dep]:newCPC.dep,[SIMPACT_PRICING.CPC.ent_nb]:newCPC.ent_nb,
-        [SIMPACT_PRICING.CPC.ent_cl]:newCPC.ent_cl,[SIMPACT_PRICING.CPC.liv_nb]:newCPC.liv_nb};
-      if (c.cpc in map) c.cpc = map[c.cpc];
-      if (c.cpcCov in map) c.cpcCov = map[c.cpcCov];
-      if (c.cpcInt in map) c.cpcInt = map[c.cpcInt];
-    });
-    if (p.cpcNb) p.cpcNb = newCPC.liv_nb;
-    if (p.cpcCov) p.cpcCov = newCPC.bro;
-  });
+  Object.assign(SIMPACT_PARAMS.P.marges,    WORKING.marges);
+  Object.assign(SIMPACT_PARAMS.P.gache,     WORKING.gache);
 
   let html = '';
   SIM_JOBS.forEach(job => {
@@ -848,11 +840,10 @@ function runSimulator(cpc) {
     const newHT = r ? r.finalHT : '—';
     const refHT = REF_PRICES[job.label];
     const changed = refHT !== undefined && newHT !== refHT;
-    const diff = changed ? newHT - refHT : 0;
+    const diff = (changed && typeof newHT === 'number') ? newHT - refHT : 0;
     const diffClass = diff > 0 ? 'up' : diff < 0 ? 'down' : 'same';
-    const diffStr  = diff !== 0 ? (diff>0?'+':'')+diff+' DT' : '—';
-
-    html += `<div class="sim-row ${changed?'changed':''}">
+    const diffStr = diff !== 0 ? (diff > 0 ? '+' : '') + diff.toFixed(0) + ' DT' : '=';
+    html += `<div class="sim-row ${changed ? 'changed' : ''}">
       <div class="sim-label">${job.label}</div>
       <div class="sim-prices">
         ${refHT !== undefined && changed ? `<span class="sim-old">${refHT} DT</span>` : ''}
@@ -863,8 +854,13 @@ function runSimulator(cpc) {
   });
   panel.innerHTML = html;
 
-  // Restaurer
-  Object.assign(SIMPACT_PARAMS.P, backup);
+  // Restaurer l'état sauvegardé
+  Object.assign(SIMPACT_PARAMS.P.papier,    origPapier);
+  Object.assign(SIMPACT_PARAMS.P.finitions, origFinitions);
+  Object.assign(SIMPACT_PARAMS.P.prepresse, origPrepresse);
+  Object.assign(SIMPACT_PARAMS.P.marges,    origMarges);
+  Object.assign(SIMPACT_PARAMS.P.gache,     origGache);
+  SIMPACT_PRICING.refreshCPC(); // restaure les CPC depuis SIMPACT_PARAMS.P
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -872,30 +868,35 @@ function runSimulator(cpc) {
 ───────────────────────────────────────────────────────────── */
 function saveParams() {
   readWorkingFromForm();
-  const saved = SIMPACT_PARAMS.save(WORKING, 'Admin');
+  const sessionData = SIMPACT_AUTH.getSession();
+  const who = sessionData?.name || sessionData?.username || 'Admin';
+  const saved = SIMPACT_PARAMS.save(WORKING, who);
   Object.assign(SIMPACT_PARAMS.P, saved);
 
-  // Fixer les nouveaux prix de référence
+  // Mettre à jour le moteur de prix avec les nouveaux CPC
+  SIMPACT_PRICING.refreshCPC();
+
+  // Fixer les nouveaux prix de référence (après refresh)
   REF_PRICES = {};
-  const cpc = SIMPACT_PARAMS.computeCPC(WORKING);
-  SIMPACT_PRICING.PRODS.forEach(p => {
-    SIM_JOBS.filter(j=>j.id===p.id).forEach(job=>{
-      const r = SIMPACT_PRICING.compute(p, job.s);
-      if (r) REF_PRICES[job.label] = r.finalHT;
-    });
+  SIM_JOBS.forEach(job => {
+    const prod = SIMPACT_PRICING.PRODS.find(x => x.id === job.id);
+    const r = prod ? SIMPACT_PRICING.compute(prod, job.s) : null;
+    if (r) REF_PRICES[job.label] = r.finalHT;
   });
 
   document.getElementById('lastSavedLabel').textContent =
-    `Dernière sauvegarde : ${saved.updatedAt} — Paramètres actifs sur tous les modules`;
+    `Dernière sauvegarde : ${saved.updatedAt} par ${who} — Paramètres actifs sur tous les modules`;
   document.getElementById('saveStatus').textContent = `✓ Enregistré le ${new Date().toLocaleString('fr-FR')}`;
   setTimeout(() => document.getElementById('saveStatus').textContent = '', 5000);
-  showToast('✓ Paramètres enregistrés — prix mis à jour', 'success');
+  showToast('✓ Paramètres enregistrés — configurateur mis à jour', 'success');
 }
 
 function resetParams() {
   if (!confirm('Réinitialiser tous les paramètres aux valeurs par défaut ?')) return;
   WORKING = JSON.parse(JSON.stringify(SIMPACT_PARAMS.DEFAULTS));
-  SIMPACT_PARAMS.reset();
+  const freshP = SIMPACT_PARAMS.reset();
+  Object.assign(SIMPACT_PARAMS.P, freshP);
+  SIMPACT_PRICING.refreshCPC();
   loadForm();
   renderPaperTable();
   renderFinitions();

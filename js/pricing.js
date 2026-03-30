@@ -446,6 +446,36 @@ const SIMPACT_PRICING = (function () {
     return p.qty.map(qty => compute(p, {...state, qty}));
   }
 
-  return { PRODS, compute, computeAllTiers, roundHT, CPC, poses, waste, kp };
+  /* ── Mise à jour CPC après modification des paramètres ── */
+  function refreshCPC(nc) {
+    if (!nc) nc = SIMPACT_PARAMS.computeCPC(SIMPACT_PARAMS.P);
+    Object.assign(CPC, nc);
+    const cm = {
+      cdv: { '44':'cdv',    '40':'cdv',    'nb':'ent_nb' },
+      fly: { '44':'fly',    '40':'fly',    'nb':'ent_nb' },
+      aff: { '40':'aff',    'nb':'ent_nb' },
+      ent: { '40':'ent_cl', 'nb':'ent_nb', '1c':'ent_nb' },
+      dep: { '44':'dep',    '40':'dep',    'nb':'ent_nb' },
+    };
+    const bm = {
+      bro: {
+        '44':  { cpcCov:'bro',    cpcInt:'bro'    },
+        '4nb': { cpcCov:'bro',    cpcInt:'liv_nb' },
+        'nb':  { cpcCov:'ent_nb', cpcInt:'ent_nb' },
+      },
+    };
+    PRODS.forEach(p => {
+      if (cm[p.id]) p.colors.forEach(c => {
+        if (cm[p.id][c.id] !== undefined) c.cpc = nc[cm[p.id][c.id]];
+      });
+      if (bm[p.id]) p.colors.forEach(c => {
+        const k = bm[p.id][c.id];
+        if (k) { c.cpcCov = nc[k.cpcCov]; c.cpcInt = nc[k.cpcInt]; }
+      });
+      if (p.id === 'liv') { p.cpcNb = nc.liv_nb; p.cpcCov = nc.bro; }
+    });
+  }
+
+  return { PRODS, compute, computeAllTiers, roundHT, CPC, poses, waste, kp, refreshCPC };
 
 })();
