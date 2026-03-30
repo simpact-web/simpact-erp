@@ -657,7 +657,7 @@ async function openOrderModal(){
 }
 
 // ── Authentification (dans DOMContentLoaded uniquement) ──────
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const session = SIMPACT_AUTH.requireAuth(["superadmin","team","client"]);
   if(session){
     isAdmin = session.role === "superadmin";
@@ -667,6 +667,9 @@ document.addEventListener("DOMContentLoaded", () => {
       loadClientSelector();
     }
   }
+  // Sync params depuis Supabase (silencieux — rafraîchit les prix si nécessaire)
+  const remote = await SIMPACT_PARAMS.syncFromDB();
+  if (remote) SIMPACT_PRICING.refreshCPC();
   renderAll();
 });
 </script>

@@ -479,10 +479,11 @@
 <script src="js/params.js"></script>
 <script src="js/pricing.js"></script>
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const session = SIMPACT_AUTH.requireAuth(["superadmin"]);
   if (session) SIMPACT_AUTH.renderUserChip(session);
 
+  // Rendu initial depuis localStorage (instantané)
   loadForm();
   renderPaperTable();
   renderFinitions();
@@ -490,11 +491,26 @@ document.addEventListener("DOMContentLoaded", () => {
   renderMarges();
   recalc();
 
-  // Afficher date dernière sauvegarde
-  const p = SIMPACT_PARAMS.P;
-  if (p.updatedAt) {
+  document.getElementById('lastSavedLabel').textContent = '⏳ Synchronisation Supabase…';
+
+  // Sync depuis Supabase — prend la priorité sur localStorage
+  const remote = await SIMPACT_PARAMS.syncFromDB();
+  if (remote) {
+    WORKING = SIMPACT_PARAMS.deepMerge(JSON.parse(JSON.stringify(SIMPACT_PARAMS.DEFAULTS)), remote);
+    Object.assign(SIMPACT_PARAMS.P, WORKING);
+    SIMPACT_PRICING.refreshCPC();
+    loadForm();
+    renderPaperTable();
+    renderFinitions();
+    renderSetup();
+    renderMarges();
+    recalc();
     document.getElementById('lastSavedLabel').textContent =
-      `Dernière sauvegarde : ${p.updatedAt} par ${p.updatedBy || '—'}`;
+      `Dernière sauvegarde : ${remote.updatedAt || '—'} par ${remote.updatedBy || '—'} — ✓ Supabase`;
+  } else {
+    const p = SIMPACT_PARAMS.P;
+    document.getElementById('lastSavedLabel').textContent =
+      `${p.updatedAt ? `Dernière sauvegarde : ${p.updatedAt} par ${p.updatedBy || '—'}` : 'Valeurs par défaut'} — (local)`;
   }
 });
 
@@ -870,12 +886,17 @@ function runSimulator(cpc) {
 /* ─────────────────────────────────────────────────────────────
    SAUVEGARDER
 ───────────────────────────────────────────────────────────── */
-function saveParams() {
+async function saveParams() {
   readWorkingFromForm();
-  const saved = SIMPACT_PARAMS.save(WORKING, 'Admin');
-  Object.assign(SIMPACT_PARAMS.P, saved);
+  const sessionData = SIMPACT_AUTH.getSession();
+  const who = sessionData?.name || sessionData?.username || 'Admin';
 
-  // Fixer les nouveaux prix de référence
+  // 1. Sauvegarder localement (synchrone, instantané)
+  const saved = SIMPACT_PARAMS.save(WORKING, who);
+  Object.assign(SIMPACT_PARAMS.P, saved);
+  SIMPACT_PRICING.refreshCPC();
+
+  // 2. Mettre à jour les prix de référence
   REF_PRICES = {};
   const cpc = SIMPACT_PARAMS.computeCPC(WORKING);
   SIMPACT_PRICING.PRODS.forEach(p => {
@@ -885,11 +906,20 @@ function saveParams() {
     });
   });
 
+  // Feedback immédiat
+  document.getElementById('saveStatus').textContent = '⏳ Synchronisation Supabase…';
   document.getElementById('lastSavedLabel').textContent =
-    `Dernière sauvegarde : ${saved.updatedAt} — Paramètres actifs sur tous les modules`;
+    `Enregistré localement le ${new Date().toLocaleString('fr-FR')} — synchronisation en cours…`;
+
+  // 3. Sauvegarder sur Supabase (async — avec backup auto dans pricing_history)
+  const ok = await SIMPACT_PARAMS.syncToDB(saved, who);
+
+  const where = ok ? '✓ Supabase' : '⚠ local uniquement (Supabase indisponible)';
+  document.getElementById('lastSavedLabel').textContent =
+    `Dernière sauvegarde : ${saved.updatedAt} par ${who} — ${where}`;
   document.getElementById('saveStatus').textContent = `✓ Enregistré le ${new Date().toLocaleString('fr-FR')}`;
   setTimeout(() => document.getElementById('saveStatus').textContent = '', 5000);
-  showToast('✓ Paramètres enregistrés — prix mis à jour', 'success');
+  showToast(ok ? '✓ Paramètres synchronisés sur Supabase' : '✓ Enregistrés localement (Supabase indisponible)', ok ? 'success' : 'warning');
 }
 
 function resetParams() {

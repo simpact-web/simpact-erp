@@ -243,6 +243,40 @@ const SIMPACT_PARAMS = (function () {
     return { masseSalariale, capaciteClicks, moPerClick };
   }
 
+  /* ══════════════════════════════════════════════════
+     SYNCHRONISATION SUPABASE (async)
+     ══════════════════════════════════════════════════ */
+
+  /** Charge les params depuis Supabase, met à jour P + localStorage.
+   *  Retourne les params mergés, ou null si Supabase indisponible. */
+  async function syncFromDB() {
+    try {
+      if (typeof DB === 'undefined') return null;
+      const remote = await DB.getParams();
+      if (!remote) return null;
+      const merged = deepMerge(JSON.parse(JSON.stringify(DEFAULTS)), remote);
+      Object.assign(P, merged);
+      localStorage.setItem('simpact_params', JSON.stringify(merged));
+      return merged;
+    } catch (e) {
+      console.warn('SIMPACT_PARAMS.syncFromDB:', e);
+      return null;
+    }
+  }
+
+  /** Pousse les params vers Supabase (avec backup auto dans pricing_history).
+   *  Retourne true si succès, false sinon. */
+  async function syncToDB(params, who) {
+    try {
+      if (typeof DB === 'undefined') return false;
+      const result = await DB.saveParams(params, who || 'Admin');
+      return !!result;
+    } catch (e) {
+      console.warn('SIMPACT_PARAMS.syncToDB:', e);
+      return false;
+    }
+  }
+
   /* ── Chargement initial ─────────────────────────── */
   const P = load();
 
@@ -256,6 +290,8 @@ const SIMPACT_PARAMS = (function () {
     computeCPC,
     computeMO,
     computeMODetails,
+    syncFromDB,
+    syncToDB,
   };
 
 })();
