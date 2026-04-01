@@ -52,11 +52,13 @@
     <div class="nav-section-label">Navigation</div>
     <a href="dashboard.html" class="nav-item" data-page="dashboard"><span class="nav-icon">◈</span><span>Tableau de bord</span></a>
     <a href="orders.html" class="nav-item" data-page="orders"><span class="nav-icon">📋</span><span>Commandes</span></a>
-    <a href="configurator.html" class="nav-item" data-page="configurator"><span class="nav-icon">⚙</span><span>Configurateur prix</span></a>
+    <a href="configurator.html" class="nav-item" data-page="configurator" id="configNav"><span class="nav-icon">⚙</span><span>Configurateur prix</span></a>
     <a href="stock.html" class="nav-item" data-page="stock"><span class="nav-icon">📦</span><span>Stocks papier</span></a>
     <div class="nav-separator"></div>
     <a href="clients.html" class="nav-item" data-page="clients"><span class="nav-icon">🏛</span><span>Clients</span></a>
-    <a href="reporting.html" class="nav-item" data-page="reporting"><span class="nav-icon">📊</span><span>Reporting</span></a>
+    <a href="reporting.html" class="nav-item" data-page="reporting" id="reportNav"><span class="nav-icon">📊</span><span>Reporting</span></a>
+    <div class="nav-separator"></div>
+    <a href="messages.html" class="nav-item" data-page="messages"><span class="nav-icon">✉</span><span>Messagerie</span></a>
     <div class="nav-separator"></div>
     <a href="#" class="nav-item" onclick="SIMPACT_AUTH.logout()"><span class="nav-icon">⎋</span><span>Déconnexion</span></a>
   </nav>
@@ -68,8 +70,8 @@
         <div class="page-subtitle">Inventaire et mouvements de stock en temps réel</div>
       </div>
       <div class="page-actions">
-        <button class="btn btn-secondary" onclick="openAddStockModal()">+ Nouveau support</button>
-        <button class="btn btn-primary" onclick="openMvtModal(null,'in')">📥 Entrée de stock</button>
+        <button class="btn btn-secondary" id="btnAddStock" onclick="openAddStockModal()">+ Nouveau support</button>
+        <button class="btn btn-primary" id="btnEntreeStock" onclick="openMvtModal(null,'in')">📥 Entrée de stock</button>
       </div>
     </div>
 
@@ -128,7 +130,7 @@
       <button onclick="document.getElementById('detailModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">×</button>
     </div>
     <div class="modal-body" id="detailStockBody"></div>
-    <div class="modal-footer">
+    <div class="modal-footer" id="detailStockFooter">
       <button class="btn btn-primary" onclick="openMvtModal(currentStockId,'in');document.getElementById('detailModal').style.display='none'">📥 Entrée</button>
       <button class="btn btn-secondary" onclick="openMvtModal(currentStockId,'out');document.getElementById('detailModal').style.display='none'">📤 Sortie</button>
     </div>
@@ -171,7 +173,23 @@
 <script>
   document.addEventListener("DOMContentLoaded", async () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
-if(session){ SIMPACT_AUTH.renderUserChip(session); SIMPACT_AUTH.setActiveNav("stock"); }
+if (session) {
+  SIMPACT_AUTH.renderUserChip(session);
+  SIMPACT_AUTH.setActiveNav("stock");
+  const canPrice = session.role === "superadmin" || (session.permissions||[]).includes("configurator");
+  window._canEditStock = canPrice;
+  if (!canPrice) {
+    document.getElementById("configNav")?.style.setProperty("display","none");
+    document.getElementById("reportNav")?.style.setProperty("display","none");
+    document.getElementById("btnAddStock")?.style.setProperty("display","none");
+    document.getElementById("btnEntreeStock")?.style.setProperty("display","none");
+    document.getElementById("detailStockFooter")?.style.setProperty("display","none");
+  }
+  if (session.role !== "superadmin") {
+    document.getElementById("adminNav")?.style.setProperty("display","none");
+    document.getElementById("coutsNav")?.style.setProperty("display","none");
+  }
+}
 
 let currentStockId = null;
 
@@ -204,9 +222,9 @@ async function renderAlerts(stock){
     const pct = s.qty===0 ? 0 : (s.qty/s.minAlert*100).toFixed(0);
     const type = s.qty===0?"danger":s.qty<s.minAlert*0.5?"danger":"warning";
     return `<div class="alert alert-${type}" style="margin-bottom:8px">
-      ${type==="danger"?"🔴":"⚠"} <strong>${s.name}</strong> — 
-      ${s.qty===0?"RUPTURE DE STOCK":s.qty.toLocaleString("fr-FR")+" feuilles restantes (seuil: "+s.minAlert.toLocaleString("fr-FR")+")"} 
-      <button onclick="openMvtModal('${s.id}','in')" class="btn btn-sm btn-secondary" style="margin-left:auto;flex-shrink:0">Commander</button>
+      ${type==="danger"?"🔴":"⚠"} <strong>${s.name}</strong> —
+      ${s.qty===0?"RUPTURE DE STOCK":s.qty.toLocaleString("fr-FR")+" feuilles restantes (seuil: "+s.minAlert.toLocaleString("fr-FR")+")"}
+      ${window._canEditStock ? `<button onclick="openMvtModal('${s.id}','in')" class="btn btn-sm btn-secondary" style="margin-left:auto;flex-shrink:0">Commander</button>` : ''}
     </div>`;
   }).join("") : "";
 }
