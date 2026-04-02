@@ -270,123 +270,19 @@ function qtyField(p, n) {
   </div>`;
 }
 
-function renderOpts() {
-  const p = P(); let h = "";
-
-  // Helper : section avec select
-  function sel(sn, label, arr, cur, code, labelFn) {
-    const lf = labelFn || (x => typeof x==="string"?x:(x.label||x.name||""));
-    const opts = arr.map((x,i)=>`<option value="${i}"${cur===i?" selected":""}>${lf(x)}</option>`).join("");
-    return `<div class="cfg-section"><div class="cfg-label"><span class="sn">${sn}</span> ${label}</div>
-      <select class="cfg-select" onchange="${code}">${opts}</select></div>`;
-  }
-
-  if (p.type === "booklet") {
-    h += sel("①","Format", p.formats, S.fi, "S.fi=+this.value;S.pa=0;S.co=0;renderAll()", f=>f.label);
-    h += sel("②","Reliure", p.bindings, S.bi, "S.bi=+this.value;renderAll()", b=>b.label);
-    // ③ Pages libres (gardé en input)
-    h += `<div class="cfg-section"><div class="cfg-label"><span class="sn">3</span> Pages intérieures <span style="font-size:10px;color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">(multiple de 4, hors couverture)</span></div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <input type="number" min="4" step="4" placeholder="Ex : 28" value="${S.pages||""}"
-          style="background:var(--navy-dark);border:1px solid var(--navy-border);border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'DM Mono',monospace;font-size:15px;font-weight:700;width:150px;outline:none;transition:border-color .2s"
-          oninput="S.pages=this.value?Math.max(4,parseInt(this.value)):null;renderPrice()"
-          onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--navy-border)'">
-        <span style="font-size:12px;color:var(--text-muted)">${S.pages?"= "+(S.pages+4)+" pages total (couv. incluse)":"Entrez le nombre de pages intérieures"}</span>
-      </div></div>`;
-    h += sel("④","Mode d'impression", p.colors, S.co, "S.co=+this.value;renderAll()", c=>c.label);
-    h += sel("⑤","Type couverture", p.covTypes, S.cov, "S.cov=+this.value;renderAll()", c=>c.label);
-    h += sel("⑥","Papier couverture", p.cPapers, S.pa2, "S.pa2=+this.value;renderAll()", pp=>pp.label+" — "+pp.g+"g");
-    h += sel("⑦","Papier intérieur", p.iPapers, S.pa, "S.pa=+this.value;renderAll()", pp=>pp.label+" — "+pp.g+"g");
-    h += qtySection(p,"⑧");
-    if(p.fins.length) h += finsSection(p,"⑨");
-
-  } else if (p.type === "book") {
-    h += sel("①","Format", p.formats, S.fi, "S.fi=+this.value;renderAll()", f=>f.label);
-    // ② Pages libres
-    h += `<div class="cfg-section"><div class="cfg-label"><span class="sn">2</span> Pages intérieures N&amp;B <span style="font-size:10px;color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">(multiple de 4)</span></div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <input type="number" min="4" step="4" placeholder="Ex : 200" value="${S.pages||""}"
-          style="background:var(--navy-dark);border:1px solid var(--navy-border);border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'DM Mono',monospace;font-size:15px;font-weight:700;width:150px;outline:none;transition:border-color .2s"
-          oninput="S.pages=this.value?Math.max(4,parseInt(this.value)):null;renderPrice()"
-          onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--navy-border)'">
-        <span style="font-size:12px;color:var(--text-muted)">${S.pages?"Couverture : +4p → "+(S.pages+4)+"p total":"Entrez le nombre de pages intérieures"}</span>
-      </div></div>`;
-    h += sel("③","Papier intérieur N&B", p.papers, S.pa, "S.pa=+this.value;renderAll()", pp=>pp.label+" — "+pp.g+"g");
-    h += sel("④","Couverture couleur", p.covTypes, S.cov, "S.cov=+this.value;renderAll()", c=>c.label);
-    h += sel("⑤","Papier couverture", p.cPapers, S.pa2, "S.pa2=+this.value;renderAll()", pp=>pp.label);
-    h += qtySection(p,"⑥");
-    if(p.fins.length) h += finsSection(p,"⑦");
-
-  } else {
-    h += sel("①","Format", p.formats, S.fi, "S.fi=+this.value;S.pa=0;S.co=0;renderAll()", f=>f.label);
-    h += sel("②","Support papier", p.papers, S.pa, "S.pa=+this.value;renderAll()", pp=>pp.label+(pp.g?" — "+pp.g+"g":""));
-    h += sel("③","Mode d'impression", p.colors, S.co, "S.co=+this.value;renderAll()", c=>c.label);
-    h += qtySection(p,"④");
-    if (p.fins.length) {
-      const q=Q(), fmt=p.formats[S.fi], sh=fmt?.sheet||{w:.320,h:.450};
-      const psn=fmt?SIMPACT_PRICING.poses(fmt.w||.210,fmt.h||.297,sh.w,sh.h).n:2;
-      const sNet=Math.ceil(q/psn);
-      h += `<div class="cfg-section"><div class="cfg-label"><span class="sn">5</span> Finitions <span style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">(optionnel)</span></div>
-        <div class="fin-grid">${p.fins.map(f=>{
-          const on=S.fins.includes(f.id);
-          const prev=f.t==="pp"?q*f.r:f.t==="ps"?sNet*f.r:f.r;
-          return `<label class="fin-item ${on?"on":""}" onclick="togFin('${f.id}')">
-            <input type="checkbox" ${on?"checked":""} onclick="event.stopPropagation()">
-            <div><div class="fin-lbl">${f.label}</div><div class="fin-cost">+${prev.toFixed(2)} DT</div></div></label>`;
-        }).join("")}</div></div>`;
-    }
-  }
-
-  document.getElementById("optPanel").innerHTML = h;
-}
-
-
-// ── Fonctions UI GLOBALES (appelées depuis onclick) ──────────────
-function renderAll() { renderProds(); renderOpts(); renderPrice(); }
-
-function renderProds() {
-  document.getElementById("prodGrid").innerHTML = PRODS.map((p,i) => `
-    <div class="pbtn ${S.pi===i?"active":""}" onclick="selProd(${i})">
-      <div class="pi">${p.icon}</div><div class="pn">${p.name}</div>
-    </div>`).join("");
-}
-
-function selProd(i) {
-  S = {pi:i,fi:0,pa:0,co:0,qi:2,qc:null,fins:[],disc:S.disc,showCost:S.showCost,pages:null,bi:0,pa2:0,cov:0};
-  renderAll();
-}
-
-function togFin(id) {
-  S.fins = S.fins.includes(id) ? S.fins.filter(x=>x!==id) : [...S.fins,id];
-  renderAll();
-}
-
-function sel(n, label, items, val, onchange, full=false) {
-  return `<div class="opt-field${full?" style=\"grid-column:1/-1\"":""}">
-    <div class="opt-label"><span class="sn">${n}</span> ${label}</div>
-    <select class="opt-select" onchange="${onchange}">
-      ${items.map((it,i)=>`<option value="${i}" ${val===i?"selected":""}>${it}</option>`).join("")}
-    </select>
-  </div>`;
-}
-
-function qtyField(p, n) {
-  const paliers = p.qty.map((q,i)=>`<option value="${i}" ${S.qi===i&&!S.qc?"selected":""}>${q.toLocaleString("fr-FR")} ex.</option>`).join("");
-  const libreSelected = !!S.qc;
+function finsSection(p, n) {
+  const q = Q(), fmt = p.formats[S.fi], sh = fmt?.sheet || {w:.320, h:.450};
+  const psn = fmt ? SIMPACT_PRICING.poses(fmt.w||.210, fmt.h||.297, sh.w, sh.h).n : 2;
+  const sNet = Math.ceil(q / psn);
   return `<div class="opt-field" style="grid-column:1/-1">
-    <div class="opt-label"><span class="sn">${n}</span> Quantité</div>
-    <div class="qty-row">
-      <select class="opt-select" onchange="
-        if(this.value==='libre'){S.qi=-1;this.closest('.qty-row').querySelector('.qty-libre').style.display='block';this.closest('.qty-row').querySelector('.qty-libre').focus();}
-        else{S.qi=parseInt(this.value);S.qc=null;this.closest('.qty-row').querySelector('.qty-libre').style.display='none';renderAll();}">
-        ${paliers}
-        <option value="libre" ${libreSelected?"selected":""}>✎ Saisie libre…</option>
-      </select>
-      <input class="qty-libre" type="number" min="1" placeholder="Nb ex." value="${S.qc||""}"
-        style="display:${libreSelected?"block":"none"}"
-        oninput="S.qc=this.value?Math.max(1,parseInt(this.value)):null;S.qi=-1;renderAll()">
-    </div>
-  </div>`;
+    <div class="opt-label"><span class="sn">${n}</span> Finitions <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">(optionnel)</span></div>
+    <div class="fin-grid">${p.fins.map(f => {
+      const on = S.fins.includes(f.id);
+      const prev = f.t==="pp" ? q*f.r : f.t==="ps" ? sNet*f.r : f.r;
+      return `<label class="fin-item ${on?"on":""}" onclick="togFin('${f.id}')">
+        <input type="checkbox" ${on?"checked":""} onclick="event.stopPropagation()">
+        <div><div class="fin-lbl">${f.label}</div><div class="fin-cost">+${prev.toFixed(2)} DT</div></div></label>`;
+    }).join("")}</div></div>`;
 }
 
 function renderOpts() {

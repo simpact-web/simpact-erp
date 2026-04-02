@@ -349,6 +349,7 @@ function showTab(id){
   document.querySelectorAll(".tab-btn").forEach((btn,i) => btn.classList.toggle("active", tabs[i]===id));
   if(id==="machine") updateROI();
 }
+window.showTab = showTab;
 
 // ── Tab CA ─────────────────────────────────────────────
 async function renderCA(){
