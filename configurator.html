@@ -271,14 +271,26 @@ function qtyField(p, n) {
 }
 
 function finsSection(p, n) {
-  const q = Q(), fmt = p.formats[S.fi], sh = fmt?.sheet || {w:.320, h:.450};
-  const psn = fmt ? SIMPACT_PRICING.poses(fmt.w||.210, fmt.h||.297, sh.w, sh.h).n : 2;
+  const q = Q();
+  const fmt = p.formats[S.fi];
+  const sh = fmt?.sheet || p.sheet || {w:.320, h:.450};
+  const fw = fmt?.piece?.w || fmt?.w || .210;
+  const fh = fmt?.piece?.h || fmt?.h || .297;
+  const psn = fmt ? SIMPACT_PRICING.poses(fw, fh, sh.w, sh.h).n : 2;
   const sNet = Math.ceil(q / psn);
+  const fp = SIMPACT_PARAMS?.P?.finitions || {};
+  const rateMap = {
+    pm: fp.pelliculage_mat?.dt,
+    pb: fp.pelliculage_brillant?.dt,
+    co: fp.coins_arrondis?.dt,
+    vu: fp.vernis_uv?.dt,
+  };
   return `<div class="opt-field" style="grid-column:1/-1">
     <div class="opt-label"><span class="sn">${n}</span> Finitions <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">(optionnel)</span></div>
     <div class="fin-grid">${p.fins.map(f => {
       const on = S.fins.includes(f.id);
-      const prev = f.t==="pp" ? q*f.r : f.t==="ps" ? sNet*f.r : f.r;
+      const r = rateMap[f.id] ?? f.r ?? 0;
+      const prev = f.t==="pp" ? q*r : (f.t==="pc"||f.t==="ps") ? sNet*r : r;
       return `<label class="fin-item ${on?"on":""}" onclick="togFin('${f.id}')">
         <input type="checkbox" ${on?"checked":""} onclick="event.stopPropagation()">
         <div><div class="fin-lbl">${f.label}</div><div class="fin-cost">+${prev.toFixed(2)} DT</div></div></label>`;
