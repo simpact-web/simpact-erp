@@ -1577,8 +1577,12 @@ function sendClientMsg() {
 }
 
 // ─── Init ────────────────────────────────────────────────
-renderDashboard();
-renderConfigurator();
+(async () => {
+  const remote = await SIMPACT_PARAMS.syncFromDB();
+  if (remote) SIMPACT_PRICING.refreshCPC();
+  renderDashboard();
+  renderConfigurator();
+})();
 </script>
 </body>
 </html>

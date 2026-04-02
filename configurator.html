@@ -104,7 +104,7 @@
     <a href="stock.html" class="nav-item" data-page="stock"><span class="nav-icon">📦</span><span>Stocks papier</span></a>
     <div class="nav-separator"></div>
     <a href="clients.html" class="nav-item" data-page="clients"><span class="nav-icon">🏛</span><span>Clients</span></a>
-    <a href="reporting.html" class="nav-item" data-page="reporting"><span class="nav-icon">📊</span><span>Reporting</span></a>
+    <a href="reporting.html" class="nav-item" data-page="reporting" id="reportNav"><span class="nav-icon">📊</span><span>Reporting</span></a>
     <div class="nav-separator"></div>
     <a href="messages.html" class="nav-item" data-page="messages"><span class="nav-icon">✉</span><span>Messagerie</span></a>
     <a href="admin.html" class="nav-item" data-page="admin" id="adminNav"><span class="nav-icon">🔐</span><span>Utilisateurs</span></a>
@@ -657,12 +657,20 @@ async function openOrderModal(){
 }
 
 // ── Authentification (dans DOMContentLoaded uniquement) ──────
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const session = SIMPACT_AUTH.requireAuth(["superadmin","team","client"]);
-  if(session){
+  if (session) {
     isAdmin = session.role === "superadmin";
     SIMPACT_AUTH.renderUserChip(session);
-    if(isAdmin){
+    const canPrice = session.role === "superadmin" || (session.permissions||[]).includes("configurator");
+    if (!canPrice) {
+      document.getElementById("reportNav")?.style.setProperty("display","none");
+    }
+    if (session.role !== "superadmin") {
+      document.getElementById("adminNav")?.style.setProperty("display","none");
+      document.getElementById("coutsNav")?.style.setProperty("display","none");
+    }
+    if (isAdmin) {
       document.querySelectorAll(".admin-only").forEach(el=>el.style.removeProperty("display"));
       loadClientSelector();
     } else {
@@ -670,6 +678,9 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("coutsNav")?.style.setProperty("display","none");
     }
   }
+  // Sync params depuis Supabase (silencieux — rafraîchit les prix si nécessaire)
+  const remote = await SIMPACT_PARAMS.syncFromDB();
+  if (remote) SIMPACT_PRICING.refreshCPC();
   renderAll();
 });
 </script>
