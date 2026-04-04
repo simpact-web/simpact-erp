@@ -208,7 +208,7 @@
 const PRODS = SIMPACT_PRICING.PRODS;
 
 // ── État GLOBAL — accessible depuis les onclick dans innerHTML ──
-let S = {pi:0,fi:0,pa:0,co:0,qi:2,qc:null,fins:[],disc:0,showCost:false,pages:null,bi:0,pa2:0,cov:0};
+let S = {pi:0,fi:0,pa:0,co:0,qi:2,qc:null,fins:[],disc:0,showCost:false,pages:null,bi:0,pa2:0,cov:0,pell:null};
 let isAdmin = false;
 
 const P = () => PRODS[S.pi];
@@ -219,6 +219,7 @@ function getState(overrideQty) {
     fi:S.fi, pa:S.pa, pa2:S.pa2, co:S.co,
     bi:S.bi, cov:S.cov, pages:S.pages,
     fins:[...S.fins], qty:overrideQty??Q(), disc:S.disc,
+    pell:S.pell,
   };
 }
 
@@ -233,7 +234,7 @@ function renderProds() {
 }
 
 function selProd(i) {
-  S = {pi:i,fi:0,pa:0,co:0,qi:2,qc:null,fins:[],disc:S.disc,showCost:S.showCost,pages:null,bi:0,pa2:0,cov:0};
+  S = {pi:i,fi:0,pa:0,co:0,qi:2,qc:null,fins:[],disc:S.disc,showCost:S.showCost,pages:null,bi:0,pa2:0,cov:0,pell:null};
   renderAll();
 }
 
@@ -297,6 +298,38 @@ function finsSection(p, n) {
     }).join("")}</div></div>`;
 }
 
+function pellSelect(p, n) {
+  const fp = SIMPACT_PARAMS?.P?.finitions || {};
+  const matRate = fp.pelliculage_mat?.dt || 0;
+  const briRate = fp.pelliculage_brillant?.dt || 0;
+  const q = Q();
+  const fmt = p.formats[S.fi];
+  const sh = p.sheet || fmt?.sheet || {w:.320,h:.450};
+  let cT = 1;
+  if (p.type === "booklet") {
+    const {n:ps} = SIMPACT_PRICING.poses(fmt.piece.w, fmt.piece.h, sh.w, sh.h);
+    const pps = ps * 2;
+    const pages = S.pages || 16;
+    const cNet = Math.ceil(q * 4 / pps);
+    const cW = Math.max(1, Math.ceil(cNet * 0.05));
+    cT = cNet + cW;
+  } else if (p.type === "book") {
+    const {n:ps} = SIMPACT_PRICING.poses(fmt.pd.w, fmt.pd.h, sh.w, sh.h);
+    const pps = ps * 2;
+    cT = Math.ceil(q * 4 / pps);
+  }
+  const matCost = (cT * matRate).toFixed(2);
+  const briCost = (cT * briRate).toFixed(2);
+  return `<div class="opt-field" style="grid-column:1/-1">
+    <div class="opt-label"><span class="sn">${n}</span> Pelliculage couverture</div>
+    <select class="opt-select" onchange="S.pell=this.value||null;renderAll()">
+      <option value="" ${!S.pell?"selected":""}>Sans pelliculage</option>
+      <option value="pm" ${S.pell==="pm"?"selected":""}>Pelliculage Mat (+${matCost} DT)</option>
+      <option value="pb" ${S.pell==="pb"?"selected":""}>Pelliculage Brillant (+${briCost} DT)</option>
+    </select>
+  </div>`;
+}
+
 function renderOpts() {
   const p = P(); let h = '<div class="opts-grid">';
 
@@ -326,7 +359,7 @@ function renderOpts() {
         <span style="font-size:12px;color:var(--text-muted)">${S.pages?"= "+(S.pages+4)+" pages total (couv. incluse)":"Entrez le nombre de pages"}</span>
       </div></div>`;
 
-    if(p.fins.length) h += finsSection(p,"9");
+    h += pellSelect(p,"9");
 
   } else if (p.type === "book") {
     // ② Pages intérieures
@@ -345,7 +378,8 @@ function renderOpts() {
     h += sel("4", "Couverture couleur", p.covTypes.map(c=>c.label), S.cov, `S.cov=parseInt(this.value);renderAll()`);
     h += sel("5", "Papier couverture",  p.cPapers.map(pp=>pp.label), S.pa2, `S.pa2=parseInt(this.value);renderAll()`);
     h += qtyField(p, "6");
-    if(p.fins.length) h += finsSection(p,"7");
+    h += sel("7", "Reliure", p.bindings.map(b=>b.label), S.bi, `S.bi=parseInt(this.value);renderAll()`);
+    h += pellSelect(p, "8");
 
   } else {
     // Produits standard
@@ -401,10 +435,13 @@ function renderPrice() {
       ["Reliure",res.bindingLabel||"—"],
       ["Couv.",res.cp?.label||"—"],
       ["Int.",res.ip?.label||"—"],
+      ...(res.pellLabel?[["Pelliculage",res.pellLabel]]:[]),
     ]:[]),
     ...(res.isBook?[
       ["Pages int.",res.pages+"p N&B"],
       ["Couv.",res.cpLabel||"—"],
+      ...(res.bindingLabel?[["Reliure",res.bindingLabel]]:[]),
+      ...(res.pellLabel?[["Pelliculage",res.pellLabel]]:[]),
     ]:[]),
     ...S.fins.map(fid=>{const f=p.fins.find(x=>x.id===fid);return f?[f.label,"✓"]:null;}).filter(Boolean),
   ];
