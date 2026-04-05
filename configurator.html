@@ -308,7 +308,8 @@ function pellSelect(p, n) {
   const sh = p.sheet || fmt?.sheet || {w:.320,h:.450};
   let cT = 1;
   if (p.type === "booklet") {
-    const {n:ps} = SIMPACT_PRICING.poses(fmt.piece.w, fmt.piece.h, sh.w, sh.h);
+    const calcPiece = fmt.basedOn || fmt.piece;
+    const {n:ps} = SIMPACT_PRICING.poses(calcPiece.w, calcPiece.h, sh.w, sh.h);
     const pps = ps * 2;
     const pages = S.pages || 16;
     const cNet = Math.ceil(q * 4 / pps);
@@ -462,6 +463,7 @@ function renderPrice() {
       ["Couv.",res.cp?.label||"—"],
       ["Int.",res.ip?.label||"—"],
       ...(res.pellLabel?[["Pelliculage",res.pellLabel]]:[]),
+      ...(res.surLabel?[["Surcoût format",res.surLabel]]:[]),
     ]:[]),
     ...(res.isBook?[
       ["Pages int.",res.pages+"p N&B"],
@@ -501,6 +503,7 @@ function renderPrice() {
       cl+=cLine("Machine couverture",res.cmCost);
       cl+=cLine("Machine intérieur",res.imCost);
       cl+=cLine(`${res.bindingLabel||"Reliure"} (${q}ex.)`,res.bindingCost||0);
+      if(res.surcharge) cl+=cLine(`Surcoût format 16×23 (+${Math.round(res.surcharge*100)}%)`, res.tot - res.tot/(1+res.surcharge));
     }else if(res.isBook){
       cl+=cLine(`Papier int. ${res.pap?.label||""}`,res.ipCost);
       cl+=cLine(`Papier couv. ${res.cpLabel||""}`,res.cpCost);
