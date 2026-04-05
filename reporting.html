@@ -49,10 +49,15 @@
     <a href="configurator.html" class="nav-item" data-page="configurator" id="configNav"><span class="nav-icon">⚙</span><span>Configurateur prix</span></a>
     <a href="stock.html" class="nav-item" data-page="stock"><span class="nav-icon">📦</span><span>Stocks papier</span></a>
     <div class="nav-separator"></div>
+    <div class="nav-section-label">Gestion</div>
     <a href="clients.html" class="nav-item" data-page="clients"><span class="nav-icon">🏛</span><span>Clients</span></a>
-    <a href="reporting.html" class="nav-item" data-page="reporting" id="reportNav"><span class="nav-icon">📊</span><span>Reporting</span></a>
+    <a href="reporting.html" class="nav-item active" data-page="reporting" id="reportNav"><span class="nav-icon">📊</span><span>Reporting</span></a>
     <div class="nav-separator"></div>
     <a href="messages.html" class="nav-item" data-page="messages"><span class="nav-icon">✉</span><span>Messagerie</span></a>
+    <div class="nav-separator"></div>
+    <div class="nav-section-label">Administration</div>
+    <a href="admin.html" class="nav-item" data-page="admin" id="adminNav"><span class="nav-icon">🔐</span><span>Utilisateurs</span></a>
+    <a href="couts.html" class="nav-item" data-page="couts" id="coutsNav"><span class="nav-icon">🧮</span><span>Paramètres coûts</span></a>
     <div class="nav-separator"></div>
     <a href="#" class="nav-item" onclick="SIMPACT_AUTH.logout()"><span class="nav-icon">⎋</span><span>Déconnexion</span></a>
   </nav>
@@ -105,7 +110,7 @@
     <!-- Tab Marges -->
     <div id="tab-margins" style="display:none">
       <div class="alert alert-info" style="margin-bottom:20px">
-        ℹ Marges calculées sur la base de vos coûts réels Canon V1000 (0.0764 DT/A4 quadri · 0.0413 DT/A4 N&B) et de vos prix papier.
+        ℹ Marges calculées sur la base de vos coûts réels Canon V1000 (<span id="alert-cpc-quadri">—</span> DT/A4 quadri · <span id="alert-cpc-nb">—</span> DT/A4 N&amp;B) et de vos prix papier.
       </div>
       <div class="card">
         <div class="card-header"><div class="card-title">Analyse des marges par produit & quantité</div></div>
@@ -153,11 +158,11 @@
         </div>
         <div class="machine-card" style="border-color:rgba(201,168,76,0.4)">
           <div class="mc-label">Coût total quadri/A4</div>
-          <div class="mc-val" style="color:var(--gold)">0.0764</div><div class="mc-sub">DT / face A4 couleur</div>
+          <div class="mc-val" id="mc-cpc-quadri" style="color:var(--gold)">—</div><div class="mc-sub">DT / face A4 couleur</div>
         </div>
         <div class="machine-card">
           <div class="mc-label">Coût total N&B/A4</div>
-          <div class="mc-val">0.0413</div><div class="mc-sub">DT / face A4 N&B</div>
+          <div class="mc-val" id="mc-cpc-nb">—</div><div class="mc-sub">DT / face A4 N&B</div>
         </div>
         <div class="machine-card">
           <div class="mc-label">Volume cible/mois</div>
@@ -171,19 +176,37 @@
           <div class="card-header"><div class="card-title">Prix papier fournisseur (DT/kg)</div></div>
           <div class="card-body">
             <table style="width:100%;font-size:12px;border-collapse:collapse" class="cost-table">
-              <thead><tr><th>Grammage</th><th>Type</th><th>Prix/kg</th><th>A4 (135g) / feuille</th></tr></thead>
+              <thead><tr>
+                <th style="text-align:left;padding:8px 10px;font-size:9px;text-transform:uppercase;letter-spacing:1.4px;color:var(--text-dim);font-family:'DM Mono',monospace;border-bottom:1px solid var(--navy-border)">Grammage</th>
+                <th style="text-align:left;padding:8px 10px;font-size:9px;text-transform:uppercase;letter-spacing:1.4px;color:var(--text-dim);font-family:'DM Mono',monospace;border-bottom:1px solid var(--navy-border)">Type</th>
+                <th style="text-align:left;padding:8px 10px;font-size:9px;text-transform:uppercase;letter-spacing:1.4px;color:var(--text-dim);font-family:'DM Mono',monospace;border-bottom:1px solid var(--navy-border)">Prix/kg</th>
+                <th style="text-align:left;padding:8px 10px;font-size:9px;text-transform:uppercase;letter-spacing:1.4px;color:var(--text-dim);font-family:'DM Mono',monospace;border-bottom:1px solid var(--navy-border)">A4 (135g) / feuille</th>
+              </tr></thead>
               <tbody>
-                ${[
-                  ["80g / 100g","Offset","3.70"],
-                  ["90g","Offset / Couché","3.90"],
-                  ["115g / 135g / 170g / 200g / 250g","Couché Mat & Brillant","3.60"],
-                  ["300g / 350g","Couché épais","3.90"],
-                ].map(([g,t,p])=>`<tr>
-                  <td style="font-family:'DM Mono',monospace;color:var(--gold)">${g}</td>
-                  <td style="color:var(--text-secondary)">${t}</td>
-                  <td style="font-weight:700;color:var(--text-primary);font-family:'DM Mono',monospace">${p} DT</td>
-                  <td style="color:var(--text-muted);font-family:'DM Mono',monospace">${g.includes("135")?(0.135*0.0624*3.6).toFixed(4)+" DT":"—"}</td>
-                </tr>`).join("")}
+                <tr>
+                  <td style="padding:9px 10px;font-family:'DM Mono',monospace;color:var(--gold);border-bottom:1px solid var(--navy-border)">80g / 100g</td>
+                  <td style="padding:9px 10px;color:var(--text-secondary);border-bottom:1px solid var(--navy-border)">Offset</td>
+                  <td style="padding:9px 10px;font-weight:700;color:var(--text-primary);font-family:'DM Mono',monospace;border-bottom:1px solid var(--navy-border)">3.70 DT</td>
+                  <td style="padding:9px 10px;color:var(--text-muted);font-family:'DM Mono',monospace;border-bottom:1px solid var(--navy-border)">—</td>
+                </tr>
+                <tr>
+                  <td style="padding:9px 10px;font-family:'DM Mono',monospace;color:var(--gold);border-bottom:1px solid var(--navy-border)">90g</td>
+                  <td style="padding:9px 10px;color:var(--text-secondary);border-bottom:1px solid var(--navy-border)">Offset / Couché</td>
+                  <td style="padding:9px 10px;font-weight:700;color:var(--text-primary);font-family:'DM Mono',monospace;border-bottom:1px solid var(--navy-border)">3.90 DT</td>
+                  <td style="padding:9px 10px;color:var(--text-muted);font-family:'DM Mono',monospace;border-bottom:1px solid var(--navy-border)">—</td>
+                </tr>
+                <tr>
+                  <td style="padding:9px 10px;font-family:'DM Mono',monospace;color:var(--gold);border-bottom:1px solid var(--navy-border)">115g / 135g / 170g / 200g / 250g</td>
+                  <td style="padding:9px 10px;color:var(--text-secondary);border-bottom:1px solid var(--navy-border)">Couché Mat &amp; Brillant</td>
+                  <td style="padding:9px 10px;font-weight:700;color:var(--text-primary);font-family:'DM Mono',monospace;border-bottom:1px solid var(--navy-border)">3.60 DT</td>
+                  <td style="padding:9px 10px;color:var(--text-muted);font-family:'DM Mono',monospace;border-bottom:1px solid var(--navy-border)">0.0303 DT</td>
+                </tr>
+                <tr>
+                  <td style="padding:9px 10px;font-family:'DM Mono',monospace;color:var(--gold)">300g / 350g</td>
+                  <td style="padding:9px 10px;color:var(--text-secondary)">Couché épais</td>
+                  <td style="padding:9px 10px;font-weight:700;color:var(--text-primary);font-family:'DM Mono',monospace">3.90 DT</td>
+                  <td style="padding:9px 10px;color:var(--text-muted);font-family:'DM Mono',monospace">—</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -286,6 +309,7 @@
   <script src="js/supabase.js"></script>
   <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/params.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", async () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin"]);
@@ -303,9 +327,19 @@ if (session) {
   }
 }
 
-// Coûts réels Canon V1000
-const COST_PER_A4_QUADRI = 0.0764;
-const COST_PER_A4_NB     = 0.0413;
+// Coûts réels Canon V1000 — calculés depuis params.js (source unique de vérité)
+const _cpc = SIMPACT_PARAMS.computeCPC(SIMPACT_PARAMS.P);
+const COST_PER_A4_QUADRI = _cpc.bro;    // CPC brochures A4 couleur
+const COST_PER_A4_NB     = _cpc.ent_nb; // CPC N&B (KM AccurioPrint)
+
+// Mettre à jour les éléments HTML qui affichent ces valeurs
+(function() {
+  const q = COST_PER_A4_QUADRI.toFixed(4);
+  const n = COST_PER_A4_NB.toFixed(4);
+  ["mc-cpc-quadri","alert-cpc-quadri"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=q; });
+  ["mc-cpc-nb",    "alert-cpc-nb"   ].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=n; });
+})();
+
 const MACHINE_PRICE_HT   = 149175;
 const A4_M2 = 0.21 * 0.297;
 
@@ -344,6 +378,7 @@ function showTab(id){
   document.querySelectorAll(".tab-btn").forEach((btn,i) => btn.classList.toggle("active", tabs[i]===id));
   if(id==="machine") updateROI();
 }
+window.showTab = showTab;
 
 // ── Tab CA ─────────────────────────────────────────────
 async function renderCA(){

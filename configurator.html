@@ -271,122 +271,62 @@ function qtyField(p, n) {
   </div>`;
 }
 
-function renderOpts() {
-  const p = P(); let h = "";
-
-  // Helper : section avec select
-  function sel(sn, label, arr, cur, code, labelFn) {
-    const lf = labelFn || (x => typeof x==="string"?x:(x.label||x.name||""));
-    const opts = arr.map((x,i)=>`<option value="${i}"${cur===i?" selected":""}>${lf(x)}</option>`).join("");
-    return `<div class="cfg-section"><div class="cfg-label"><span class="sn">${sn}</span> ${label}</div>
-      <select class="cfg-select" onchange="${code}">${opts}</select></div>`;
-  }
-
-  if (p.type === "booklet") {
-    h += sel("①","Format", p.formats, S.fi, "S.fi=+this.value;S.pa=0;S.co=0;renderAll()", f=>f.label);
-    h += sel("②","Reliure", p.bindings, S.bi, "S.bi=+this.value;renderAll()", b=>b.label);
-    // ③ Pages libres (gardé en input)
-    h += `<div class="cfg-section"><div class="cfg-label"><span class="sn">3</span> Pages intérieures <span style="font-size:10px;color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">(multiple de 4, hors couverture)</span></div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <input type="number" min="4" step="4" placeholder="Ex : 28" value="${S.pages||""}"
-          style="background:var(--navy-dark);border:1px solid var(--navy-border);border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'DM Mono',monospace;font-size:15px;font-weight:700;width:150px;outline:none;transition:border-color .2s"
-          oninput="S.pages=this.value?Math.max(4,parseInt(this.value)):null;renderPrice()"
-          onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--navy-border)'">
-        <span style="font-size:12px;color:var(--text-muted)">${S.pages?"= "+(S.pages+4)+" pages total (couv. incluse)":"Entrez le nombre de pages intérieures"}</span>
-      </div></div>`;
-    h += sel("④","Mode d'impression", p.colors, S.co, "S.co=+this.value;renderAll()", c=>c.label);
-    h += sel("⑤","Type couverture", p.covTypes, S.cov, "S.cov=+this.value;renderAll()", c=>c.label);
-    h += sel("⑥","Papier couverture", p.cPapers, S.pa2, "S.pa2=+this.value;renderAll()", pp=>pp.label+" — "+pp.g+"g");
-    h += sel("⑦","Papier intérieur", p.iPapers, S.pa, "S.pa=+this.value;renderAll()", pp=>pp.label+" — "+pp.g+"g");
-    h += qtySection(p,"⑧");
-    if(p.fins.length) h += finsSection(p,"⑨");
-
-  } else if (p.type === "book") {
-    h += sel("①","Format", p.formats, S.fi, "S.fi=+this.value;renderAll()", f=>f.label);
-    // ② Pages libres
-    h += `<div class="cfg-section"><div class="cfg-label"><span class="sn">2</span> Pages intérieures N&amp;B <span style="font-size:10px;color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">(multiple de 4)</span></div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <input type="number" min="4" step="4" placeholder="Ex : 200" value="${S.pages||""}"
-          style="background:var(--navy-dark);border:1px solid var(--navy-border);border-radius:8px;padding:10px 14px;color:var(--gold);font-family:'DM Mono',monospace;font-size:15px;font-weight:700;width:150px;outline:none;transition:border-color .2s"
-          oninput="S.pages=this.value?Math.max(4,parseInt(this.value)):null;renderPrice()"
-          onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--navy-border)'">
-        <span style="font-size:12px;color:var(--text-muted)">${S.pages?"Couverture : +4p → "+(S.pages+4)+"p total":"Entrez le nombre de pages intérieures"}</span>
-      </div></div>`;
-    h += sel("③","Papier intérieur N&B", p.papers, S.pa, "S.pa=+this.value;renderAll()", pp=>pp.label+" — "+pp.g+"g");
-    h += sel("④","Couverture couleur", p.covTypes, S.cov, "S.cov=+this.value;renderAll()", c=>c.label);
-    h += sel("⑤","Papier couverture", p.cPapers, S.pa2, "S.pa2=+this.value;renderAll()", pp=>pp.label);
-    h += qtySection(p,"⑥");
-    if(p.fins.length) h += finsSection(p,"⑦");
-
-  } else {
-    h += sel("①","Format", p.formats, S.fi, "S.fi=+this.value;S.pa=0;S.co=0;renderAll()", f=>f.label);
-    h += sel("②","Support papier", p.papers, S.pa, "S.pa=+this.value;renderAll()", pp=>pp.label+(pp.g?" — "+pp.g+"g":""));
-    h += sel("③","Mode d'impression", p.colors, S.co, "S.co=+this.value;renderAll()", c=>c.label);
-    h += qtySection(p,"④");
-    if (p.fins.length) {
-      const q=Q(), fmt=p.formats[S.fi], sh=fmt?.sheet||{w:.320,h:.450};
-      const psn=fmt?SIMPACT_PRICING.poses(fmt.w||.210,fmt.h||.297,sh.w,sh.h).n:2;
-      const sNet=Math.ceil(q/psn);
-      h += `<div class="cfg-section"><div class="cfg-label"><span class="sn">5</span> Finitions <span style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">(optionnel)</span></div>
-        <div class="fin-grid">${p.fins.map(f=>{
-          const on=S.fins.includes(f.id);
-          const prev=f.t==="pp"?q*f.r:f.t==="ps"?sNet*f.r:f.r;
-          return `<label class="fin-item ${on?"on":""}" onclick="togFin('${f.id}')">
-            <input type="checkbox" ${on?"checked":""} onclick="event.stopPropagation()">
-            <div><div class="fin-lbl">${f.label}</div><div class="fin-cost">+${prev.toFixed(2)} DT</div></div></label>`;
-        }).join("")}</div></div>`;
-    }
-  }
-
-  document.getElementById("optPanel").innerHTML = h;
-}
-
-
-// ── Fonctions UI GLOBALES (appelées depuis onclick) ──────────────
-function renderAll() { renderProds(); renderOpts(); renderPrice(); }
-
-function renderProds() {
-  document.getElementById("prodGrid").innerHTML = PRODS.map((p,i) => `
-    <div class="pbtn ${S.pi===i?"active":""}" onclick="selProd(${i})">
-      <div class="pi">${p.icon}</div><div class="pn">${p.name}</div>
-    </div>`).join("");
-}
-
-function selProd(i) {
-  S = {pi:i,fi:0,pa:0,co:0,qi:2,qc:null,fins:[],disc:S.disc,showCost:S.showCost,pages:null,bi:0,pa2:0,cov:0};
-  renderAll();
-}
-
-function togFin(id) {
-  S.fins = S.fins.includes(id) ? S.fins.filter(x=>x!==id) : [...S.fins,id];
-  renderAll();
-}
-
-function sel(n, label, items, val, onchange, full=false) {
-  return `<div class="opt-field${full?" style=\"grid-column:1/-1\"":""}">
-    <div class="opt-label"><span class="sn">${n}</span> ${label}</div>
-    <select class="opt-select" onchange="${onchange}">
-      ${items.map((it,i)=>`<option value="${i}" ${val===i?"selected":""}>${it}</option>`).join("")}
-    </select>
-  </div>`;
-}
-
-function qtyField(p, n) {
-  const paliers = p.qty.map((q,i)=>`<option value="${i}" ${S.qi===i&&!S.qc?"selected":""}>${q.toLocaleString("fr-FR")} ex.</option>`).join("");
-  const libreSelected = !!S.qc;
+function finsSection(p, n) {
+  const q = Q();
+  const fmt = p.formats[S.fi];
+  const sh = fmt?.sheet || p.sheet || {w:.320, h:.450};
+  const fw = fmt?.piece?.w || fmt?.w || .210;
+  const fh = fmt?.piece?.h || fmt?.h || .297;
+  const psn = fmt ? SIMPACT_PRICING.poses(fw, fh, sh.w, sh.h).n : 2;
+  const sNet = Math.ceil(q / psn);
+  const fp = SIMPACT_PARAMS?.P?.finitions || {};
+  const rateMap = {
+    pm: fp.pelliculage_mat?.dt,
+    pb: fp.pelliculage_brillant?.dt,
+    co: fp.coins_arrondis?.dt,
+    vu: fp.vernis_uv?.dt,
+  };
   return `<div class="opt-field" style="grid-column:1/-1">
-    <div class="opt-label"><span class="sn">${n}</span> Quantité</div>
-    <div class="qty-row">
-      <select class="opt-select" onchange="
-        if(this.value==='libre'){S.qi=-1;this.closest('.qty-row').querySelector('.qty-libre').style.display='block';this.closest('.qty-row').querySelector('.qty-libre').focus();}
-        else{S.qi=parseInt(this.value);S.qc=null;this.closest('.qty-row').querySelector('.qty-libre').style.display='none';renderAll();}">
-        ${paliers}
-        <option value="libre" ${libreSelected?"selected":""}>✎ Saisie libre…</option>
-      </select>
-      <input class="qty-libre" type="number" min="1" placeholder="Nb ex." value="${S.qc||""}"
-        style="display:${libreSelected?"block":"none"}"
-        oninput="S.qc=this.value?Math.max(1,parseInt(this.value)):null;S.qi=-1;renderAll()">
-    </div>
+    <div class="opt-label"><span class="sn">${n}</span> Finitions <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">(optionnel)</span></div>
+    <div class="fin-grid">${p.fins.map(f => {
+      const on = S.fins.includes(f.id);
+      const r = rateMap[f.id] ?? f.r ?? 0;
+      const prev = f.t==="pp" ? q*r : (f.t==="pc"||f.t==="ps") ? sNet*r : r;
+      return `<label class="fin-item ${on?"on":""}" onclick="togFin('${f.id}')">
+        <input type="checkbox" ${on?"checked":""} onclick="event.stopPropagation()">
+        <div><div class="fin-lbl">${f.label}</div><div class="fin-cost">+${prev.toFixed(2)} DT</div></div></label>`;
+    }).join("")}</div></div>`;
+}
+
+function pellSelect(p, n) {
+  const fp = SIMPACT_PARAMS?.P?.finitions || {};
+  const matRate = fp.pelliculage_mat?.dt || 0;
+  const briRate = fp.pelliculage_brillant?.dt || 0;
+  const q = Q();
+  const fmt = p.formats[S.fi];
+  const sh = p.sheet || fmt?.sheet || {w:.320,h:.450};
+  let cT = 1;
+  if (p.type === "booklet") {
+    const {n:ps} = SIMPACT_PRICING.poses(fmt.piece.w, fmt.piece.h, sh.w, sh.h);
+    const pps = ps * 2;
+    const pages = S.pages || 16;
+    const cNet = Math.ceil(q * 4 / pps);
+    const cW = Math.max(1, Math.ceil(cNet * 0.05));
+    cT = cNet + cW;
+  } else if (p.type === "book") {
+    const {n:ps} = SIMPACT_PRICING.poses(fmt.pd.w, fmt.pd.h, sh.w, sh.h);
+    const pps = ps * 2;
+    cT = Math.ceil(q * 4 / pps);
+  }
+  const matCost = (cT * matRate).toFixed(2);
+  const briCost = (cT * briRate).toFixed(2);
+  return `<div class="opt-field" style="grid-column:1/-1">
+    <div class="opt-label"><span class="sn">${n}</span> Pelliculage couverture</div>
+    <select class="opt-select" onchange="S.pell=this.value||null;renderAll()">
+      <option value="" ${!S.pell?"selected":""}>Sans pelliculage</option>
+      <option value="pm" ${S.pell==="pm"?"selected":""}>Pelliculage Mat (+${matCost} DT)</option>
+      <option value="pb" ${S.pell==="pb"?"selected":""}>Pelliculage Brillant (+${briCost} DT)</option>
+    </select>
   </div>`;
 }
 
@@ -443,7 +383,7 @@ function renderOpts() {
         <span style="font-size:12px;color:var(--text-muted)">${S.pages?"= "+(S.pages+4)+" pages total (couv. incluse)":"Entrez le nombre de pages"}</span>
       </div></div>`;
 
-    if(p.fins.length) h += finsSection(p,"9");
+    h += pellSelect(p,"9");
 
   } else if (p.type === "book") {
     // ② Pages intérieures
@@ -462,7 +402,8 @@ function renderOpts() {
     h += sel("4", "Couverture couleur", p.covTypes.map(c=>c.label), S.cov, `S.cov=parseInt(this.value);renderAll()`);
     h += sel("5", "Papier couverture",  p.cPapers.map(pp=>pp.label), S.pa2, `S.pa2=parseInt(this.value);renderAll()`);
     h += qtyField(p, "6");
-    if(p.fins.length) h += finsSection(p,"7");
+    h += sel("7", "Reliure", p.bindings.map(b=>b.label), S.bi, `S.bi=parseInt(this.value);renderAll()`);
+    h += pellSelect(p, "8");
 
   } else {
     // Produits standard
@@ -519,10 +460,13 @@ function renderPrice() {
       ["Reliure",res.bindingLabel||"—"],
       ["Couv.",res.cp?.label||"—"],
       ["Int.",res.ip?.label||"—"],
+      ...(res.pellLabel?[["Pelliculage",res.pellLabel]]:[]),
     ]:[]),
     ...(res.isBook?[
       ["Pages int.",res.pages+"p N&B"],
       ["Couv.",res.cpLabel||"—"],
+      ...(res.bindingLabel?[["Reliure",res.bindingLabel]]:[]),
+      ...(res.pellLabel?[["Pelliculage",res.pellLabel]]:[]),
     ]:[]),
     ...(res.isOffset?[
       ["Machine",res.machine?.label?.split("(")[0].trim()||"—"],
@@ -616,9 +560,10 @@ async function loadClientSelector(){
 }
 
 function onClient(){
-  const sel=document.getElementById("clientSel");
-  if(!sel||sel.options.length<=1) return;
-  S.disc=parseInt(sel.value)||0;renderPrice();
+  const sel = document.getElementById("clientSel");
+  if (!sel || sel.options.length <= 1) return;
+  S.disc = parseInt(sel.value) || 0;
+  renderPrice();
 }
 
 async function openOrderModal(){
@@ -700,19 +645,16 @@ async function openOrderModal(){
 
 // ── Authentification (dans DOMContentLoaded uniquement) ──────
 document.addEventListener("DOMContentLoaded", async () => {
-  const session = SIMPACT_AUTH.requireAuth(["superadmin","team","client"]);
+  const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
   if (session) {
+    const canPrice = session.role === "superadmin" || (session.permissions||[]).includes("configurator");
+    if (!canPrice) { window.location.href = "dashboard.html"; return; }
     isAdmin = session.role === "superadmin";
     SIMPACT_AUTH.renderUserChip(session);
-    const canPrice = session.role === "superadmin" || (session.permissions||[]).includes("configurator");
-    if (!canPrice) {
-      document.getElementById("reportNav")?.style.setProperty("display","none");
-    }
-    if (session.role !== "superadmin") {
+    if (!isAdmin) {
       document.getElementById("adminNav")?.style.setProperty("display","none");
       document.getElementById("coutsNav")?.style.setProperty("display","none");
-    }
-    if (isAdmin) {
+    } else {
       document.querySelectorAll(".admin-only").forEach(el=>el.style.removeProperty("display"));
       loadClientSelector();
     }

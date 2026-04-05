@@ -225,7 +225,11 @@ const SIMPACT_PARAMS = (function () {
 
   function reset() {
     localStorage.removeItem('simpact_params');
-    return JSON.parse(JSON.stringify(DEFAULTS));
+    const fresh = JSON.parse(JSON.stringify(DEFAULTS));
+    // Réinitialiser P en place pour que les références restent valides
+    Object.keys(P).forEach(k => delete P[k]);
+    Object.assign(P, fresh);
+    return fresh;
   }
 
   /* ══════════════════════════════════════════════════

@@ -175,10 +175,7 @@ const SIMPACT_PRICING = (function () {
         {id:"4nb",label:"Couv couleur + Int N&B",  cSides:2,iSides:2, cpcCov:CPC.bro,   cpcInt:CPC.liv_nb},
         {id:"nb", label:"Noir & Blanc intégral",   cSides:2,iSides:2, cpcCov:CPC.ent_nb, cpcInt:CPC.ent_nb},
       ],
-      fins:[
-        {id:"pm",label:"Pelliculage Mat couv.",      t:"pc"},
-        {id:"pb",label:"Pelliculage Brillant couv.", t:"pc"},
-      ],
+      fins:[],
       qty:[25,50,100,250,500,1000], setup:18,
     },
 
@@ -282,13 +279,12 @@ const SIMPACT_PRICING = (function () {
         {id:"100o",label:"100g Offset Premium", g:100, type:"offset"},
       ],
       colors:[{id:"nb",label:"N&B int. + Couv quadri"}],
-      fins:[
-        {id:"piqure", label:"Agrafé (piqûre)",           t:"pp"},
-        {id:"spirale",label:"Reliure spirale",            t:"pp"},
-        {id:"dos",    label:"Dos carré collé",            t:"pp"},
-        {id:"pm",     label:"Pelliculage Mat (couv)",     t:"ps"},
-        {id:"pb",     label:"Pelliculage Brillant (couv)",t:"ps"},
+      bindings:[
+        {id:"piqure", label:"Piqûre (agrafé)"},
+        {id:"spirale",label:"Reliure spirale"},
+        {id:"dos",    label:"Dos carré collé"},
       ],
+      fins:[],
       qty:[10,25,50,100,250,500], setup:20,
       cpcNb:CPC.liv_nb, cpcCov:CPC.bro,
     },
@@ -421,19 +417,23 @@ const SIMPACT_PRICING = (function () {
     const imCost=iT*a4e*col.iSides*col.cpcInt;
     const bindingCost=q*bindingCostRate;
     const {fc, fr}=calcFinsBooklet(p.fins, fins, cT, q);
+    const pellId=state.pell||null;
+    const pellRate=pellId ? (finRate(pellId)||0) : 0;
+    const pellCost=pellId ? cT*pellRate : 0;
+    const pellLabel=pellId==="pm"?"Pelliculage Mat":pellId==="pb"?"Pelliculage Brillant":null;
     const setup=getSetup(p);
-    const tot=cpCost+ipCost+cmCost+imCost+bindingCost+setup+fc;
+    const tot=cpCost+ipCost+cmCost+imCost+bindingCost+pellCost+setup+fc;
     const margin=getMargin(p, q);
     const rawHT=tot/(1-margin);
     const finalHT=roundHT(rawHT*(1-disc/100));
     return {
       ps,sNet:cNet+iNet,sw:cW+iW,sT:cT+iT,sa,a4e,cT,iT,
-      paperCost:cpCost+ipCost, machineCost:cmCost+imCost, bindingCost, setup, fc, fr, tot,
+      paperCost:cpCost+ipCost, machineCost:cmCost+imCost, bindingCost, pellCost, setup, fc, fr, tot,
       cpCost,ipCost,cmCost,imCost,
       finalHT, finalTTC:finalHT*1.19, unit:finalHT/q, margin, disc,
       info:`${ps} poses/${fmt.label} — ${iSpc}int+1couv/ex`,
       sheetInfo:`${pages+4}p total · Couv:${cT}f Int:${iT}f`,
-      isBooklet:true, cp, ip, pages:pages+4, bindingLabel,
+      isBooklet:true, cp, ip, pages:pages+4, bindingLabel, pellLabel,
     };
   }
 
@@ -457,19 +457,28 @@ const SIMPACT_PRICING = (function () {
     const imCost=iT*a4e*2*p.cpcNb;
     const cmCost=cT*a4e*covType.sides*p.cpcCov;
     const {fc, fr}=calcFins(p.fins, fins, cNet, q);
+    const bi=state.bi||0;
+    const binding=p.bindings ? (p.bindings[bi]||p.bindings[0]) : null;
+    const bindingRate=binding ? (finRate(binding.id)||0) : 0;
+    const bindingCost=binding ? q*bindingRate : 0;
+    const bindingLabel=binding ? binding.label : null;
+    const pellId=state.pell||null;
+    const pellRate=pellId ? (finRate(pellId)||0) : 0;
+    const pellCost=pellId ? cNet*pellRate : 0;
+    const pellLabel=pellId==="pm"?"Pelliculage Mat (couv)":pellId==="pb"?"Pelliculage Brillant (couv)":null;
     const setup=getSetup(p);
-    const tot=ipCost+cpCost+imCost+cmCost+setup+fc;
+    const tot=ipCost+cpCost+imCost+cmCost+bindingCost+pellCost+setup+fc;
     const margin=getMargin(p, q);
     const rawHT=tot/(1-margin);
     const finalHT=roundHT(rawHT*(1-disc/100));
     return {
       ps,sNet:iNet+cNet,sw:iW+cW,sT:iT+cT,sa,a4e,cT,
-      paperCost:ipCost+cpCost, machineCost:imCost+cmCost, setup, fc, fr, tot,
+      paperCost:ipCost+cpCost, machineCost:imCost+cmCost, bindingCost, pellCost, setup, fc, fr, tot,
       ipCost,cpCost,imCost,cmCost,
       finalHT, finalTTC:finalHT*1.19, unit:finalHT/q, margin, disc,
       info:`${ps} poses/${fmt.label} — ${iSpc}int+1couv/ex`,
       sheetInfo:`${pages}p int · Int:${iT}f Couv:${cT}f`,
-      isBook:true, pages, cpLabel:cp.label, pap,
+      isBook:true, pages, cpLabel:cp.label, pap, bindingLabel, pellLabel,
     };
   }
 
@@ -531,6 +540,36 @@ const SIMPACT_PRICING = (function () {
     return p.qty.map(qty => compute(p, {...state, qty}));
   }
 
-  return { PRODS, compute, computeAllTiers, roundHT, CPC, poses, waste, kp };
+  /* ── Mise à jour CPC après modification des paramètres ── */
+  function refreshCPC(nc) {
+    if (!nc) nc = SIMPACT_PARAMS.computeCPC(SIMPACT_PARAMS.P);
+    Object.assign(CPC, nc);
+    const cm = {
+      cdv: { '44':'cdv',    '40':'cdv',    'nb':'ent_nb' },
+      fly: { '44':'fly',    '40':'fly',    'nb':'ent_nb' },
+      aff: { '40':'aff',    'nb':'ent_nb' },
+      ent: { '40':'ent_cl', 'nb':'ent_nb', '1c':'ent_nb' },
+      dep: { '44':'dep',    '40':'dep',    'nb':'ent_nb' },
+    };
+    const bm = {
+      bro: {
+        '44':  { cpcCov:'bro',    cpcInt:'bro'    },
+        '4nb': { cpcCov:'bro',    cpcInt:'liv_nb' },
+        'nb':  { cpcCov:'ent_nb', cpcInt:'ent_nb' },
+      },
+    };
+    PRODS.forEach(p => {
+      if (cm[p.id]) p.colors.forEach(c => {
+        if (cm[p.id][c.id] !== undefined) c.cpc = nc[cm[p.id][c.id]];
+      });
+      if (bm[p.id]) p.colors.forEach(c => {
+        const k = bm[p.id][c.id];
+        if (k) { c.cpcCov = nc[k.cpcCov]; c.cpcInt = nc[k.cpcInt]; }
+      });
+      if (p.id === 'liv') { p.cpcNb = nc.liv_nb; p.cpcCov = nc.bro; }
+    });
+  }
+
+  return { PRODS, compute, computeAllTiers, roundHT, CPC, poses, waste, kp, refreshCPC };
 
 })();
