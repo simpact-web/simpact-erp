@@ -1,14 +1,23 @@
 /* ═══════════════════════════════════════════════════════════════
    SIMPACT ERP — Client Supabase
+   Les clés sont lues depuis SIMPACT_CONFIG (js/config.js).
+   Ce fichier ne contient AUCUNE clé en dur.
    ═══════════════════════════════════════════════════════════════ */
-
-const SUPA_URL = 'https://yqileqgxpihnyaauwmtr.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxaWxlcWd4cGlobnlhYXV3bXRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mjc4MTMsImV4cCI6MjA5MDAwMzgxM30.UGU_3OwlVkPZZylJPY3Wjl7WEe1-uNistfEmk5B_HUo';
 
 function getSupabaseClient() {
   if (!window._supa) {
-    if (!window.supabase) { console.error('SDK Supabase non chargé'); return null; }
-    window._supa = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+    if (!window.supabase) {
+      console.error('SDK Supabase non chargé — vérifiez le CDN');
+      return null;
+    }
+    if (!window.SIMPACT_CONFIG) {
+      console.error('js/config.js manquant — copiez config.example.js et renseignez vos clés');
+      return null;
+    }
+    window._supa = window.supabase.createClient(
+      SIMPACT_CONFIG.supabaseUrl,
+      SIMPACT_CONFIG.supabaseKey
+    );
   }
   return window._supa;
 }

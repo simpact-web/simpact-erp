@@ -43,7 +43,7 @@ const SIMPACT_PRICING = (function () {
   function getMargin(p, qty) {
     const mp = P.marges[p.id];
     if (!mp || !mp.paliers.length) {
-      // Fallback sur la marge directe du produit
+      // Repli sur la marge directe du produit
       if (!p.margins) return mp ? mp.defaut : p.margin;
       let idx = p.qty.length - 1;
       for (let i = 0; i < p.qty.length; i++) { if (qty <= p.qty[i]) { idx = i; break; } }

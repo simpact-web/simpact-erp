@@ -762,6 +762,7 @@
 <input type="file" id="fileInput" style="display:none" accept=".pdf,.jpg,.jpeg,.png,.zip">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/config.js"></script>
   <script src="js/supabase.js"></script>
   <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
@@ -789,9 +790,9 @@ function showView(id) {
   document.getElementById("view-"+id)?.classList.add("active");
   document.querySelector(`.nav-item[data-page="${id}"]`)?.classList.add("active");
 
-  if(id === "dashboard")    renderDashboard().catch(console.error);
-  if(id === "orders")       renderActiveOrders().catch(console.error);
-  if(id === "history")      renderHistory().catch(console.error);
+  if(id === "dashboard")    renderDashboard().catch(e => showPortalError("clientKPIs", e));
+  if(id === "orders")       renderActiveOrders().catch(e => showPortalError("allActiveOrders", e));
+  if(id === "history")      renderHistory().catch(e => showPortalError("historyBody", e, true));
   if(id === "configurator") renderConfigurator();
   if(id === "messages")     { switchClientTab("inbox"); renderClientMessages(); }
 }
@@ -840,8 +841,22 @@ function orderCard(o, compact = false) {
   </div>`;
 }
 
+// ─── Erreur réseau visible ───────────────────────────────
+function showPortalError(containerId, e, isTable=false) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const msg = `<div style="color:var(--danger);padding:24px;text-align:center;font-size:13px">
+    ⚠ Connexion impossible — vérifiez votre réseau et rechargez la page.
+  </div>`;
+  el.innerHTML = isTable
+    ? `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--danger)">⚠ Connexion impossible — rechargez la page.</td></tr>`
+    : msg;
+}
+
 // ─── DASHBOARD ──────────────────────────────────────────
 async function renderDashboard() {
+  document.getElementById("clientKPIs").innerHTML =
+    `<div style="color:var(--text-dim);padding:16px;font-size:13px">⟳ Chargement…</div>`;
   const all     = await DB.getOrders({ clientId: CLIENT_ID });
   const active  = all.filter(o => ["received","bat","production"].includes(o.status));
   const done    = all.filter(o => o.status === "done");

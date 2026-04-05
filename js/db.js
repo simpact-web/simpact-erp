@@ -1,6 +1,40 @@
 /* ═══════════════════════════════════════════════════════════════
    SIMPACT ERP v5.0 — Couche de données Supabase (async)
    Remplace data.js — même interface, même nommage, 100% Supabase
+   ═══════════════════════════════════════════════════════════════
+
+   RÈGLES RLS SUPABASE — À activer dans le Dashboard Supabase
+   (Authentication → Policies) pour chaque table :
+
+   TABLE clients — Un client ne voit que ses propres données :
+     ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+     CREATE POLICY "acces_client_propre" ON clients
+       FOR ALL USING (
+         auth.uid()::text = user_id
+         OR (auth.jwt() ->> 'role') = 'service_role'
+       );
+
+   TABLE commandes — Un client ne voit que ses commandes :
+     ALTER TABLE commandes ENABLE ROW LEVEL SECURITY;
+     CREATE POLICY "acces_commandes_client" ON commandes
+       FOR ALL USING (
+         client_id IN (SELECT id FROM clients WHERE user_id = auth.uid()::text)
+         OR (auth.jwt() ->> 'role') = 'service_role'
+       );
+
+   TABLE utilisateurs — Accès réservé au rôle service_role :
+     ALTER TABLE utilisateurs ENABLE ROW LEVEL SECURITY;
+     CREATE POLICY "admin_seulement_utilisateurs" ON utilisateurs
+       FOR ALL USING ((auth.jwt() ->> 'role') = 'service_role');
+
+   TABLE params_couts — Accès réservé au rôle service_role :
+     ALTER TABLE params_couts ENABLE ROW LEVEL SECURITY;
+     CREATE POLICY "admin_seulement_params" ON params_couts
+       FOR ALL USING ((auth.jwt() ->> 'role') = 'service_role');
+
+   Note : la messagerie (MSG) utilise localStorage — pas de table Supabase.
+   Note : la clé anon (SIMPACT_CONFIG.supabaseKey) est publique par nature.
+   Les politiques RLS sont la principale ligne de défense côté données.
    ═══════════════════════════════════════════════════════════════ */
 
 const DB = {
@@ -15,7 +49,7 @@ const DB = {
       .single()
       .catch(() => ({ data: null }));
 
-    // Fallback si la fonction RPC n'existe pas encore
+    // Repli si la fonction RPC n'existe pas encore
     if (!data) {
       const { data: rows } = await this.supa
         .from('commandes')

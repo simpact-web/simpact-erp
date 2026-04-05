@@ -510,3 +510,5 @@ select.form-control option { background: #ffffff; color: var(--text-primary); }
   .user-info { display: none; }
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
 }
+
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

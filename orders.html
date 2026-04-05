@@ -245,6 +245,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/config.js"></script>
   <script src="js/supabase.js"></script>
   <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
@@ -281,14 +282,19 @@ async function renderClientFilter(){
 }
 
 async function filterOrders(){
-  const q = document.getElementById("searchInput").value.toLowerCase();
-  const st = document.getElementById("statusFilter").value;
-  const cl = document.getElementById("clientFilter").value;
-  let orders = await DB.getOrders();
-  if(st) orders = orders.filter(o=>o.status===st);
-  if(cl) orders = orders.filter(o=>o.clientId===cl);
-  if(q)  orders = orders.filter(o=>(o.id+o.clientName+o.product).toLowerCase().includes(q));
-  renderTable(orders);
+  setTableLoading(true);
+  try {
+    const q = document.getElementById("searchInput").value.toLowerCase();
+    const st = document.getElementById("statusFilter").value;
+    const cl = document.getElementById("clientFilter").value;
+    let orders = await DB.getOrders();
+    if(st) orders = orders.filter(o=>o.status===st);
+    if(cl) orders = orders.filter(o=>o.clientId===cl);
+    if(q)  orders = orders.filter(o=>(o.id+o.clientName+o.product).toLowerCase().includes(q));
+    renderTable(orders);
+  } catch(e) {
+    showNetworkError(e?.message);
+  }
 }
 
 async function renderTable(orders){
@@ -460,6 +466,24 @@ async function createOrder(){
   await renderPipeline(); await filterOrders();
 }
 
+function setTableLoading(on) {
+  if (on) {
+    document.getElementById("ordersBody").innerHTML =
+      `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-dim)">
+         <span style="display:inline-block;animation:spin 1s linear infinite">⟳</span>&nbsp;Chargement…
+       </td></tr>`;
+  }
+}
+
+function showNetworkError(ctx) {
+  document.getElementById("ordersBody").innerHTML =
+    `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--danger)">
+       ⚠ Connexion impossible${ctx ? " ("+ctx+")" : ""} — vérifiez votre réseau et rechargez la page.
+     </td></tr>`;
+  document.getElementById("pipeline").innerHTML =
+    `<div style="color:var(--danger);font-size:13px;padding:8px">⚠ Données indisponibles</div>`;
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const session = SIMPACT_AUTH.requireAuth(["superadmin","team"]);
   if (session) {
@@ -477,7 +501,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("coutsNav")?.style.setProperty("display","none");
     }
   }
-  await renderPipeline(); await renderClientFilter(); await filterOrders();
+  setTableLoading(true);
+  try {
+    await renderPipeline();
+    await renderClientFilter();
+    await filterOrders();
+  } catch (e) {
+    showNetworkError(e?.message);
+  }
 });
 </script>
 </body>

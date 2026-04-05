@@ -242,6 +242,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/config.js"></script>
   <script src="js/supabase.js"></script>
   <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
@@ -273,9 +274,21 @@
   greeting();
 
   // ── Chargement initial des données ──────────────────────
-  const [orders, clients, stock] = await Promise.all([
-    DB.getOrders(), DB.getClients(), DB.getStock()
-  ]);
+  document.getElementById("kpiGrid").innerHTML =
+    `<div style="color:var(--text-dim);padding:16px;font-size:13px;grid-column:1/-1">⟳ Chargement…</div>`;
+
+  let orders, clients, stock;
+  try {
+    [orders, clients, stock] = await Promise.all([
+      DB.getOrders(), DB.getClients(), DB.getStock()
+    ]);
+  } catch(e) {
+    document.getElementById("kpiGrid").innerHTML =
+      `<div style="color:var(--danger);padding:16px;font-size:13px;grid-column:1/-1">
+         ⚠ Connexion impossible — vérifiez votre réseau et rechargez la page.
+       </div>`;
+    return;
+  }
 
   // ── KPIs ────────────────────────────────────────────────
   function renderKPIs() {

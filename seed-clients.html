@@ -2,7 +2,9 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>SIMPACT — Import clients</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIMPACT ERP — Import clients</title>
+  <script src="js/config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: monospace; background: #0a0f18; color: #e2e8f0; padding: 32px; }
@@ -22,8 +24,8 @@
 <div class="log" id="log"></div>
 
 <script>
-const SUPA_URL = 'https://yqileqgxpihnyaauwmtr.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxaWxlcWd4cGlobnlhYXV3bXRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mjc4MTMsImV4cCI6MjA5MDAwMzgxM30.UGU_3OwlVkPZZylJPY3Wjl7WEe1-uNistfEmk5B_HUo';
+const SUPA_URL = SIMPACT_CONFIG.supabaseUrl;
+const SUPA_KEY = SIMPACT_CONFIG.supabaseKey;
 
 const CLIENTS = [
   {id:'c-ubci',      name:'UBCI',             sector:'Banque',    remise:0},

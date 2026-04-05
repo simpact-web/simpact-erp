@@ -306,6 +306,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/config.js"></script>
   <script src="js/supabase.js"></script>
   <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
@@ -609,8 +610,27 @@ async function updateROI(){
   renderEcheancier();
 }
 
+// Affiche un message d'erreur réseau dans un conteneur donné
+function showReportingError(containerId, isTable=false) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = isTable
+    ? `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--danger)">⚠ Connexion impossible — rechargez la page.</td></tr>`
+    : `<div style="color:var(--danger);text-align:center;padding:32px;font-size:13px">⚠ Connexion impossible — vérifiez votre réseau.</div>`;
+}
+
 // Init
-renderCA(); renderMargins(); renderClients(); updateROI();
+document.getElementById("caKPIs").innerHTML =
+  `<div style="color:var(--text-dim);padding:16px;font-size:13px;grid-column:1/-1">⟳ Chargement des données…</div>`;
+
+Promise.all([renderCA(), renderMargins(), renderClients()])
+  .catch(e => {
+    showReportingError("caKPIs");
+    showReportingError("allOrdersBody", true);
+    showReportingError("marginBody", true);
+    showReportingError("clientBody", true);
+  });
+updateROI();
   });
 </script>
 </body>

@@ -1,0 +1,6 @@
+# Clés Supabase — ne jamais committer
+js/config.js
+
+# Fichiers système
+.DS_Store
+Thumbs.db
