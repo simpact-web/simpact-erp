@@ -292,6 +292,49 @@ const SIMPACT_PRICING = (function () {
       qty:[10,25,50,100,250,500], setup:20,
       cpcNb:CPC.liv_nb, cpcCov:CPC.bro,
     },
+
+    /* ── IMPRESSION OFFSET ─────────────────────────── */
+    {
+      id:"off", name:"Impression Offset", icon:"⊞", type:"offset",
+      machines:[
+        {id:"cd102", label:"Heidelberg CD102-5 (max 700×1000mm)", key:"cd102", sheet:{w:.700,h:1.000}},
+        {id:"sm74",  label:"Heidelberg SM74-4 (max 520×740mm)",   key:"sm74",  sheet:{w:.520,h:.740}},
+      ],
+      formats:[
+        {label:"A5 (148×210mm)",   w:.148, h:.210},
+        {label:"A4 (210×297mm)",   w:.210, h:.297},
+        {label:"A3 (297×420mm)",   w:.297, h:.420},
+        {label:"A3+ (320×450mm)",  w:.320, h:.450},
+        {label:"A2 (420×594mm)",   w:.420, h:.594},
+        {label:"40×60 cm",         w:.400, h:.600},
+        {label:"50×70 cm",         w:.500, h:.700},
+        {label:"70×100 cm",        w:.700, h:1.000},
+      ],
+      papers:[
+        {id:"90o",  label:"90g Offset",              g:90,  type:"offset"},
+        {id:"115m", label:"115g Couché Mat",          g:115, type:"coated"},
+        {id:"135m", label:"135g Couché Mat",          g:135, type:"coated"},
+        {id:"135b", label:"135g Couché Brillant",     g:135, type:"coated"},
+        {id:"170m", label:"170g Couché Mat",          g:170, type:"coated"},
+        {id:"170b", label:"170g Couché Brillant",     g:170, type:"coated"},
+        {id:"200m", label:"200g Couché Mat",          g:200, type:"coated"},
+        {id:"250m", label:"250g Couché Mat",          g:250, type:"coated"},
+        {id:"300m", label:"300g Couché Mat",          g:300, type:"coated"},
+      ],
+      colors:[
+        {id:"1r",  label:"1 couleur Pantone recto (1/0)",   nc:1, sides:1},
+        {id:"1rv", label:"1 couleur Pantone R/V (1/1)",     nc:1, sides:2},
+        {id:"4r",  label:"Quadri CMYK recto (4/0)",         nc:4, sides:1},
+        {id:"4rv", label:"Quadri CMYK R/V (4/4)",           nc:4, sides:2},
+        {id:"5r",  label:"CMYK + Pantone recto (5/0)",      nc:5, sides:1},
+      ],
+      fins:[
+        {id:"pm",label:"Pelliculage Mat",      t:"ps"},
+        {id:"pb",label:"Pelliculage Brillant", t:"ps"},
+        {id:"oe",label:"Œillets ×4",           t:"pp"},
+      ],
+      qty:[500,1000,2000,5000,10000], setup:25,
+    },
   ];
 
   /* ════════════════════════════════════════════════════
@@ -430,11 +473,53 @@ const SIMPACT_PRICING = (function () {
     };
   }
 
+  function calcOffset(p, state) {
+    const mi=state.mi||0, fi=state.fi||0, pai=state.pa||0, ci=state.co||0;
+    const q=state.qty, fins=state.fins||[], disc=state.disc||0;
+    const machine=p.machines[mi]||p.machines[0];
+    const fmt=p.formats[fi];
+    const pap=p.papers[pai];
+    const col=p.colors[ci];
+    if (!machine||!fmt||!pap||!col) return null;
+    const off=P.offset;
+    const offM=off[machine.key];
+    if (!offM) return null;
+    const prixPlaque=offM.prix_plaque;
+    const gachePct=off.gache_pct;
+    const coutCalage=off.cout_calage;
+    const sh=machine.sheet, sa=sh.w*sh.h, a4e=sa/A4A;
+    const {n:ps,o:or}=poses(fmt.w, fmt.h, sh.w, sh.h);
+    const sNet=Math.ceil(q/ps);
+    const sw=Math.max(P.gache.minimum, Math.ceil(sNet*gachePct));
+    const sT=sNet+sw;
+    const nbPlaques=col.nc*col.sides;
+    const plaqueCost=nbPlaques*prixPlaque;
+    const calCost=coutCalage;
+    const kps=(pap.g/1000)*sa, kprice=kp(pap.g, pap.type);
+    const paperCost=sT*kps*kprice;
+    const {fc, fr}=calcFins(p.fins, fins, sNet, q);
+    const setup=getSetup(p);
+    const tot=plaqueCost+calCost+paperCost+setup+fc;
+    const margin=getMargin(p, q);
+    const rawHT=tot/(1-margin);
+    const finalHT=roundHT(rawHT*(1-disc/100));
+    return {
+      ps,or,sNet,sw,sT,sa,a4e,kps,kprice,
+      plaqueCost,calCost,paperCost,setup,fc,fr,tot,
+      nbPlaques,prixPlaque,
+      finalHT, finalTTC:finalHT*1.19, unit:finalHT/q, margin, disc,
+      info:`${ps} pose${ps>1?"s":""}/feuille (${or}) · ${nbPlaques} plaque${nbPlaques>1?"s":""}`,
+      sheetInfo:`${sNet}+${sw}=${sT} feuilles · ${machine.label.split("(")[0].trim()}`,
+      isOffset:true, pap, fmt, col, machine,
+    };
+  }
+
   function compute(p, state) {
     if (!state || !state.qty || state.qty < 1) return null;
     try {
       if (p.type === "booklet") return calcBooklet(p, state);
       if (p.type === "book")    return calcBook(p, state);
+      if (p.type === "offset")  return calcOffset(p, state);
       return calcStd(p, state);
     } catch(e) {
       console.error("SIMPACT_PRICING error:", p.id, e);

@@ -244,6 +244,7 @@
   <script src="js/supabase.js"></script>
   <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/messaging.js"></script>
 <script>
 /* ── SIMPACT ERP — orders.html — toutes les fonctions au scope global ── */
 
@@ -352,6 +353,15 @@ async function openDetail(id){
           <div style="font-size:14px;color:var(--text-secondary);margin-top:4px">TTC : <strong>${(o.priceTTC||((o.priceHT||0)*1.19)).toFixed(2)} DT</strong></div>
         </div>` : ''}
         ${sc.next ? `<button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="advanceStatus('${o.id}','${sc.next}');document.getElementById('detailModal').style.display='none'">${sc.nextLabel}</button>` : ""}
+        ${o.status==="bat" ? `
+          <div id="bat-reject-form-${o.id}" style="display:none;margin-top:8px">
+            <textarea id="bat-reject-motif-${o.id}" class="form-control" rows="2" placeholder="Motif du rejet (obligatoire)…" style="margin-bottom:6px;resize:none"></textarea>
+            <button class="btn btn-danger" style="width:100%" onclick="confirmRejectBat('${o.id}')">Confirmer le rejet</button>
+          </div>
+          <button class="btn btn-secondary" style="width:100%;margin-top:8px;border-color:var(--danger);color:var(--danger)"
+            onclick="document.getElementById('bat-reject-form-${o.id}').style.display='block';this.style.display='none'">
+            ❌ Rejeter le BAT
+          </button>` : ""}
         ${o.status!=="cancelled"&&o.status!=="done" ? `<button class="btn btn-danger" style="width:100%;margin-top:8px" onclick="advanceStatus('${o.id}','cancelled');document.getElementById('detailModal').style.display='none'">Annuler la commande</button>` : ""}
       </div></div>
     </div>
@@ -377,11 +387,40 @@ async function advanceStatus(id, newStatus){
   const updated = await DB.updateOrderStatus(id, newStatus, notes[newStatus]||"");
   if(!updated){ showToast("Erreur lors de la mise à jour","error"); return; }
   if (newStatus === "done") {
-    if(typeof MSG !== "undefined") await MSG.autoNotifyDelivery(updated);
+    MSG.autoNotifyDelivery(updated);
     showToast("Livraison confirmée — client notifié automatiquement", "success");
+  } else if (newStatus === "bat") {
+    // Notifier le client que son BAT est disponible
+    notifyClientBat(updated);
+    showToast("BAT envoyé au client", "success");
   } else {
     showToast("Commande mise à jour → " + (STATUS_CONFIG[newStatus]?.label||newStatus), "success");
   }
+  await renderPipeline(); await filterOrders();
+}
+
+function notifyClientBat(order) {
+  const users = JSON.parse(localStorage.getItem("simpact_users_custom")||"null") || SIMPACT_AUTH.USERS_FALLBACK || [];
+  const clientUser = users.find(u => u.client_id === order.clientId || u.clientId === order.clientId);
+  const adminUser  = users.find(u => u.role === "superadmin");
+  if (!clientUser || !adminUser) return;
+  MSG.send({
+    fromId:   adminUser.id,   fromName: adminUser.name,  fromRole: "superadmin",
+    toId:     clientUser.id,  toName:   clientUser.name, toRole:   "client",
+    subject:  `🖨 BAT disponible — ${order.id} ${order.product}`,
+    body: `Bonjour,\n\nLe bon à tirer de votre commande est prêt pour validation.\n\n📦 Réf : ${order.id}\n🖨 Produit : ${order.product}\n📊 Quantité : ${(order.qty||0).toLocaleString("fr-FR")} ex.\n\nMerci de le valider dans votre espace client pour que nous puissions lancer l'impression.\n\nCordialement,\nL'équipe SIMPACT`,
+    type: "message",
+  });
+}
+
+async function confirmRejectBat(id) {
+  const motif = document.getElementById("bat-reject-motif-"+id)?.value.trim();
+  if (!motif) { showToast("Le motif de rejet est obligatoire", "error"); return; }
+  const updated = await DB.updateOrderStatus(id, "bat", "BAT rejeté : " + motif);
+  if (!updated) { showToast("Erreur lors de la mise à jour", "error"); return; }
+  // Notifier l'admin du rejet (depuis le côté admin, on note juste dans la timeline)
+  showToast("BAT rejeté — motif enregistré dans la timeline", "warning");
+  document.getElementById("detailModal").style.display = "none";
   await renderPipeline(); await filterOrders();
 }
 

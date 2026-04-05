@@ -756,6 +756,23 @@ function openDetail(id) {
     </div></div>
 
     ${o.note ? `<div class="alert alert-info" style="margin-top:14px">📝 <strong>Note :</strong> ${o.note}</div>` : ""}
+
+    ${o.status === "bat" ? `
+    <div style="background:rgba(232,160,48,0.08);border:1px solid rgba(232,160,48,0.3);border-radius:var(--radius-lg);padding:20px 24px;margin-top:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--warning);margin-bottom:8px">🖨 Validation BAT requise</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">Votre bon à tirer est prêt. Veuillez l'approuver pour lancer la production ou le rejeter avec un motif.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" style="background:var(--success);border-color:var(--success)" onclick="approveBat('${o.id}')">✅ Approuver le BAT</button>
+        <button class="btn btn-secondary" style="border-color:var(--danger);color:var(--danger)"
+          onclick="document.getElementById('bat-reject-block').style.display='block';this.style.display='none'">
+          ❌ Rejeter le BAT
+        </button>
+      </div>
+      <div id="bat-reject-block" style="display:none;margin-top:12px">
+        <textarea id="bat-reject-motif" class="form-control" rows="3" placeholder="Motif du rejet (obligatoire)…" style="margin-bottom:8px;resize:none"></textarea>
+        <button class="btn btn-danger" onclick="rejectBat('${o.id}')">Confirmer le rejet</button>
+      </div>
+    </div>` : ""}
   `;
 
   document.getElementById("detailOverlay").classList.add("open");
@@ -763,6 +780,48 @@ function openDetail(id) {
 
 function closeDetail() {
   document.getElementById("detailOverlay").classList.remove("open");
+}
+
+async function approveBat(id) {
+  const updated = await DB.updateOrderStatus(id, "production", "BAT approuvé par le client — lancement production");
+  if (!updated) { showToast("Erreur lors de la validation", "error"); return; }
+  // Notifier l'équipe SIMPACT
+  const users = JSON.parse(localStorage.getItem("simpact_users_custom")||"null") || [];
+  const admin = users.find(u => u.role === "superadmin");
+  if (admin) {
+    MSG.send({
+      fromId: session.userId, fromName: session.name, fromRole: "client",
+      toId: admin.id, toName: admin.name, toRole: "superadmin",
+      subject: `✅ BAT approuvé — ${id}`,
+      body: `Bonjour,\n\nLe client ${session.name} a approuvé le BAT de la commande ${id}.\nVous pouvez lancer la production.\n\nCordialement`,
+      type: "message",
+    });
+  }
+  closeDetail();
+  showToast("BAT approuvé ✅ — production lancée", "success");
+  renderDashboard();
+}
+
+async function rejectBat(id) {
+  const motif = document.getElementById("bat-reject-motif")?.value.trim();
+  if (!motif) { showToast("Le motif de rejet est obligatoire", "error"); return; }
+  const updated = await DB.updateOrderStatus(id, "bat", "BAT rejeté par le client : " + motif);
+  if (!updated) { showToast("Erreur lors du rejet", "error"); return; }
+  // Notifier l'équipe SIMPACT
+  const users = JSON.parse(localStorage.getItem("simpact_users_custom")||"null") || [];
+  const admin = users.find(u => u.role === "superadmin");
+  if (admin) {
+    MSG.send({
+      fromId: session.userId, fromName: session.name, fromRole: "client",
+      toId: admin.id, toName: admin.name, toRole: "superadmin",
+      subject: `❌ BAT rejeté — ${id}`,
+      body: `Bonjour,\n\nLe client ${session.name} a rejeté le BAT de la commande ${id}.\n\nMotif : ${motif}\n\nMerci de corriger et de soumettre un nouveau BAT.\n\nCordialement`,
+      type: "message",
+    });
+  }
+  closeDetail();
+  showToast("BAT rejeté — SIMPACT a été notifié", "warning");
+  renderDashboard();
 }
 
 // ─── CONFIGURATEUR CLIENT ─────────────────────────────────────

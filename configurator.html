@@ -208,7 +208,7 @@
 const PRODS = SIMPACT_PRICING.PRODS;
 
 // ── État GLOBAL — accessible depuis les onclick dans innerHTML ──
-let S = {pi:0,fi:0,pa:0,co:0,qi:2,qc:null,fins:[],disc:0,showCost:false,pages:null,bi:0,pa2:0,cov:0};
+let S = {pi:0,fi:0,pa:0,co:0,qi:2,qc:null,fins:[],disc:0,showCost:false,pages:null,bi:0,pa2:0,cov:0,pell:null,mi:0};
 let isAdmin = false;
 
 const P = () => PRODS[S.pi];
@@ -219,6 +219,7 @@ function getState(overrideQty) {
     fi:S.fi, pa:S.pa, pa2:S.pa2, co:S.co,
     bi:S.bi, cov:S.cov, pages:S.pages,
     fins:[...S.fins], qty:overrideQty??Q(), disc:S.disc,
+    pell:S.pell, mi:S.mi,
   };
 }
 
@@ -233,7 +234,7 @@ function renderProds() {
 }
 
 function selProd(i) {
-  S = {pi:i,fi:0,pa:0,co:0,qi:2,qc:null,fins:[],disc:S.disc,showCost:S.showCost,pages:null,bi:0,pa2:0,cov:0};
+  S = {pi:i,fi:0,pa:0,co:0,qi:2,qc:null,fins:[],disc:S.disc,showCost:S.showCost,pages:null,bi:0,pa2:0,cov:0,pell:null,mi:0};
   renderAll();
 }
 
@@ -392,6 +393,30 @@ function qtyField(p, n) {
 function renderOpts() {
   const p = P(); let h = '<div class="opts-grid">';
 
+  if (p.type === "offset") {
+    h += sel("1", "Machine", p.machines.map(m=>m.label), S.mi, `S.mi=parseInt(this.value);S.fi=0;renderAll()`);
+    h += sel("2", "Format",  p.formats.map(f=>f.label), S.fi, `S.fi=parseInt(this.value);renderAll()`);
+    h += sel("3", "Support papier", p.papers.map(pp=>pp.label+(pp.g?" — "+pp.g+"g":"")), S.pa, `S.pa=parseInt(this.value);renderAll()`);
+    h += sel("4", "Mode d'impression", p.colors.map(c=>c.label), S.co, `S.co=parseInt(this.value);renderAll()`);
+    h += qtyField(p, "5");
+    if (p.fins.length) {
+      const q=Q(), sNet=Math.ceil(q/(SIMPACT_PRICING.poses(p.formats[S.fi].w,p.formats[S.fi].h,(p.machines[S.mi]||p.machines[0]).sheet.w,(p.machines[S.mi]||p.machines[0]).sheet.h).n||1));
+      h += `<div class="opt-field" style="grid-column:1/-1">
+        <div class="opt-label"><span class="sn">6</span> Finitions <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">(optionnel)</span></div>
+        <div class="fin-grid">${p.fins.map(f=>{
+          const on=S.fins.includes(f.id);
+          const r=f.t==="pp"?q*(SIMPACT_PARAMS?.P?.finitions?.[{pm:"pelliculage_mat",pb:"pelliculage_brillant",oe:"oeillet"}[f.id]]?.dt||f.r||0):
+                  f.t==="ps"?sNet*(SIMPACT_PARAMS?.P?.finitions?.[{pm:"pelliculage_mat",pb:"pelliculage_brillant"}[f.id]]?.dt||f.r||0):0;
+          return `<label class="fin-item ${on?"on":""}" onclick="togFin('${f.id}')">
+            <input type="checkbox" ${on?"checked":""} onclick="event.stopPropagation()">
+            <div><div class="fin-lbl">${f.label}</div><div class="fin-cost">+${r.toFixed(2)} DT</div></div></label>`;
+        }).join("")}</div></div>`;
+    }
+    h += '</div>';
+    document.getElementById("optPanel").innerHTML = h;
+    return;
+  }
+
   // ① Format — toujours présent
   h += sel("1", "Format",
     p.formats.map(f=>f.label||f.pd&&(f.label||"—")||"—"),
@@ -481,6 +506,7 @@ function renderPrice() {
   document.getElementById("pp-spec").textContent=
     res.isBooklet?`${fmt?.label||""} · ${res.ip?.label||""} / ${res.cp?.label||""}`:
     res.isBook?`${fmt?.label||""} · N&B + Couv ${covPaper?.label||""}`:
+    res.isOffset?`${res.machine?.label?.split("(")[0].trim()||""} · ${fmt?.label||""} · ${res.col?.label||""}`:
     `${fmt?.label||""} · ${pap?.label||""} · ${col?.label||""}`;
 
   document.getElementById("pp-poses").textContent=`${res.ps} pose${res.ps>1?"s":""}`;
@@ -497,6 +523,13 @@ function renderPrice() {
     ...(res.isBook?[
       ["Pages int.",res.pages+"p N&B"],
       ["Couv.",res.cpLabel||"—"],
+    ]:[]),
+    ...(res.isOffset?[
+      ["Machine",res.machine?.label?.split("(")[0].trim()||"—"],
+      ["Format",res.fmt?.label||"—"],
+      ["Impression",res.col?.label||"—"],
+      ["Plaques",res.nbPlaques+" × "+res.prixPlaque+" DT"],
+      ["Support",res.pap?.label||"—"],
     ]:[]),
     ...S.fins.map(fid=>{const f=p.fins.find(x=>x.id===fid);return f?[f.label,"✓"]:null;}).filter(Boolean),
   ];
@@ -528,6 +561,10 @@ function renderPrice() {
       cl+=cLine(`Papier couv. ${res.cpLabel||""}`,res.cpCost);
       cl+=cLine("Machine int. N&B R/V",res.imCost);
       cl+=cLine("Machine couv. quadri",res.cmCost);
+    }else if(res.isOffset){
+      cl+=cLine(`Plaques CTP (${res.nbPlaques} × ${res.prixPlaque} DT)`,res.plaqueCost);
+      cl+=cLine("Calage / encres (forfait)",res.calCost);
+      cl+=cLine(`Papier · ${res.sT}f × ${(res.kps*1000).toFixed(1)}g/f × ${res.kprice}DT/kg`,res.paperCost);
     }else{
       cl+=cLine(`Papier · ${res.sT}f × ${(res.kps*1000).toFixed(1)}g/f × ${res.kprice}DT/kg`,res.paperCost);
       cl+=cLine(`Machine · ${res.sT}f × ${res.a4e.toFixed(3)}éq.A4 × ${col?.sides||1}f × ${(res.cpcUsed||0).toFixed(4)}DT/click`,res.machineCost);
@@ -578,7 +615,11 @@ async function loadClientSelector(){
   });
 }
 
-function onClient(){S.disc=parseInt(document.getElementById("clientSel").value)||0;renderPrice();}
+function onClient(){
+  const sel=document.getElementById("clientSel");
+  if(!sel||sel.options.length<=1) return;
+  S.disc=parseInt(sel.value)||0;renderPrice();
+}
 
 async function openOrderModal(){
   const p=P(),q=Q(),state=getState();
@@ -604,7 +645,8 @@ async function openOrderModal(){
           ["Produit",p.name],["Format",fmt?.label||"—"],
           ...(res.isBooklet?[["Reliure",res.bindingLabel||"—"],["Pages",res.pages+"p"]]:[]),
           ...(res.isBook?[["Pages",res.pages+"p N&B"]]:[]),
-          ...(!res.isBooklet&&!res.isBook?[["Papier",pap?.label||"—"],["Impression",col?.label||"—"]]:[]),
+          ...(res.isOffset?[["Machine",res.machine?.label?.split("(")[0].trim()||"—"],["Impression",res.col?.label||"—"],["Plaques",res.nbPlaques+" plaques CTP"]]:[]),
+          ...(!res.isBooklet&&!res.isBook&&!res.isOffset?[["Papier",pap?.label||"—"],["Impression",col?.label||"—"]]:[]),
           ["Quantité",q.toLocaleString("fr-FR")+" ex."],
           ["Feuilles",res.sT+" total (dont "+res.sw+" gâche)"],
           ...(fl.length?[["Finitions",fl.join(", ")]]:[] ),

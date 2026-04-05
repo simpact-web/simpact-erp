@@ -108,6 +108,7 @@ const SIMPACT_PARAMS = (function () {
       ent:   8,   // en-tête
       dep:  12,   // dépliants
       liv:  20,   // livres
+      off:  25,   // offset — prépresse numérique (flashage CTP inclus dans prix plaque)
     },
 
     // ── Marges commerciales ───────────────────────────
@@ -147,6 +148,11 @@ const SIMPACT_PARAMS = (function () {
         marges:   [],
         defaut:   0.41,
       },
+      off: {
+        paliers:  [500, 1000, 2000, 5000, 10000],
+        marges:   [0.38, 0.42, 0.44, 0.46, 0.48],
+        defaut:   0.42,
+      },
     },
 
     // ── Gâche ─────────────────────────────────────────
@@ -159,6 +165,26 @@ const SIMPACT_PARAMS = (function () {
       ],
       minimum: 10,  // feuilles minimum
     },
+
+    // ── OFFSET HEIDELBERG — paramètres machine & métier ──────────
+    // Valeurs paramétrables — ne pas modifier les sections Canon/Konica
+    offset: {
+      cd102: {
+        prix_plaque:   22,    // DT / plaque CTP aluminium (format maxi 720×1020mm)
+        tirage_min:   500,    // exemplaires minimum économique
+        note:          "Heidelberg CD102-5 — 5 couleurs — format 500×700mm max",
+      },
+      sm74: {
+        prix_plaque:   18,    // DT / plaque CTP aluminium (format maxi 530×740mm)
+        tirage_min:   300,    // exemplaires minimum économique
+        note:          "Heidelberg SM74-4 — 4 couleurs — format 360×520mm max",
+      },
+      gache_pct:        0.05, // 5% gâche offset (calage + montage)
+      cout_calage:      8,    // DT forfait encres / calage par job (ink mixing)
+    },
+
+    // ── Prépresse offset ─────────────────────────────────────────
+    // (inséré dans prepresse via clé "off")
 
   }; // fin DEFAULTS
 
