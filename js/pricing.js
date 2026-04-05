@@ -140,7 +140,7 @@ const SIMPACT_PRICING = (function () {
       formats:[
         {label:"A4",      piece:{w:.210,h:.297}},
         {label:"A5",      piece:{w:.150,h:.210}},
-        {label:"16×23 cm",piece:{w:.160,h:.230}, basedOn:{w:.150,h:.210}, surcharge:0.20},
+        {label:"16×23 cm",piece:{w:.160,h:.230}, sheet:{w:.330,h:.480}, psOverride:4},
       ],
       sheet:{w:.320, h:.450},
       bindings:[
@@ -404,10 +404,10 @@ const SIMPACT_PRICING = (function () {
     const bindingCostRate = finRate(bindingId) !== null ? finRate(bindingId) : (P.finitions[{piqure:'piqure_agrafes',spirale:'reliure_spirale',dos:'dos_carre_colle'}[bindingId]]?.dt || 0.08);
     const covType=p.covTypes[cov]||p.covTypes[0];
     const fmt=p.formats[fi];
-    // Si le format a basedOn, utiliser ces dimensions pour le calcul des poses (ex: 16×23 basé sur A5)
-    const calcPiece=fmt.basedOn||fmt.piece;
-    const sh=p.sheet, sa=sh.w*sh.h, a4e=sa/A4A;
-    const {n:ps}=poses(calcPiece.w, calcPiece.h, sh.w, sh.h);
+    // Le format peut définir sa propre feuille (ex: 16×23 sur 33×48) sinon feuille du produit
+    const sh=fmt.sheet||p.sheet, sa=sh.w*sh.h, a4e=sa/A4A;
+    const {n:psCalc}=poses(fmt.piece.w, fmt.piece.h, sh.w, sh.h);
+    const ps=fmt.psOverride||psCalc;
     const pps=ps*2;
     const iSpc=pages/pps;
     const iNet=Math.ceil(q*pages/pps);
@@ -425,22 +425,18 @@ const SIMPACT_PRICING = (function () {
     const pellCost=pellId ? cT*pellRate : 0;
     const pellLabel=pellId==="pm"?"Pelliculage Mat":pellId==="pb"?"Pelliculage Brillant":null;
     const setup=getSetup(p);
-    // Surcoût format spécial (ex: 16×23 = impression A5 + 20%)
-    const surcharge=fmt.surcharge||0;
-    const baseCost=cpCost+ipCost+cmCost+imCost+bindingCost+pellCost+setup+fc;
-    const tot=baseCost*(1+surcharge);
+    const tot=cpCost+ipCost+cmCost+imCost+bindingCost+pellCost+setup+fc;
     const margin=getMargin(p, q);
     const rawHT=tot/(1-margin);
     const finalHT=roundHT(rawHT*(1-disc/100));
-    const surLabel=surcharge ? `+${Math.round(surcharge*100)}% format ${fmt.label}` : null;
     return {
       ps,sNet:cNet+iNet,sw:cW+iW,sT:cT+iT,sa,a4e,cT,iT,
-      paperCost:cpCost+ipCost, machineCost:cmCost+imCost, bindingCost, pellCost, setup, fc, fr, surcharge, tot,
+      paperCost:cpCost+ipCost, machineCost:cmCost+imCost, bindingCost, pellCost, setup, fc, fr, tot,
       cpCost,ipCost,cmCost,imCost,
       finalHT, finalTTC:finalHT*1.19, unit:finalHT/q, margin, disc,
-      info:`${ps} poses/feuille — ${iSpc}int+1couv/ex${surcharge?" (+"+Math.round(surcharge*100)+"% 16×23)":""}`,
+      info:`${ps} poses/feuille (${sh.w*100|0}×${sh.h*100|0}cm) — ${iSpc}int+1couv/ex`,
       sheetInfo:`${pages+4}p total · Couv:${cT}f Int:${iT}f`,
-      isBooklet:true, cp, ip, pages:pages+4, bindingLabel, pellLabel, surLabel,
+      isBooklet:true, cp, ip, pages:pages+4, bindingLabel, pellLabel,
     };
   }
 
