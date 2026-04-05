@@ -523,7 +523,12 @@ async function loadClientSelector(){
   });
 }
 
-function onClient(){S.disc=parseInt(document.getElementById("clientSel").value)||0;renderPrice();}
+function onClient(){
+  const sel = document.getElementById("clientSel");
+  if (!sel || sel.options.length <= 1) return; // clientSel pas encore chargé
+  S.disc = parseInt(sel.value) || 0;
+  renderPrice();
+}
 
 async function openOrderModal(){
   const p=P(),q=Q(),state=getState();

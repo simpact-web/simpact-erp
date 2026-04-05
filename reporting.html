@@ -110,7 +110,7 @@
     <!-- Tab Marges -->
     <div id="tab-margins" style="display:none">
       <div class="alert alert-info" style="margin-bottom:20px">
-        ℹ Marges calculées sur la base de vos coûts réels Canon V1000 (0.0764 DT/A4 quadri · 0.0413 DT/A4 N&B) et de vos prix papier.
+        ℹ Marges calculées sur la base de vos coûts réels Canon V1000 (<span id="alert-cpc-quadri">—</span> DT/A4 quadri · <span id="alert-cpc-nb">—</span> DT/A4 N&amp;B) et de vos prix papier.
       </div>
       <div class="card">
         <div class="card-header"><div class="card-title">Analyse des marges par produit & quantité</div></div>
@@ -158,11 +158,11 @@
         </div>
         <div class="machine-card" style="border-color:rgba(201,168,76,0.4)">
           <div class="mc-label">Coût total quadri/A4</div>
-          <div class="mc-val" style="color:var(--gold)">0.0764</div><div class="mc-sub">DT / face A4 couleur</div>
+          <div class="mc-val" id="mc-cpc-quadri" style="color:var(--gold)">—</div><div class="mc-sub">DT / face A4 couleur</div>
         </div>
         <div class="machine-card">
           <div class="mc-label">Coût total N&B/A4</div>
-          <div class="mc-val">0.0413</div><div class="mc-sub">DT / face A4 N&B</div>
+          <div class="mc-val" id="mc-cpc-nb">—</div><div class="mc-sub">DT / face A4 N&B</div>
         </div>
         <div class="machine-card">
           <div class="mc-label">Volume cible/mois</div>
@@ -309,6 +309,7 @@
   <script src="js/supabase.js"></script>
   <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/params.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", async () => {
 const session = SIMPACT_AUTH.requireAuth(["superadmin"]);
@@ -326,9 +327,19 @@ if (session) {
   }
 }
 
-// Coûts réels Canon V1000
-const COST_PER_A4_QUADRI = 0.0764;
-const COST_PER_A4_NB     = 0.0413;
+// Coûts réels Canon V1000 — calculés depuis params.js (source unique de vérité)
+const _cpc = SIMPACT_PARAMS.computeCPC(SIMPACT_PARAMS.P);
+const COST_PER_A4_QUADRI = _cpc.bro;    // CPC brochures A4 couleur
+const COST_PER_A4_NB     = _cpc.ent_nb; // CPC N&B (KM AccurioPrint)
+
+// Mettre à jour les éléments HTML qui affichent ces valeurs
+(function() {
+  const q = COST_PER_A4_QUADRI.toFixed(4);
+  const n = COST_PER_A4_NB.toFixed(4);
+  ["mc-cpc-quadri","alert-cpc-quadri"].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=q; });
+  ["mc-cpc-nb",    "alert-cpc-nb"   ].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=n; });
+})();
+
 const MACHINE_PRICE_HT   = 149175;
 const A4_M2 = 0.21 * 0.297;
 
