@@ -186,7 +186,6 @@
           </div>
 
           <button class="btn btn-primary" style="width:100%;padding:13px" onclick="openOrderModal()">📋 Créer une commande</button>
-          <button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="window.print()">🖨 Imprimer le devis</button>
         </div>
       </div>
     </div>
@@ -570,80 +569,103 @@ function onClient(){
 }
 
 async function openOrderModal(){
-  const p=P(),q=Q(),state=getState();
-  const res=SIMPACT_PRICING.compute(p,state);
-  if(!res) return;
-  const fl=S.fins.map(fid=>p.fins.find(x=>x.id===fid)?.label).filter(Boolean);
-  const fmt=p.formats[S.fi];
-  const pap=p.type==="booklet"?p.iPapers?.[S.pa]:p.papers?.[S.pa];
-  const col=p.colors[S.co];
-  const allClients = await DB.getClients();
+  try {
+    const p=P(),q=Q(),state=getState();
+    const res=SIMPACT_PRICING.compute(p,state);
+    if(!res){ showToast("Configurez le produit avant de créer une commande","error"); return; }
+    const fl=(p.fins||[]).filter(f=>S.fins.includes(f.id)).map(f=>f.label);
+    const fmt=p.formats[S.fi];
+    const pap=p.type==="booklet"?p.iPapers?.[S.pa]:p.papers?.[S.pa];
+    const col=p.colors[S.co];
 
-  const overlay=document.createElement("div");
-  overlay.className="modal-overlay";
-  overlay.style.cssText="position:fixed;inset:0;background:rgba(4,9,15,0.88);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px)";
-  overlay.innerHTML=`<div class="modal" style="max-width:500px;width:95%">
-    <div class="modal-header">
-      <div class="modal-title">Créer la commande</div>
-      <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">×</button>
-    </div>
-    <div class="modal-body">
-      <div style="background:var(--navy-dark);border:1px solid var(--navy-border);border-radius:var(--radius-md);padding:14px;margin-bottom:16px">
-        ${[
-          ["Produit",p.name],["Format",fmt?.label||"—"],
-          ...(res.isBooklet?[["Reliure",res.bindingLabel||"—"],["Pages",res.pages+"p"]]:[]),
-          ...(res.isBook?[["Pages",res.pages+"p N&B"]]:[]),
-          ...(res.isOffset?[["Machine",res.machine?.label?.split("(")[0].trim()||"—"],["Impression",res.col?.label||"—"],["Plaques",res.nbPlaques+" plaques CTP"]]:[]),
-          ...(!res.isBooklet&&!res.isBook&&!res.isOffset?[["Papier",pap?.label||"—"],["Impression",col?.label||"—"]]:[]),
-          ["Quantité",q.toLocaleString("fr-FR")+" ex."],
-          ["Feuilles",res.sT+" total (dont "+res.sw+" gâche)"],
-          ...(fl.length?[["Finitions",fl.join(", ")]]:[] ),
-        ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-          <span style="color:var(--text-muted)">${k}</span>
-          <span style="color:var(--text-primary);text-align:right;max-width:58%">${v}</span>
-        </div>`).join("")}
-        <div style="border-top:1px solid var(--navy-border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:700">
-          <span style="color:var(--text-secondary)">Total HT</span>
-          <span style="color:var(--gold);font-family:'DM Mono',monospace">${res.finalHT} DT</span>
+    let allClients=[];
+    try { allClients = await DB.getClients(); }
+    catch(e){ console.warn("getClients:", e); }
+
+    const clientOpts = allClients.length
+      ? allClients.map(c=>`<option value="${c.id}">${c.name}</option>`).join("")
+      : `<option value="" disabled selected>Aucun client disponible</option>`;
+
+    const overlay=document.createElement("div");
+    overlay.className="modal-overlay";
+    overlay.style.cssText="position:fixed;inset:0;background:rgba(4,9,15,0.88);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px)";
+    overlay.innerHTML=`<div class="modal" style="max-width:500px;width:95%">
+      <div class="modal-header">
+        <div class="modal-title">Créer la commande</div>
+        <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">×</button>
+      </div>
+      <div class="modal-body">
+        <div style="background:var(--navy-dark);border:1px solid var(--navy-border);border-radius:var(--radius-md);padding:14px;margin-bottom:16px">
+          ${[
+            ["Produit",p.name],["Format",fmt?.label||"—"],
+            ...(res.isBooklet?[["Reliure",res.bindingLabel||"—"],["Pages",res.pages+"p"]]:[]),
+            ...(res.isBook?[["Pages",res.pages+"p N&B"]]:[]),
+            ...(res.isOffset?[["Machine",res.machine?.label?.split("(")[0].trim()||"—"],["Impression",res.col?.label||"—"],["Plaques",res.nbPlaques+" plaques CTP"]]:[]),
+            ...(!res.isBooklet&&!res.isBook&&!res.isOffset?[["Papier",pap?.label||"—"],["Impression",col?.label||"—"]]:[]),
+            ["Quantité",q.toLocaleString("fr-FR")+" ex."],
+            ["Feuilles",res.sT+" total (dont "+res.sw+" gâche)"],
+            ...(fl.length?[["Finitions",fl.join(", ")]]:[] ),
+          ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span style="color:var(--text-muted)">${k}</span>
+            <span style="color:var(--text-primary);text-align:right;max-width:58%">${v}</span>
+          </div>`).join("")}
+          <div style="border-top:1px solid var(--navy-border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:700">
+            <span style="color:var(--text-secondary)">Total HT</span>
+            <span style="color:var(--gold);font-family:'DM Mono',monospace">${res.finalHT} DT</span>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Client</label>
+          <select class="form-control" id="oc-cl">${clientOpts}</select>
+        </div>
+        <div class="form-group"><label class="form-label">Note interne</label>
+          <textarea class="form-control" id="oc-nt" rows="2" placeholder="Instructions particulières…"></textarea>
         </div>
       </div>
-      <div class="form-group"><label class="form-label">Client</label>
-        <select class="form-control" id="oc-cl">${allClients.map(c=>`<option value="${c.id}">${c.name}</option>`).join("")}</select>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Annuler</button>
+        <button class="btn btn-primary" id="oc-ok">✓ Créer la commande</button>
       </div>
-      <div class="form-group"><label class="form-label">Note interne</label>
-        <textarea class="form-control" id="oc-nt" rows="2" placeholder="Instructions particulières…"></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Annuler</button>
-      <button class="btn btn-primary" id="oc-ok">✓ Créer la commande</button>
-    </div>
-  </div>`;
+    </div>`;
 
-  document.body.appendChild(overlay);
-  document.getElementById("oc-ok").onclick=async()=>{
-    const cid=document.getElementById("oc-cl").value;
-    const note=document.getElementById("oc-nt").value.trim();
-    const cl = await DB.getClient(cid);
-    const order = await DB.createOrder({
-      clientId:cid,clientName:cl?.name||"—",
-      product:p.name,qty:q,
-      priceHT:res.finalHT,priceTTC:+(res.finalHT*1.19).toFixed(2),
-      specs:{
-        format:fmt?.label||"—",
-        ...(res.isBooklet?{reliure:res.bindingLabel,pages:res.pages+"p",covPaper:res.cp?.label,intPaper:res.ip?.label}:{}),
-        ...(res.isBook?{pages:res.pages+"p N&B",covPaper:res.cpLabel}:{}),
-        ...(!res.isBooklet&&!res.isBook?{paper:pap?.label||"—",color:col?.label||"—"}:{}),
-        finitions:fl, poses:res.ps, sheets:res.sT,
-      },
-      note,
-    });
-    if(!order){ showToast("Erreur lors de la création de la commande","error"); return; }
-    overlay.remove();
-    showToast(`✓ Commande ${order.id} créée pour ${cl?.name}`,"success");
-    setTimeout(()=>window.location.href="orders.html",1000);
-  };
-  overlay.addEventListener("click",e=>{if(e.target===overlay)overlay.remove();});
+    document.body.appendChild(overlay);
+
+    document.getElementById("oc-ok").onclick=async()=>{
+      try {
+        const cid=document.getElementById("oc-cl").value;
+        if(!cid){ showToast("Sélectionnez un client","error"); return; }
+        const note=document.getElementById("oc-nt").value.trim();
+        const btn=document.getElementById("oc-ok");
+        btn.disabled=true; btn.textContent="Création…";
+        const cl = await DB.getClient(cid);
+        const order = await DB.createOrder({
+          clientId:cid,clientName:cl?.name||"—",
+          product:p.name,qty:q,
+          priceHT:res.finalHT,priceTTC:+(res.finalHT*1.19).toFixed(2),
+          specs:{
+            format:fmt?.label||"—",
+            ...(res.isBooklet?{reliure:res.bindingLabel,pages:res.pages+"p",covPaper:res.cp?.label,intPaper:res.ip?.label}:{}),
+            ...(res.isBook?{pages:res.pages+"p N&B",covPaper:res.cpLabel}:{}),
+            ...(!res.isBooklet&&!res.isBook?{paper:pap?.label||"—",color:col?.label||"—"}:{}),
+            finitions:fl, poses:res.ps, sheets:res.sT,
+          },
+          note,
+        });
+        if(!order){ showToast("Erreur lors de la création de la commande","error"); btn.disabled=false; btn.textContent="✓ Créer la commande"; return; }
+        overlay.remove();
+        showToast(`✓ Commande ${order.id} créée pour ${cl?.name}`,"success");
+        setTimeout(()=>window.location.href="orders.html",1200);
+      } catch(e) {
+        console.error("createOrder:", e);
+        showToast("Erreur : "+e.message,"error");
+        const btn=document.getElementById("oc-ok");
+        if(btn){ btn.disabled=false; btn.textContent="✓ Créer la commande"; }
+      }
+    };
+    overlay.addEventListener("click",e=>{if(e.target===overlay)overlay.remove();});
+  } catch(e) {
+    console.error("openOrderModal:", e);
+    showToast("Impossible d'ouvrir le formulaire : "+e.message,"error");
+  }
 }
 
 // ── Authentification (dans DOMContentLoaded uniquement) ──────

@@ -435,35 +435,53 @@ async function confirmRejectBat(id) {
 }
 
 async function openNewOrderModal(){
-  const sel = document.getElementById("nc-client");
-  sel.innerHTML = "";
-  const clients = await DB.getClients();
-  clients.forEach(c => { const o=document.createElement("option"); o.value=c.id; o.textContent=c.name; sel.appendChild(o); });
-  document.getElementById("newOrderModal").style.display="flex";
+  try {
+    const sel = document.getElementById("nc-client");
+    sel.innerHTML = "<option disabled selected>Chargement…</option>";
+    document.getElementById("newOrderModal").style.display="flex";
+    const clients = await DB.getClients();
+    sel.innerHTML = clients.length
+      ? clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join("")
+      : "<option value='' disabled selected>Aucun client disponible</option>";
+  } catch(e) {
+    console.error("openNewOrderModal:", e);
+    showToast("Impossible de charger les clients : "+e.message,"error");
+    document.getElementById("newOrderModal").style.display="none";
+  }
 }
 
 async function createOrder(){
-  const clientId = document.getElementById("nc-client").value;
-  if(!clientId){ showToast("Sélectionnez un client","error"); return; }
-  const client   = await DB.getClient(clientId);
-  const priceHT  = parseFloat(document.getElementById("nc-price").value)||0;
-  const order = await DB.createOrder({
-    clientId, clientName: client?.name||"—",
-    product:  document.getElementById("nc-product").value,
-    qty:      parseInt(document.getElementById("nc-qty").value)||0,
-    priceHT,  priceTTC: priceHT*1.19,
-    specs: {
-      format:   document.getElementById("nc-format").value,
-      paper:    document.getElementById("nc-paper").value,
-      color:    document.getElementById("nc-color").value,
-      finitions: document.getElementById("nc-finitions").value ? [document.getElementById("nc-finitions").value] : [],
-    },
-    note: document.getElementById("nc-note").value,
-  });
-  if(!order){ showToast("Erreur lors de la création","error"); return; }
-  document.getElementById("newOrderModal").style.display="none";
-  showToast(`Commande ${order.id} créée !`,"success");
-  await renderPipeline(); await filterOrders();
+  try {
+    const clientId = document.getElementById("nc-client").value;
+    if(!clientId){ showToast("Sélectionnez un client","error"); return; }
+    const btn = document.querySelector("#newOrderModal .btn-primary");
+    if(btn){ btn.disabled=true; btn.textContent="Création…"; }
+    const client   = await DB.getClient(clientId);
+    const priceHT  = parseFloat(document.getElementById("nc-price").value)||0;
+    const order = await DB.createOrder({
+      clientId, clientName: client?.name||"—",
+      product:  document.getElementById("nc-product").value,
+      qty:      parseInt(document.getElementById("nc-qty").value)||0,
+      priceHT,  priceTTC: +(priceHT*1.19).toFixed(2),
+      specs: {
+        format:   document.getElementById("nc-format").value,
+        paper:    document.getElementById("nc-paper").value,
+        color:    document.getElementById("nc-color").value,
+        finitions: document.getElementById("nc-finitions").value ? [document.getElementById("nc-finitions").value] : [],
+      },
+      note: document.getElementById("nc-note").value,
+    });
+    if(btn){ btn.disabled=false; btn.textContent="Créer la commande"; }
+    if(!order){ showToast("Erreur lors de la création","error"); return; }
+    document.getElementById("newOrderModal").style.display="none";
+    showToast(`Commande ${order.id} créée !`,"success");
+    await renderPipeline(); await filterOrders();
+  } catch(e) {
+    console.error("createOrder:", e);
+    showToast("Erreur : "+e.message,"error");
+    const btn = document.querySelector("#newOrderModal .btn-primary");
+    if(btn){ btn.disabled=false; btn.textContent="Créer la commande"; }
+  }
 }
 
 function setTableLoading(on) {
