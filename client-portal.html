@@ -773,6 +773,7 @@
 // ─── Auth ───────────────────────────────────────────────
 const session = SIMPACT_AUTH.requireAuth(["client"]);
 let CLIENT_ID = null;
+let CLIENT_DATA = null; // données complètes du client (branding, produits autorisés)
 
 if (session) {
   CLIENT_ID = session.clientId;
@@ -781,6 +782,69 @@ if (session) {
   document.getElementById("topClientBadge").textContent = session.name.split(" ")[0];
   document.getElementById("welcomeTitle").textContent   = "Bonjour, " + session.name.split("—")[0].trim();
   document.getElementById("welcomeSub").textContent     = new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+}
+
+// ─── Branding & Produits autorisés ─────────────────────
+async function applyClientBranding() {
+  if (!CLIENT_ID) return;
+  try {
+    CLIENT_DATA = await DB.getClient(CLIENT_ID);
+    if (!CLIENT_DATA) return;
+
+    const couleur = CLIENT_DATA.couleur || '#4a9fd4';
+    const logoUrl = CLIENT_DATA.logo_url || null;
+    const clientName = CLIENT_DATA.name || session.name;
+
+    // ── Couleur de marque (CSS variable override) ──────
+    document.documentElement.style.setProperty('--client-brand', couleur);
+    // Appliquer la couleur sur les éléments d'accentuation du portail
+    const styleOverride = document.createElement('style');
+    styleOverride.id = 'client-brand-style';
+    styleOverride.textContent = `
+      .cp-brand-logo { background: ${couleur} !important; }
+      .cp-client-badge { background: ${couleur}22 !important; color: ${couleur} !important; border-color: ${couleur}44 !important; }
+      .btn-primary { background: ${couleur} !important; border-color: ${couleur} !important; }
+      .btn-primary:hover { filter: brightness(1.1); }
+      .product-card.selected { border-color: ${couleur} !important; background: ${couleur}11 !important; }
+      .product-card.selected .product-card-icon { color: ${couleur} !important; }
+      .nav-item.active { border-left-color: ${couleur} !important; color: ${couleur} !important; }
+      .kpi-card::after { background: ${couleur} !important; }
+    `;
+    document.head.appendChild(styleOverride);
+
+    // ── Logo dans la topbar ────────────────────────────
+    const brandLogo = document.querySelector('.cp-brand-logo');
+    const brandName = document.querySelector('.cp-brand-name');
+    if (brandLogo) {
+      if (logoUrl) {
+        brandLogo.style.cssText = `background:${couleur};border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:2px`;
+        brandLogo.innerHTML = `<img src="${logoUrl}" style="height:32px;width:auto;max-width:80px;object-fit:contain" onerror="this.parentNode.innerHTML='${clientName.split(' ').filter(w=>w.length>1).slice(0,2).map(w=>w[0]).join('')||'CL'}'">`;
+      } else {
+        const initials = clientName.split(' ').filter(w=>w.length>1).slice(0,2).map(w=>w[0]).join('').toUpperCase() || 'CL';
+        brandLogo.style.background = couleur;
+        brandLogo.textContent = initials;
+      }
+    }
+    if (brandName) brandName.textContent = clientName;
+
+    // ── Filtrer les produits autorisés ────────────────
+    const allowed = Array.isArray(CLIENT_DATA.produits_autorises)
+      ? CLIENT_DATA.produits_autorises
+      : (CLIENT_DATA.produits_autorises
+          ? JSON.parse(CLIENT_DATA.produits_autorises)
+          : null);
+    if (allowed && allowed.length > 0) {
+      // Remplacer PRODUCTS par la version filtrée
+      const allProds = SIMPACT_PRICING.PRODS;
+      const filtered = allProds.filter(p => allowed.includes(p.id));
+      if (filtered.length > 0) {
+        // Mettre à jour la variable PRODUCTS globale
+        window._PRODUCTS_FILTERED = filtered;
+      }
+    }
+  } catch(e) {
+    console.warn('applyClientBranding:', e);
+  }
 }
 
 // ─── Navigation ─────────────────────────────────────────
@@ -1125,6 +1189,7 @@ function wzGo(step) {
 function renderWzProductGrid() {
   const grid = document.getElementById("wz-product-grid");
   if (!grid) return;
+  PRODUCTS = getProducts();
   grid.innerHTML = PRODUCTS.map((pr, i) => `
     <div class="product-card ${cfg.pi === i ? "selected" : ""}" onclick="wzSelectProduct(${i})">
       <span class="product-card-icon">${pr.icon}</span>
@@ -1135,10 +1200,8 @@ function renderWzProductGrid() {
 
 function wzSelectProduct(i) {
   cfg = {pi:i, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null};
-  // Mettre à jour sous-titre étape 1
   const sub1 = document.getElementById("wz-sub-1");
-  if (sub1) sub1.textContent = PRODUCTS[i].name;
-  // Passer directement à l'étape 2
+  if (sub1) sub1.textContent = getProducts()[i].name;
   wzGo(2);
 }
 
@@ -1199,7 +1262,10 @@ function renderConfigurator() {
   updateCpPrice();
 }
 
-const PRODUCTS = SIMPACT_PRICING.PRODS;
+// PRODUCTS est dynamique : filtré selon produits_autorises du client
+// (mis à jour par applyClientBranding() puis renderWzProductGrid() est rappelé)
+let PRODUCTS = SIMPACT_PRICING.PRODS;
+function getProducts() { return window._PRODUCTS_FILTERED || SIMPACT_PRICING.PRODS; }
 
 let cfg = { pi:0, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null };
 
@@ -1655,6 +1721,8 @@ function sendClientMsg() {
 (async () => {
   const remote = await SIMPACT_PARAMS.syncFromDB();
   if (remote) SIMPACT_PRICING.refreshCPC();
+  // Charger le branding client et filtrer les produits AVANT de rendre le configurateur
+  await applyClientBranding();
   renderDashboard();
   renderConfigurator();
 })();
