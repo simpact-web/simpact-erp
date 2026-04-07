@@ -111,9 +111,11 @@ const SIMPACT_PRICING = (function () {
     {
       id:"fly", name:"Flyers", icon:"◈", type:"std",
       formats:[
-        {label:"A5 — 15×21 cm",   w:.150, h:.210, sheet:{w:.320,h:.450}},
-        {label:"16×23 cm",         w:.160, h:.230, sheet:{w:.340,h:.480}},
-        {label:"A4 — 21×29,7 cm", w:.210, h:.297, sheet:{w:.320,h:.450}},
+        {label:"A5 — 15×21 cm",    w:.150, h:.210, sheet:{w:.320,h:.450}},
+        {label:"16×23 cm",          w:.160, h:.230, sheet:{w:.340,h:.480}},
+        {label:"A4 — 21×29,7 cm",  w:.210, h:.297, sheet:{w:.320,h:.450}},
+        {label:"A3 — 29,7×42 cm",  w:.297, h:.420, sheet:{w:.320,h:.450}},
+        {label:"A3+ — 32×45 cm",   w:.320, h:.450, sheet:{w:.340,h:.480}},
       ],
       papers:[
         {id:"115m",label:"115g Couché Mat",      g:115, type:"coated"},
@@ -186,10 +188,6 @@ const SIMPACT_PRICING = (function () {
       formats:[
         {label:"A3 (297×420mm)",  w:.297, h:.420, sheet:{w:.320,h:.450}},
         {label:"A3+ (320×450mm)", w:.320, h:.450, sheet:{w:.340,h:.480}},
-        {label:"A2 (420×594mm)",  w:.420, h:.594, sheet:{w:.450,h:.640}},
-        {label:"A1 (594×841mm)",  w:.594, h:.841, sheet:{w:.640,h:.900}},
-        {label:"40×60 cm",        w:.400, h:.600, sheet:{w:.450,h:.640}},
-        {label:"50×70 cm",        w:.500, h:.700, sheet:{w:.540,h:.750}},
       ],
       papers:[
         {id:"135m",label:"135g Couché Mat",             g:135, type:"coated"},
@@ -231,9 +229,42 @@ const SIMPACT_PRICING = (function () {
     {
       id:"dep", name:"Dépliants", icon:"◱", type:"std",
       formats:[
-        {label:"A5 — 15×21 cm (pli 2)",    w:.150, h:.210, sheet:{w:.320,h:.450}},
-        {label:"16×23 cm (pli 2)",          w:.160, h:.230, sheet:{w:.340,h:.480}},
-        {label:"A4 — 21×29,7 cm (pli 3)",  w:.210, h:.297, sheet:{w:.320,h:.450}},
+        {
+          label:"A5 (15×21 cm) — Pli simple · 2 volets",
+          w:.150, h:.210, sheet:{w:.320,h:.450},
+          foldType:"pli2", foldVolets:2,
+          foldDesc:"Ouvert : A4 (21×30 cm) · 1 pli central · 4 faces",
+        },
+        {
+          label:"A5 (15×21 cm) — Pli roulé · 3 volets",
+          w:.150, h:.210, sheet:{w:.320,h:.450},
+          foldType:"pli3r", foldVolets:3,
+          foldDesc:"Ouvert : 21×45 cm · 2 plis, volet intérieur rentrant · 6 faces",
+        },
+        {
+          label:"A5 (15×21 cm) — Pli accordéon · 3 volets",
+          w:.150, h:.210, sheet:{w:.320,h:.450},
+          foldType:"pli3a", foldVolets:3,
+          foldDesc:"Ouvert : 21×45 cm · 2 plis alternés en Z · 6 faces",
+        },
+        {
+          label:"16×23 cm — Pli roulé · 3 volets",
+          w:.160, h:.230, sheet:{w:.340,h:.480},
+          foldType:"pli3r", foldVolets:3,
+          foldDesc:"Ouvert : 48×23 cm · 2 plis, format large · 6 faces",
+        },
+        {
+          label:"A4 (21×29,7 cm) — Pli accordéon · 3 volets",
+          w:.210, h:.297, sheet:{w:.320,h:.450},
+          foldType:"pli3a", foldVolets:3,
+          foldDesc:"Ouvert : A3 (63×29,7 cm) · 2 plis alternés · 6 faces",
+        },
+        {
+          label:"A4 (21×29,7 cm) — Pli portefeuille · 4 volets",
+          w:.210, h:.297, sheet:{w:.320,h:.450},
+          foldType:"pli4", foldVolets:4,
+          foldDesc:"Ouvert : 42×29,7 cm · 3 plis parallèles · 8 faces",
+        },
       ],
       papers:[
         {id:"135m",label:"135g Couché Mat",      g:135, type:"coated"},

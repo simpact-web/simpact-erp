@@ -239,7 +239,14 @@ function selProd(i) {
 }
 
 function togFin(id) {
+  // pm/pb are mutually exclusive — handled by select, this covers other fins
   S.fins = S.fins.includes(id) ? S.fins.filter(x=>x!==id) : [...S.fins,id];
+  renderAll();
+}
+
+function setPell(v) {
+  S.fins = S.fins.filter(x => x !== "pm" && x !== "pb");
+  if (v) S.fins.push(v);
   renderAll();
 }
 
@@ -285,17 +292,59 @@ function finsSection(p, n) {
     pb: fp.pelliculage_brillant?.dt,
     co: fp.coins_arrondis?.dt,
     vu: fp.vernis_uv?.dt,
+    oe: fp.oeillet?.dt,
+    pl: fp.pliage?.dt,
   };
-  return `<div class="opt-field" style="grid-column:1/-1">
+  const pellFins  = p.fins.filter(f => f.id === "pm" || f.id === "pb");
+  const otherFins = p.fins.filter(f => f.id !== "pm" && f.id !== "pb");
+  const activePell = S.fins.find(id => id === "pm" || id === "pb") || "";
+
+  let html = `<div class="opt-field" style="grid-column:1/-1">
     <div class="opt-label"><span class="sn">${n}</span> Finitions <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">(optionnel)</span></div>
-    <div class="fin-grid">${p.fins.map(f => {
-      const on = S.fins.includes(f.id);
-      const r = rateMap[f.id] ?? f.r ?? 0;
-      const prev = f.t==="pp" ? q*r : (f.t==="pc"||f.t==="ps") ? sNet*r : r;
-      return `<label class="fin-item ${on?"on":""}" onclick="togFin('${f.id}')">
-        <input type="checkbox" ${on?"checked":""} onclick="event.stopPropagation()">
-        <div><div class="fin-lbl">${f.label}</div><div class="fin-cost">+${prev.toFixed(2)} DT</div></div></label>`;
-    }).join("")}</div></div>`;
+    <div class="fin-grid">`;
+
+  if (pellFins.length) {
+    const matCost = ((sNet * (rateMap.pm || 0))).toFixed(2);
+    const briCost = ((sNet * (rateMap.pb || 0))).toFixed(2);
+    html += `<div style="grid-column:1/-1">
+      <select class="opt-select" onchange="setPell(this.value)">
+        <option value="" ${!activePell?"selected":""}>— Sans pelliculage —</option>
+        <option value="pm" ${activePell==="pm"?"selected":""}>Pelliculage Mat (+${matCost} DT)</option>
+        <option value="pb" ${activePell==="pb"?"selected":""}>Pelliculage Brillant (+${briCost} DT)</option>
+      </select>
+    </div>`;
+  }
+
+  otherFins.forEach(f => {
+    const on = S.fins.includes(f.id);
+    const r = rateMap[f.id] ?? f.r ?? 0;
+    const prev = f.t==="pp" ? q*r : (f.t==="pc"||f.t==="ps") ? sNet*r : r;
+    html += `<label class="fin-item ${on?"on":""}" onclick="togFin('${f.id}')">
+      <input type="checkbox" ${on?"checked":""} onclick="event.stopPropagation()">
+      <div><div class="fin-lbl">${f.label}</div><div class="fin-cost">+${prev.toFixed(2)} DT</div></div></label>`;
+  });
+
+  html += `</div></div>`;
+  return html;
+}
+
+const FOLD_SVGS = {
+  pli2:  `<svg viewBox="0 0 140 70" width="140" height="70"><rect x="5" y="10" width="56" height="50" rx="2" fill="rgba(74,159,212,.18)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="79" y="10" width="56" height="50" rx="2" fill="rgba(74,159,212,.07)" stroke="#4a9fd4" stroke-width="1" stroke-dasharray="4,2"/><line x1="67" y1="10" x2="67" y2="60" stroke="#c9a84c" stroke-width="2"/><path d="M67,10 Q79,35 67,60" fill="none" stroke="#c9a84c" stroke-width="1" stroke-dasharray="3,2"/><text x="33" y="40" text-anchor="middle" fill="#7cb8e0" font-size="9" font-family="sans-serif">recto</text><text x="107" y="40" text-anchor="middle" fill="#7cb8e0" font-size="9" font-family="sans-serif">verso</text></svg>`,
+  pli3r: `<svg viewBox="0 0 180 70" width="180" height="70"><rect x="5" y="10" width="50" height="50" rx="2" fill="rgba(74,159,212,.18)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="65" y="10" width="50" height="50" rx="2" fill="rgba(74,159,212,.12)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="125" y="10" width="50" height="50" rx="2" fill="rgba(74,159,212,.07)" stroke="#4a9fd4" stroke-width="1" stroke-dasharray="4,2"/><line x1="60" y1="10" x2="60" y2="60" stroke="#c9a84c" stroke-width="2"/><line x1="120" y1="10" x2="120" y2="60" stroke="#c9a84c" stroke-width="2"/><path d="M120,10 Q108,35 120,60" fill="none" stroke="#c9a84c" stroke-width="1" stroke-dasharray="3,2"/><text x="30" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">p.1</text><text x="90" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">p.2</text><text x="150" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">p.3</text></svg>`,
+  pli3a: `<svg viewBox="0 0 180 70" width="180" height="70"><rect x="5" y="10" width="50" height="50" rx="2" fill="rgba(74,159,212,.18)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="65" y="10" width="50" height="50" rx="2" fill="rgba(74,159,212,.12)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="125" y="10" width="50" height="50" rx="2" fill="rgba(74,159,212,.07)" stroke="#4a9fd4" stroke-width="1" stroke-dasharray="4,2"/><line x1="60" y1="10" x2="60" y2="60" stroke="#c9a84c" stroke-width="2"/><line x1="120" y1="10" x2="120" y2="60" stroke="#c9a84c" stroke-width="2"/><path d="M55,20 L65,20 M55,50 L65,50" stroke="#c9a84c" stroke-width="1.5" fill="none"/><path d="M115,20 L125,20 M115,50 L125,50" stroke="#c9a84c" stroke-width="1.5" fill="none"/><text x="30" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">p.1</text><text x="90" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">p.2</text><text x="150" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">p.3</text></svg>`,
+  pli4:  `<svg viewBox="0 0 220 70" width="220" height="70"><rect x="5" y="10" width="44" height="50" rx="2" fill="rgba(74,159,212,.18)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="57" y="10" width="44" height="50" rx="2" fill="rgba(74,159,212,.13)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="109" y="10" width="44" height="50" rx="2" fill="rgba(74,159,212,.08)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="161" y="10" width="44" height="50" rx="2" fill="rgba(74,159,212,.04)" stroke="#4a9fd4" stroke-width="1" stroke-dasharray="4,2"/><line x1="52" y1="10" x2="52" y2="60" stroke="#c9a84c" stroke-width="2"/><line x1="104" y1="10" x2="104" y2="60" stroke="#c9a84c" stroke-width="2"/><line x1="156" y1="10" x2="156" y2="60" stroke="#c9a84c" stroke-width="2"/><text x="27" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">1</text><text x="79" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">2</text><text x="131" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">3</text><text x="183" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">4</text></svg>`,
+};
+
+function foldPreview(fmt) {
+  if (!fmt?.foldType) return "";
+  const svg = FOLD_SVGS[fmt.foldType] || "";
+  return `<div style="grid-column:1/-1;background:var(--navy-dark);border:1px solid var(--navy-border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:16px">
+    <div style="flex-shrink:0;opacity:.9">${svg}</div>
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:4px">${fmt.label.split("—")[1]?.trim()||""}</div>
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.5">${fmt.foldDesc||""}</div>
+    </div>
+  </div>`;
 }
 
 function pellSelect(p, n) {
@@ -341,19 +390,7 @@ function renderOpts() {
     h += sel("3", "Support papier", p.papers.map(pp=>pp.label+(pp.g?" — "+pp.g+"g":"")), S.pa, `S.pa=parseInt(this.value);renderAll()`);
     h += sel("4", "Mode d'impression", p.colors.map(c=>c.label), S.co, `S.co=parseInt(this.value);renderAll()`);
     h += qtyField(p, "5");
-    if (p.fins.length) {
-      const q=Q(), sNet=Math.ceil(q/(SIMPACT_PRICING.poses(p.formats[S.fi].w,p.formats[S.fi].h,(p.machines[S.mi]||p.machines[0]).sheet.w,(p.machines[S.mi]||p.machines[0]).sheet.h).n||1));
-      h += `<div class="opt-field" style="grid-column:1/-1">
-        <div class="opt-label"><span class="sn">6</span> Finitions <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">(optionnel)</span></div>
-        <div class="fin-grid">${p.fins.map(f=>{
-          const on=S.fins.includes(f.id);
-          const r=f.t==="pp"?q*(SIMPACT_PARAMS?.P?.finitions?.[{pm:"pelliculage_mat",pb:"pelliculage_brillant",oe:"oeillet"}[f.id]]?.dt||f.r||0):
-                  f.t==="ps"?sNet*(SIMPACT_PARAMS?.P?.finitions?.[{pm:"pelliculage_mat",pb:"pelliculage_brillant"}[f.id]]?.dt||f.r||0):0;
-          return `<label class="fin-item ${on?"on":""}" onclick="togFin('${f.id}')">
-            <input type="checkbox" ${on?"checked":""} onclick="event.stopPropagation()">
-            <div><div class="fin-lbl">${f.label}</div><div class="fin-cost">+${r.toFixed(2)} DT</div></div></label>`;
-        }).join("")}</div></div>`;
-    }
+    if (p.fins.length) h += finsSection(p, "6");
     h += '</div>';
     document.getElementById("optPanel").innerHTML = h;
     return;
@@ -412,19 +449,12 @@ function renderOpts() {
     h += sel("2", "Support papier",    p.papers.map(pp=>pp.label+(pp.g?" — "+pp.g+"g":"")), S.pa, `S.pa=parseInt(this.value);renderAll()`);
     h += sel("3", "Mode d'impression", p.colors.map(c=>c.label), S.co, `S.co=parseInt(this.value);renderAll()`);
     h += qtyField(p, "4");
-    if(p.fins.length) {
-      const q=Q(), fmt=p.formats[S.fi], sh=fmt?.sheet||{w:.320,h:.450};
-      const psn=fmt?SIMPACT_PRICING.poses(fmt.w||.210,fmt.h||.297,sh.w,sh.h).n:2;
-      const sNet=Math.ceil(q/psn);
-      h += `<div class="opt-field" style="grid-column:1/-1">
-        <div class="opt-label"><span class="sn">5</span> Finitions <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">(optionnel)</span></div>
-        <div class="fin-grid">${p.fins.map(f=>{
-          const on=S.fins.includes(f.id);
-          const prev=f.t==="pp"?q*f.r:f.t==="ps"?sNet*f.r:f.r;
-          return `<label class="fin-item ${on?"on":""}" onclick="togFin('${f.id}')">
-            <input type="checkbox" ${on?"checked":""} onclick="event.stopPropagation()">
-            <div><div class="fin-lbl">${f.label}</div><div class="fin-cost">+${prev.toFixed(2)} DT</div></div></label>`;
-        }).join("")}</div></div>`;
+    if(p.fins.length) h += finsSection(p, "5");
+
+    // Dépliant — aperçu du pli sélectionné
+    if(p.id === "dep") {
+      const fmt = p.formats[S.fi];
+      if(fmt?.foldType) h += foldPreview(fmt);
     }
   }
 

@@ -1355,6 +1355,10 @@ function renderCpChips() {
   } else {
     // Produits standard
     h += cpSel("2","Format",       p.formats.map(f=>f.label||"—"),                       cfg.fi, `cfg.fi=parseInt(this.value);cfg.pa=0;renderCpChips();updateCpPrice()`);
+    // Aperçu du type de pli pour les dépliants
+    if (p.id === "dep" && p.formats[cfg.fi]?.foldType) {
+      h += cpFoldPreview(p.formats[cfg.fi]);
+    }
     h += cpSel("3","Support papier",p.papers.map(pp=>pp.label+(pp.g?" — "+pp.g+"g":"")), cfg.pa, `cfg.pa=parseInt(this.value);updateCpPrice()`);
     h += cpSel("4","Mode d'impression", p.colors.map(c=>c.label),                        cfg.co, `cfg.co=parseInt(this.value);updateCpPrice()`);
     h += cpQtyField(p, "5");
@@ -1408,6 +1412,25 @@ function renderCpChips() {
   } else {
     document.getElementById("cp-finitionsStep").style.display = "none";
   }
+}
+
+const FOLD_SVGS = {
+  pli2:  `<svg viewBox="0 0 140 70" width="140" height="70"><rect x="5" y="10" width="56" height="50" rx="2" fill="rgba(74,159,212,.18)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="79" y="10" width="56" height="50" rx="2" fill="rgba(74,159,212,.07)" stroke="#4a9fd4" stroke-width="1" stroke-dasharray="4,2"/><line x1="67" y1="10" x2="67" y2="60" stroke="#c9a84c" stroke-width="2"/><path d="M67,10 Q79,35 67,60" fill="none" stroke="#c9a84c" stroke-width="1" stroke-dasharray="3,2"/><text x="33" y="40" text-anchor="middle" fill="#7cb8e0" font-size="9" font-family="sans-serif">recto</text><text x="107" y="40" text-anchor="middle" fill="#7cb8e0" font-size="9" font-family="sans-serif">verso</text></svg>`,
+  pli3r: `<svg viewBox="0 0 180 70" width="180" height="70"><rect x="5" y="10" width="50" height="50" rx="2" fill="rgba(74,159,212,.18)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="65" y="10" width="50" height="50" rx="2" fill="rgba(74,159,212,.12)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="125" y="10" width="50" height="50" rx="2" fill="rgba(74,159,212,.07)" stroke="#4a9fd4" stroke-width="1" stroke-dasharray="4,2"/><line x1="60" y1="10" x2="60" y2="60" stroke="#c9a84c" stroke-width="2"/><line x1="120" y1="10" x2="120" y2="60" stroke="#c9a84c" stroke-width="2"/><path d="M120,10 Q108,35 120,60" fill="none" stroke="#c9a84c" stroke-width="1" stroke-dasharray="3,2"/><text x="30" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">p.1</text><text x="90" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">p.2</text><text x="150" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">p.3</text></svg>`,
+  pli3a: `<svg viewBox="0 0 180 70" width="180" height="70"><rect x="5" y="10" width="50" height="50" rx="2" fill="rgba(74,159,212,.18)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="65" y="10" width="50" height="50" rx="2" fill="rgba(74,159,212,.12)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="125" y="10" width="50" height="50" rx="2" fill="rgba(74,159,212,.07)" stroke="#4a9fd4" stroke-width="1" stroke-dasharray="4,2"/><line x1="60" y1="10" x2="60" y2="60" stroke="#c9a84c" stroke-width="2"/><line x1="120" y1="10" x2="120" y2="60" stroke="#c9a84c" stroke-width="2"/><path d="M55,20 L65,20 M55,50 L65,50" stroke="#c9a84c" stroke-width="1.5" fill="none"/><path d="M115,20 L125,20 M115,50 L125,50" stroke="#c9a84c" stroke-width="1.5" fill="none"/><text x="30" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">p.1</text><text x="90" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">p.2</text><text x="150" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">p.3</text></svg>`,
+  pli4:  `<svg viewBox="0 0 220 70" width="220" height="70"><rect x="5" y="10" width="44" height="50" rx="2" fill="rgba(74,159,212,.18)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="57" y="10" width="44" height="50" rx="2" fill="rgba(74,159,212,.13)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="109" y="10" width="44" height="50" rx="2" fill="rgba(74,159,212,.08)" stroke="#4a9fd4" stroke-width="1.5"/><rect x="161" y="10" width="44" height="50" rx="2" fill="rgba(74,159,212,.04)" stroke="#4a9fd4" stroke-width="1" stroke-dasharray="4,2"/><line x1="52" y1="10" x2="52" y2="60" stroke="#c9a84c" stroke-width="2"/><line x1="104" y1="10" x2="104" y2="60" stroke="#c9a84c" stroke-width="2"/><line x1="156" y1="10" x2="156" y2="60" stroke="#c9a84c" stroke-width="2"/><text x="27" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">1</text><text x="79" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">2</text><text x="131" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">3</text><text x="183" y="40" text-anchor="middle" fill="#7cb8e0" font-size="8" font-family="sans-serif">4</text></svg>`,
+};
+
+function cpFoldPreview(fmt) {
+  if (!fmt?.foldType) return "";
+  const svg = FOLD_SVGS[fmt.foldType] || "";
+  return `<div class="cp-field full" style="background:var(--navy-dark);border:1px solid var(--navy-border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:16px">
+    <div style="flex-shrink:0;opacity:.9">${svg}</div>
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:4px">${fmt.label.split("—")[1]?.trim()||""}</div>
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.5">${fmt.foldDesc||""}</div>
+    </div>
+  </div>`;
 }
 
 function toggleFin(i) {
