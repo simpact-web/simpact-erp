@@ -431,11 +431,7 @@
   <!-- ── TOPBAR ─────────────────────────────────────── -->
   <header class="cp-topbar">
     <div class="cp-brand">
-      <div class="cp-brand-logo">S</div>
-      <div>
-        <div class="cp-brand-name">SIMPACT</div>
-        <div class="cp-brand-sub">Espace Client</div>
-      </div>
+      <div class="cp-brand-logo" id="cpBrandLogo">S</div>
     </div>
     <div class="cp-topbar-right">
       <div>
@@ -812,20 +808,29 @@ async function applyClientBranding() {
     `;
     document.head.appendChild(styleOverride);
 
-    // ── Logo dans la topbar ────────────────────────────
-    const brandLogo = document.querySelector('.cp-brand-logo');
-    const brandName = document.querySelector('.cp-brand-name');
+    // ── Logo dans la topbar (gauche) ───────────────────
+    const brandLogo = document.getElementById('cpBrandLogo');
+    const initials = clientName.split(' ').filter(w=>w.length>1).slice(0,2).map(w=>w[0]).join('').toUpperCase() || 'CL';
     if (brandLogo) {
       if (logoUrl) {
         brandLogo.style.cssText = `background:${couleur};border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:2px`;
-        brandLogo.innerHTML = `<img src="${logoUrl}" style="height:32px;width:auto;max-width:80px;object-fit:contain" onerror="this.parentNode.innerHTML='${clientName.split(' ').filter(w=>w.length>1).slice(0,2).map(w=>w[0]).join('')||'CL'}'">`;
+        brandLogo.innerHTML = `<img src="${logoUrl}" style="height:32px;width:auto;max-width:80px;object-fit:contain" onerror="this.parentNode.textContent='${initials}'">`;
       } else {
-        const initials = clientName.split(' ').filter(w=>w.length>1).slice(0,2).map(w=>w[0]).join('').toUpperCase() || 'CL';
         brandLogo.style.background = couleur;
         brandLogo.textContent = initials;
       }
     }
-    if (brandName) brandName.textContent = clientName;
+
+    // ── Logo dans le badge top-right ───────────────────
+    const badge = document.getElementById('topClientBadge');
+    if (badge) {
+      if (logoUrl) {
+        badge.style.cssText = `padding:2px 8px;border-radius:20px;background:${couleur}22;border:1px solid ${couleur}44;display:inline-flex;align-items:center`;
+        badge.innerHTML = `<img src="${logoUrl}" style="height:26px;width:auto;max-width:90px;object-fit:contain" onerror="this.parentNode.textContent='${initials}'">`;
+      } else {
+        badge.textContent = initials;
+      }
+    }
 
     // ── Filtrer les produits autorisés ────────────────
     const allowed = Array.isArray(CLIENT_DATA.produits_autorises)
