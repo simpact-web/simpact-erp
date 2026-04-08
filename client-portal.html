@@ -825,8 +825,8 @@ async function applyClientBranding() {
     const badge = document.getElementById('topClientBadge');
     if (badge) {
       if (logoUrl) {
-        badge.style.cssText = `padding:2px 8px;border-radius:20px;background:${couleur}22;border:1px solid ${couleur}44;display:inline-flex;align-items:center`;
-        badge.innerHTML = `<img src="${logoUrl}" style="height:26px;width:auto;max-width:90px;object-fit:contain" onerror="this.parentNode.textContent='${initials}'">`;
+        badge.style.cssText = `padding:0;border-radius:8px;background:transparent;border:none;display:inline-flex;align-items:center;overflow:hidden`;
+        badge.innerHTML = `<img src="${logoUrl}" style="height:42px;width:auto;max-width:120px;object-fit:contain;display:block" onerror="this.parentNode.textContent='${initials}'">`;
       } else {
         badge.textContent = initials;
       }
