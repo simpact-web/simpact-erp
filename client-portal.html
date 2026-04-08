@@ -432,6 +432,10 @@
   <header class="cp-topbar">
     <div class="cp-brand">
       <div class="cp-brand-logo" id="cpBrandLogo">S</div>
+      <div>
+        <div class="cp-brand-name" id="cpBrandName">SIMPACT</div>
+        <div class="cp-brand-sub">Espace Client</div>
+      </div>
     </div>
     <div class="cp-topbar-right">
       <div>
@@ -810,7 +814,9 @@ async function applyClientBranding() {
 
     // ── Logo dans la topbar (gauche) ───────────────────
     const brandLogo = document.getElementById('cpBrandLogo');
+    const brandName = document.getElementById('cpBrandName');
     const initials = clientName.split(' ').filter(w=>w.length>1).slice(0,2).map(w=>w[0]).join('').toUpperCase() || 'CL';
+    if (brandName) brandName.textContent = clientName;
     if (brandLogo) {
       if (logoUrl) {
         brandLogo.style.cssText = `background:${couleur};border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:2px`;
