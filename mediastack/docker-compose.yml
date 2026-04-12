@@ -1,0 +1,168 @@
+# =============================================================================
+#  MEDIA STACK - Docker Compose
+#  Services : Jellyfin | qBittorrent | Radarr | Sonarr | Prowlarr | Bazarr | NPM
+#  Réseau partagé : mediastack
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  #  JELLYFIN - Serveur de streaming media
+  #  Interface : http://<IP>:8096
+  # ---------------------------------------------------------------------------
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - JELLYFIN_PublishedServerUrl=http://${SERVER_IP}:8096
+    volumes:
+      - ${CONFIG_DIR}/jellyfin:/config
+      - ${DATA_DIR}/media/movies:/data/movies
+      - ${DATA_DIR}/media/tv:/data/tv
+      - ${DATA_DIR}/media/music:/data/music
+    ports:
+      - "8096:8096"
+      - "8920:8920"   # HTTPS optionnel (Jellyfin natif)
+      - "7359:7359/udp" # Découverte automatique réseau local
+    restart: unless-stopped
+    networks:
+      - mediastack
+
+  # ---------------------------------------------------------------------------
+  #  QBITTORRENT - Gestionnaire de téléchargements
+  #  Interface : http://<IP>:8080
+  #  Identifiants par défaut : admin / adminadmin  (à changer !)
+  # ---------------------------------------------------------------------------
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - WEBUI_PORT=8080
+    volumes:
+      - ${CONFIG_DIR}/qbittorrent:/config
+      - ${DATA_DIR}/downloads:/data/downloads
+    ports:
+      - "8080:8080"       # Interface Web
+      - "6881:6881"       # Trafic torrent TCP
+      - "6881:6881/udp"   # Trafic torrent UDP
+    restart: unless-stopped
+    networks:
+      - mediastack
+
+  # ---------------------------------------------------------------------------
+  #  PROWLARR - Gestionnaire d'indexeurs (moteurs de recherche)
+  #  Interface : http://<IP>:9696
+  #  Configurer en PREMIER, puis lier à Radarr/Sonarr
+  # ---------------------------------------------------------------------------
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG_DIR}/prowlarr:/config
+    ports:
+      - "9696:9696"
+    restart: unless-stopped
+    networks:
+      - mediastack
+
+  # ---------------------------------------------------------------------------
+  #  RADARR - Automatisation des films
+  #  Interface : http://<IP>:7878
+  #  Chemin dans le conteneur : /data/downloads & /data/movies
+  # ---------------------------------------------------------------------------
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG_DIR}/radarr:/config
+      - ${DATA_DIR}:/data   # Accès à downloads/ ET media/ depuis /data
+    ports:
+      - "7878:7878"
+    restart: unless-stopped
+    networks:
+      - mediastack
+
+  # ---------------------------------------------------------------------------
+  #  SONARR - Automatisation des séries TV
+  #  Interface : http://<IP>:8989
+  #  Chemin dans le conteneur : /data/downloads & /data/tv
+  # ---------------------------------------------------------------------------
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG_DIR}/sonarr:/config
+      - ${DATA_DIR}:/data   # Accès à downloads/ ET media/ depuis /data
+    ports:
+      - "8989:8989"
+    restart: unless-stopped
+    networks:
+      - mediastack
+
+  # ---------------------------------------------------------------------------
+  #  BAZARR - Récupération automatique des sous-titres (FR + AR)
+  #  Interface : http://<IP>:6767
+  # ---------------------------------------------------------------------------
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG_DIR}/bazarr:/config
+      - ${DATA_DIR}/media/movies:/data/movies
+      - ${DATA_DIR}/media/tv:/data/tv
+    ports:
+      - "6767:6767"
+    restart: unless-stopped
+    networks:
+      - mediastack
+
+  # ---------------------------------------------------------------------------
+  #  NGINX PROXY MANAGER - Reverse Proxy + Certificats SSL Let's Encrypt
+  #  Admin : http://<IP>:81
+  #  Identifiants par défaut : admin@example.com / changeme  (à changer !)
+  #  Ports 80 + 443 : trafic HTTP/HTTPS public (ouvrir dans le pare-feu)
+  # ---------------------------------------------------------------------------
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx-proxy-manager
+    ports:
+      - "80:80"     # HTTP public
+      - "443:443"   # HTTPS public
+      - "81:81"     # Interface d'administration NPM
+    volumes:
+      - ${CONFIG_DIR}/nginx-proxy-manager/data:/data
+      - ${CONFIG_DIR}/nginx-proxy-manager/letsencrypt:/etc/letsencrypt
+    restart: unless-stopped
+    networks:
+      - mediastack
+
+# =============================================================================
+#  RÉSEAU PARTAGÉ
+#  Tous les conteneurs peuvent se joindre par leur nom (ex: http://radarr:7878)
+# =============================================================================
+networks:
+  mediastack:
+    name: mediastack
+    driver: bridge
