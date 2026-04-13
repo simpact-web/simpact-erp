@@ -81,10 +81,6 @@ ALTER TABLE stock ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "stock_full_anon" ON stock;
 CREATE POLICY "stock_full_anon" ON stock FOR ALL TO anon USING (true) WITH CHECK (true);
 
-ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "stock_movements_full_anon" ON stock_movements;
-CREATE POLICY "stock_movements_full_anon" ON stock_movements FOR ALL TO anon USING (true) WITH CHECK (true);
-
 ALTER TABLE params_couts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "admin_seulement_params" ON params_couts;
 DROP POLICY IF EXISTS "params_full_anon" ON params_couts;
