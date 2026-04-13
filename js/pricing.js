@@ -286,6 +286,46 @@ const SIMPACT_PRICING = (function () {
       qty:[25,50,100,200,500,1000,2000], setup:12,
     },
 
+    /* ── CARTES ROUTIÈRES ─────────────────────────── */
+    {
+      id:"map", name:"Cartes routières", icon:"🗺", type:"std",
+      formats:[
+        {
+          label:"A4 (21×29,7 cm) — 6 volets",
+          w:.210, h:.297, sheet:{w:.320,h:.450},
+          foldType:"pli3a", foldVolets:6,
+          foldDesc:"Ouvert : A4 (21×30 cm) · 2 plis · format poche 7×21 cm · 6 faces",
+        },
+        {
+          label:"A3 (29,7×42 cm) — 8 volets",
+          w:.297, h:.420, sheet:{w:.320,h:.450},
+          foldType:"pli4", foldVolets:8,
+          foldDesc:"Ouvert : A3 (30×42 cm) · 3 plis · format poche 10,5×15 cm · 8 faces",
+        },
+        {
+          label:"A3+ (32×45 cm) — 12 volets",
+          w:.320, h:.450, sheet:{w:.340,h:.480},
+          foldType:"pli4", foldVolets:12,
+          foldDesc:"Ouvert : A3+ (32×45 cm) · 3 plis × 2 · format poche 10×11 cm · 12 faces",
+        },
+      ],
+      papers:[
+        {id:"80o", label:"80g Offset (recommandé)",  g:80,  type:"offset"},
+        {id:"90o", label:"90g Offset",                g:90,  type:"offset"},
+        {id:"115m",label:"115g Couché Mat",            g:115, type:"coated"},
+        {id:"135m",label:"135g Couché Mat",            g:135, type:"coated"},
+      ],
+      colors:[
+        {id:"44",label:"Quadri R/V (4/4)",  sides:2, cpc:CPC.dep},
+        {id:"40",label:"Quadri recto (4/0)",sides:1, cpc:CPC.dep},
+      ],
+      fins:[
+        {id:"pm",label:"Pelliculage Mat",  t:"ps"},
+        {id:"pl",label:"Pliage",           t:"pp"},
+      ],
+      qty:[25,50,100,250,500,1000,2000], setup:15,
+    },
+
     /* ── LIVRES N&B ────────────────────────────────── */
     {
       id:"liv", name:"Livres N&B", icon:"📚", type:"book",
