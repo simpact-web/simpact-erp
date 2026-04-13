@@ -57,7 +57,6 @@ const SIMPACT_PARAMS = (function () {
       bro:    0.1706,   // brochures — couverture ~15-20%
       aff:    0.2939,   // affiches — couverture ~40-50%
       dep:    0.1905,   // dépliants — couverture ~20%
-      map:    0.1905,   // cartes routières — couverture ~20% (similaire dépliants)
       ent_cl: 0.1247,   // en-tête couleur — couverture ~12%
     },
 
@@ -108,7 +107,6 @@ const SIMPACT_PARAMS = (function () {
       aff:  15,   // affiches
       ent:   8,   // en-tête
       dep:  12,   // dépliants
-      map:  15,   // cartes routières
       liv:  20,   // livres
       off:  25,   // offset — prépresse numérique (flashage CTP inclus dans prix plaque)
     },
@@ -144,11 +142,6 @@ const SIMPACT_PARAMS = (function () {
         paliers:  [25,50,100,200,500,1000,2000],
         marges:   [0.38,0.36,0.41,0.41,0.46,0.45,0.48],
         defaut:   0.41,
-      },
-      map: {
-        paliers:  [25,50,100,250,500,1000,2000],
-        marges:   [0.40,0.40,0.42,0.44,0.47,0.47,0.50],
-        defaut:   0.44,
       },
       liv: {
         paliers:  [],
@@ -257,7 +250,6 @@ const SIMPACT_PARAMS = (function () {
       bro:    +((c.bro    + E + moV1000) * TV).toFixed(4),
       aff:    +((c.aff    + E + moV1000) * TV).toFixed(4),
       dep:    +((c.dep    + E + moV1000) * TV).toFixed(4),
-      map:    +((c.map    + E + moV1000) * TV).toFixed(4),
       ent_cl: +((c.ent_cl + E + moV1000) * TV).toFixed(4),
       ent_nb: +((km.nb    + E + moKM   ) * TK).toFixed(4),
       liv_nb: +((km.nb    + E + moKM   ) * TK).toFixed(4),
