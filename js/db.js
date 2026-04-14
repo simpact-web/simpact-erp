@@ -47,7 +47,7 @@ const DB = {
     // Essayer la séquence RPC, replier sur le max existant
     try {
       const { data, error } = await this.supa
-        .rpc('nextval', { seq_name: 'commandes_seq' })
+        .rpc('next_order_id')
         .single();
       if (!error && data) return `CMD-${String(data).padStart(4, '0')}`;
     } catch { /* RPC indisponible — on continue */ }
