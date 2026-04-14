@@ -136,6 +136,14 @@ END
 WHERE couleur IS NULL OR couleur = '#4a9fd4';</pre>
 </div>
 
+<!-- COLONNES FILE COMMANDES -->
+<div class="card">
+  <div class="card-title">5. Colonnes fichier joint — Table commandes</div>
+  <p style="font-size:12px;color:#7a99bb;margin-bottom:12px">Ajoute les colonnes <code style="color:#c9a84c">file_url</code> et <code style="color:#c9a84c">file_name</code> à la table commandes pour stocker les fichiers déposés par les clients.</p>
+  <button onclick="addFileColumns()">⬆ Ajouter les colonnes</button>
+  <div class="log" id="log-cols"><span class="info">Prêt.</span></div>
+</div>
+
 <!-- BUCKET COMMANDES -->
 <div class="card">
   <div class="card-title">5. Bucket Storage "commandes" — Fichiers attachés aux commandes clients</div>
@@ -312,6 +320,27 @@ function copyBoutique() {
 function copyStorage() {
   navigator.clipboard.writeText(document.getElementById('storage-sql').textContent);
   alert('SQL copié dans le presse-papiers !');
+}
+
+async function addFileColumns() {
+  logTo('log-cols', '▶ Ajout colonnes file_url / file_name sur commandes…');
+  // On teste en faisant un UPDATE avec les colonnes — si elles existent déjà, pas d'erreur
+  const { error } = await supa.from('commandes')
+    .update({ file_url: null, file_name: null })
+    .eq('id', '__test_inexistant__');
+
+  if (!error || error.code === 'PGRST116') {
+    logTo('log-cols', '✓ Colonnes déjà présentes ou ajoutées.', 'ok');
+    return;
+  }
+
+  if (error.message?.includes('column') || error.message?.includes('schema')) {
+    logTo('log-cols', '✗ Colonnes manquantes — exécutez ce SQL dans Supabase SQL Editor :', 'err');
+    logTo('log-cols', 'ALTER TABLE commandes ADD COLUMN IF NOT EXISTS file_url text;', 'warn');
+    logTo('log-cols', 'ALTER TABLE commandes ADD COLUMN IF NOT EXISTS file_name text;', 'warn');
+  } else {
+    logTo('log-cols', '✓ Colonnes probablement présentes (test non concluant).', 'ok');
+  }
 }
 
 async function createBucket() {
