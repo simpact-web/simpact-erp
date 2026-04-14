@@ -136,6 +136,37 @@ END
 WHERE couleur IS NULL OR couleur = '#4a9fd4';</pre>
 </div>
 
+<!-- BUCKET COMMANDES -->
+<div class="card">
+  <div class="card-title">5. Bucket Storage "commandes" — Fichiers attachés aux commandes clients</div>
+  <p style="font-size:12px;color:#7a99bb;margin-bottom:12px">Nécessaire pour que les clients puissent joindre leur PDF/BAT lors d'une commande.</p>
+  <button onclick="createBucket()" style="margin-right:8px">⬆ Créer le bucket "commandes"</button>
+  <button class="copy-btn" onclick="copyStorage()" style="float:none;margin:4px 0">📋 Copier le SQL RLS</button>
+  <div class="log" id="log-bucket"><span class="info">Prêt.</span></div>
+  <pre id="storage-sql" style="margin-top:12px">-- À exécuter dans Supabase Dashboard → SQL Editor
+-- APRÈS avoir créé le bucket "commandes" (bouton ci-dessus ou Dashboard → Storage → New bucket)
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('commandes', 'commandes', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Politique : les clients (anon) peuvent uploader leurs fichiers
+CREATE POLICY "commandes_insert_anon" ON storage.objects
+  FOR INSERT TO anon
+  WITH CHECK (bucket_id = 'commandes');
+
+-- Politique : lecture publique des fichiers (pour affichage côté admin)
+CREATE POLICY "commandes_select_anon" ON storage.objects
+  FOR SELECT TO anon
+  USING (bucket_id = 'commandes');
+
+-- Politique : mise à jour autorisée (écrasement si même nom)
+CREATE POLICY "commandes_update_anon" ON storage.objects
+  FOR UPDATE TO anon
+  USING (bucket_id = 'commandes')
+  WITH CHECK (bucket_id = 'commandes');</pre>
+</div>
+
 <script>
 const SUPA_URL = 'https://yqileqgxpihnyaauwmtr.supabase.co';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxaWxlcWd4cGlobnlhYXV3bXRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mjc4MTMsImV4cCI6MjA5MDAwMzgxM30.UGU_3OwlVkPZZylJPY3Wjl7WEe1-uNistfEmk5B_HUo';
@@ -277,6 +308,35 @@ function copyRLS() {
 function copyBoutique() {
   navigator.clipboard.writeText(document.getElementById('boutique-sql').textContent);
   alert('SQL copié dans le presse-papiers !');
+}
+function copyStorage() {
+  navigator.clipboard.writeText(document.getElementById('storage-sql').textContent);
+  alert('SQL copié dans le presse-papiers !');
+}
+
+async function createBucket() {
+  logTo('log-bucket', '▶ Création du bucket "commandes"…');
+  // Tenter via l'API Storage (nécessite que le RLS storage soit ouvert)
+  const { data, error } = await supa.storage.createBucket('commandes', {
+    public: true,
+    allowedMimeTypes: ['application/pdf','image/jpeg','image/png','image/jpg','application/postscript'],
+    fileSizeLimit: 31457280, // 30 Mo
+  });
+
+  if (error) {
+    if (error.message?.includes('already exists') || error.statusCode === '409') {
+      logTo('log-bucket', '✓ Bucket "commandes" existe déjà.', 'ok');
+      logTo('log-bucket', '→ Copiez le SQL ci-dessous et exécutez-le dans Supabase SQL Editor pour les politiques RLS.', 'warn');
+    } else {
+      logTo('log-bucket', '✗ Création impossible via JS (service_role requis) : ' + error.message, 'err');
+      logTo('log-bucket', '→ Solution : Supabase Dashboard → Storage → New bucket → nom : "commandes" → Public ✓', 'warn');
+      logTo('log-bucket', '→ Puis copiez le SQL ci-dessous pour les politiques RLS.', 'warn');
+    }
+    return;
+  }
+
+  logTo('log-bucket', '✓ Bucket "commandes" créé avec succès !', 'ok');
+  logTo('log-bucket', '→ Maintenant copiez le SQL et exécutez-le dans Supabase SQL Editor pour activer les politiques RLS.', 'warn');
 }
 </script>
 </body>
