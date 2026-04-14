@@ -1097,6 +1097,18 @@ async function openDetail(id) {
 
     ${o.note ? `<div class="alert alert-info" style="margin-top:14px">📝 <strong>Note :</strong> ${o.note}</div>` : ""}
 
+    ${o.file_url ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding:12px 16px;background:rgba(74,159,212,0.06);border:1px solid rgba(74,159,212,0.2);border-radius:var(--radius-lg)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:22px">${(o.file_name||'').endsWith('.pdf')?'📄':['jpg','jpeg','png'].some(e=>(o.file_name||'').endsWith(e))?'🖼':'📎'}</span>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-primary)">${o.file_name||'Fichier joint'}</div>
+          <div style="font-size:11px;color:var(--text-dim)">Fichier envoyé avec votre commande</div>
+        </div>
+      </div>
+      <a href="${o.file_url}" target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px">👁 Voir</a>
+    </div>` : ""}
+
     ${o.status === "bat" ? `
     <div style="background:rgba(232,160,48,0.08);border:1px solid rgba(232,160,48,0.3);border-radius:var(--radius-lg);padding:20px 24px;margin-top:16px">
       <div style="font-size:13px;font-weight:700;color:var(--warning);margin-bottom:8px">🖨 Validation BAT requise</div>
