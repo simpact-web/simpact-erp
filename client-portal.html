@@ -633,6 +633,26 @@
           <textarea class="form-control" id="cp-note" rows="3" placeholder="Pantone 485, livraison urgente, format spécial…" style="resize:none"></textarea>
         </div>
 
+        <!-- Fichier BAT / PDF -->
+        <div style="margin-bottom:20px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:8px">
+            📎 Joindre votre fichier BAT / PDF
+            <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">(optionnel — PDF, AI, EPS, JPG, ZIP)</span>
+          </div>
+          <div id="cp-file-drop"
+               onclick="document.getElementById('cp-file-input').click()"
+               ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
+               ondragleave="this.style.borderColor='var(--navy-border)'"
+               ondrop="cpHandleDrop(event)"
+               style="border:2px dashed var(--navy-border);border-radius:var(--radius-md);padding:14px 16px;text-align:center;cursor:pointer;font-size:12px;color:var(--text-muted);display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <span id="cp-file-label">Déposer le fichier ici ou <u>cliquer pour sélectionner</u></span>
+            <button id="cp-file-clear" onclick="event.stopPropagation();cpClearFile()" style="display:none;background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;padding:0;line-height:1">✕</button>
+          </div>
+          <input type="file" id="cp-file-input" style="display:none"
+                 accept=".pdf,.ai,.eps,.jpg,.jpeg,.png,.zip,.indd"
+                 onchange="if(this.files[0])cpHandleFile(this.files[0]);this.value=''">
+        </div>
+
         <div class="wz-nav">
           <button class="btn btn-secondary" onclick="wzGo(2)">← Modifier</button>
           <div class="wz-nav-right">
@@ -1504,47 +1524,113 @@ function updateCpPrice() {
   }).join("");
 }
 
+// ─── FICHIER JOINT À LA COMMANDE ─────────────────────────────
+let cpPendingFile = null;
+
+function cpHandleFile(file) {
+  cpPendingFile = file;
+  document.getElementById('cp-file-label').textContent = `📄 ${file.name} (${(file.size/1024).toFixed(0)} Ko)`;
+  document.getElementById('cp-file-clear').style.display = '';
+  document.getElementById('cp-file-drop').style.borderColor = 'var(--gold)';
+}
+
+function cpHandleDrop(e) {
+  e.preventDefault();
+  document.getElementById('cp-file-drop').style.borderColor = 'var(--navy-border)';
+  const file = e.dataTransfer.files[0];
+  if (file) cpHandleFile(file);
+}
+
+function cpClearFile() {
+  cpPendingFile = null;
+  document.getElementById('cp-file-input').value = '';
+  document.getElementById('cp-file-label').innerHTML = 'Déposer le fichier ici ou <u>cliquer pour sélectionner</u>';
+  document.getElementById('cp-file-clear').style.display = 'none';
+  document.getElementById('cp-file-drop').style.borderColor = 'var(--navy-border)';
+}
+
+async function cpUploadFile(file, orderId) {
+  try {
+    const ext  = file.name.split('.').pop().toLowerCase();
+    const path = `${orderId}/${Date.now()}.${ext}`;
+    const supa = getSupabaseClient();
+    const { error: upErr } = await supa
+      .storage.from('commandes')
+      .upload(path, file, { upsert: true });
+    if (upErr) throw upErr;
+    const { data: urlData } = supa.storage.from('commandes').getPublicUrl(path);
+    return { file_url: urlData.publicUrl, file_name: file.name };
+  } catch (err) {
+    console.error('cpUploadFile:', err);
+    return null;
+  }
+}
+
 // ─── SOUMETTRE UNE COMMANDE ──────────────────────────────────
 async function submitOrder() {
-  const p     = PRODUCTS[cfg.pi];
-  const qty   = cfg.qLibre ?? p.qty[Math.min(cfg.qi, p.qty.length-1)] ?? p.qty[0];
-  const client = await DB.getClient(CLIENT_ID);
-  const state = cfgToState(qty);
-  const res   = SIMPACT_PRICING.compute(p, state);
-  if (!res) {
-    showToast("Configurez tous les paramètres avant de soumettre.", "error");
-    return;
+  const btn = document.querySelector('#wz-panel-3 .btn-primary');
+  if (btn) btn.disabled = true;
+
+  try {
+    const p     = PRODUCTS[cfg.pi];
+    const qty   = cfg.qLibre ?? p.qty[Math.min(cfg.qi, p.qty.length-1)] ?? p.qty[0];
+    const client = await DB.getClient(CLIENT_ID);
+    const state = cfgToState(qty);
+    const res   = SIMPACT_PRICING.compute(p, state);
+    if (!res) {
+      showToast("Configurez tous les paramètres avant de soumettre.", "error");
+      return;
+    }
+    const priceHT  = res.finalHT;
+    const finNames = cfg.fins.map(i => p.fins[i]?.label).filter(Boolean);
+
+    const order = await DB.createOrder({
+      clientId:   CLIENT_ID,
+      clientName: client?.name || session.name,
+      product:    p.name,
+      qty,
+      priceHT,
+      priceTTC: +(priceHT * 1.19).toFixed(2),
+      specs: {
+        format:    p.formats[cfg.fi]?.label||"—",
+        ...(p.type==="booklet" ? {reliure:p.bindings[cfg.bi]?.label, pages:(cfg.pages||0)+"p int",
+            couverture:p.covTypes[cfg.cov]?.label, papierCouv:p.cPapers[cfg.pa2]?.label, papierInt:p.iPapers[cfg.pa]?.label,
+            impression:p.colors[cfg.co]?.label} : {}),
+        ...(p.type==="book"    ? {pages:(cfg.pages||0)+"p N&B", couverture:p.covTypes[cfg.cov]?.label,
+            papierCouv:p.cPapers[cfg.pa2]?.label, papierInt:p.papers[cfg.pa]?.label} : {}),
+        ...(p.type==="std"     ? {paper:p.papers[cfg.pa]?.label, color:p.colors[cfg.co]?.label} : {}),
+        finitions: finNames,
+      },
+      note: document.getElementById("cp-note")?.value.trim() || "",
+    });
+
+    if (!order) throw new Error("Échec de la création de la commande");
+
+    // Upload du fichier BAT/PDF si présent
+    if (cpPendingFile) {
+      const uploaded = await cpUploadFile(cpPendingFile, order.id);
+      if (uploaded) {
+        await DB.updateOrder(order.id, uploaded);
+      } else {
+        showToast("⚠ Commande créée, mais le fichier n'a pas pu être uploadé.", "error");
+      }
+    }
+
+    // Reset
+    cfg = {pi:cfg.pi, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null};
+    if (document.getElementById("cp-note")) document.getElementById("cp-note").value = "";
+    cpClearFile();
+    renderCpChips(); updateCpPrice();
+
+    showToast(`✓ Commande ${order.id} envoyée ! SIMPACT vous contactera sous 24h.`, "success");
+    setTimeout(() => { showView("dashboard"); renderDashboard(); }, 1200);
+
+  } catch (err) {
+    console.error('submitOrder:', err);
+    showToast("Erreur lors de l'envoi : " + err.message, "error");
+  } finally {
+    if (btn) btn.disabled = false;
   }
-  const priceHT  = res.finalHT;
-  const finNames = cfg.fins.map(i => p.fins[i]?.label).filter(Boolean);
-
-  const order = await DB.createOrder({
-    clientId:   CLIENT_ID,
-    clientName: client?.name || session.name,
-    product:    p.name,
-    qty,
-    priceHT,
-    priceTTC: +(priceHT * 1.19).toFixed(2),
-    specs: {
-      format:    p.formats[cfg.fi]?.label||"—",
-      ...(p.type==="booklet" ? {reliure:p.bindings[cfg.bi]?.label, pages:(cfg.pages||0)+"p int",
-          couverture:p.covTypes[cfg.cov]?.label, papierCouv:p.cPapers[cfg.pa2]?.label, papierInt:p.iPapers[cfg.pa]?.label,
-          impression:p.colors[cfg.co]?.label} : {}),
-      ...(p.type==="book"    ? {pages:(cfg.pages||0)+"p N&B", couverture:p.covTypes[cfg.cov]?.label,
-          papierCouv:p.cPapers[cfg.pa2]?.label, papierInt:p.papers[cfg.pa]?.label} : {}),
-      ...(p.type==="std"     ? {paper:p.papers[cfg.pa]?.label, color:p.colors[cfg.co]?.label} : {}),
-      finitions: finNames,
-    },
-    note: document.getElementById("cp-note")?.value.trim() || "",
-  });
-
-  // Reset
-  cfg = {pi:cfg.pi, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null};
-  if (document.getElementById("cp-note")) document.getElementById("cp-note").value = "";
-  renderCpChips(); updateCpPrice();
-
-  showToast(`✓ Commande ${order.id} envoyée ! SIMPACT vous contactera sous 24h.`, "success");
-  setTimeout(() => { showView("dashboard"); renderDashboard(); }, 1200);
 }
 
 // ─── MESSAGERIE CLIENT ────────────────────────────────────
