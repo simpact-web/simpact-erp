@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Audit Supabase — SIMPACT</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',sans-serif;background:#0d1b2a;color:#e8edf2;padding:24px;min-height:100vh}
+  h1{font-size:22px;font-weight:700;color:#c9a84c;margin-bottom:4px}
+  .meta{font-size:12px;color:#5a7a99;margin-bottom:28px}
+  .section{background:#162032;border:1px solid #1e3050;border-radius:12px;padding:20px 24px;margin-bottom:16px}
+  .section-title{font-size:13px;font-weight:700;color:#4a9fd4;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:10px;font-weight:700;font-family:monospace}
+  .ok{background:rgba(76,175,136,.15);color:#4caf88;border:1px solid #4caf8844}
+  .warn{background:rgba(201,168,76,.15);color:#c9a84c;border:1px solid #c9a84c44}
+  .err{background:rgba(239,83,80,.15);color:#ef5350;border:1px solid #ef535044}
+  .info{background:rgba(74,159,212,.15);color:#4a9fd4;border:1px solid #4a9fd444}
+  .row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1e3050;font-size:13px;gap:12px}
+  .row:last-child{border-bottom:none}
+  .row-label{color:#a0b4c8;flex:1;min-width:0}
+  .row-val{color:#e8edf2;font-family:monospace;font-size:12px;text-align:right;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sub{color:#5a7a99;font-size:11px}
+  button{background:#c9a84c;color:#0d1b2a;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:24px;transition:.2s}
+  button:hover{background:#e0bc60}
+  button:disabled{background:#2a3a4a;color:#5a7a99;cursor:not-allowed}
+  .progress{height:4px;background:#1e3050;border-radius:2px;margin-bottom:20px;overflow:hidden}
+  .progress-bar{height:100%;background:linear-gradient(90deg,#4a9fd4,#c9a84c);width:0%;transition:width .3s;border-radius:2px}
+  .score-ring{display:flex;align-items:center;gap:16px;margin-bottom:8px}
+  .score-num{font-size:48px;font-weight:700;color:#c9a84c;line-height:1}
+  .score-label{font-size:13px;color:#7a99bb}
+  .issue{padding:8px 12px;border-radius:6px;margin-top:6px;font-size:12px;line-height:1.5}
+  .issue.err{background:rgba(239,83,80,.08);border-left:3px solid #ef5350;color:#ef5350}
+  .issue.warn{background:rgba(201,168,76,.08);border-left:3px solid #c9a84c;color:#c9a84c}
+  .issue.ok{background:rgba(76,175,136,.08);border-left:3px solid #4caf88;color:#4caf88}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;padding:6px 10px;color:#4a9fd4;font-size:10px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #1e3050}
+  td{padding:7px 10px;border-bottom:1px solid #0d1b2a;color:#c8d8e8}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#1e3050}
+</style>
+</head>
+<body>
+<h1>🔍 Audit Supabase — SIMPACT ERP</h1>
+<p class="meta">Vérifie la cohérence complète : RLS, utilisateurs, clients, liaisons, données</p>
+
+<button id="btn" onclick="runAudit()">▶ Lancer l'audit complet</button>
+<div class="progress"><div class="progress-bar" id="pbar"></div></div>
+
+<div id="results"></div>
+
+<script>
+const SUPA_URL = 'https://yqileqgxpihnyaauwmtr.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxaWxlcWd4cGlobnlhYXV3bXRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mjc4MTMsImV4cCI6MjA5MDAwMzgxM30.UGU_3OwlVkPZZylJPY3Wjl7WEe1-uNistfEmk5B_HUo';
+const supa = supabase.createClient(SUPA_URL, ANON_KEY);
+
+let issues = [], score = 0, maxScore = 0;
+
+function setProgress(pct) { document.getElementById('pbar').style.width = pct + '%'; }
+
+function section(id, title, icon) {
+  let el = document.getElementById('s-'+id);
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'section';
+    el.id = 's-'+id;
+    el.innerHTML = `<div class="section-title">${icon} ${title}</div><div id="sc-${id}"></div>`;
+    document.getElementById('results').appendChild(el);
+  }
+  return document.getElementById('sc-'+id);
+}
+
+function row(container, label, value, status='info', sub='') {
+  const cls = status === 'ok' ? 'ok' : status === 'warn' ? 'warn' : status === 'err' ? 'err' : 'info';
+  container.innerHTML += `<div class="row">
+    <div class="row-label">${label}${sub?`<div class="sub">${sub}</div>`:''}  </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="row-val">${value}</span>
+      <span class="badge ${cls}">${status.toUpperCase()}</span>
+    </div>
+  </div>`;
+}
+
+function addIssue(type, msg) {
+  issues.push({type, msg});
+}
+
+async function runAudit() {
+  document.getElementById('btn').disabled = true;
+  document.getElementById('results').innerHTML = '';
+  issues = []; score = 0; maxScore = 0;
+  setProgress(5);
+
+  // ── 1. CONNECTIVITÉ ─────────────────────────────────────────────
+  const s1 = section('conn', 'Connectivité Supabase', '🌐');
+  try {
+    const start = Date.now();
+    const { data, error } = await supa.from('clients').select('count', {count:'exact',head:true});
+    const ms = Date.now() - start;
+    if (error) {
+      row(s1, 'Connexion Supabase', error.message, 'err');
+      addIssue('err', 'Supabase inaccessible : ' + error.message);
+    } else {
+      row(s1, 'Connexion Supabase', `${ms}ms`, 'ok', SUPA_URL);
+      score++; maxScore++;
+    }
+  } catch(e) {
+    row(s1, 'Connexion Supabase', e.message, 'err');
+    addIssue('err', 'Connexion impossible : ' + e.message);
+  }
+  setProgress(15);
+
+  // ── 2. TABLES & RLS ─────────────────────────────────────────────
+  const s2 = section('rls', 'Tables & accès RLS (clé anon)', '🔐');
+  const tables = ['clients','commandes','utilisateurs','commande_timeline','stock','params_couts','messages'];
+  for (const t of tables) {
+    maxScore++;
+    const { data, error } = await supa.from(t).select('*').limit(1);
+    if (error) {
+      const isRls = error.message?.toLowerCase().includes('policy') || error.code === '42501' || error.message?.includes('permission');
+      row(s2, `Table : ${t}`, error.message, 'err', isRls ? 'RLS bloque la lecture anon' : '');
+      addIssue('err', `Table "${t}" inaccessible : ${error.message}`);
+    } else {
+      row(s2, `Table : ${t}`, data ? `${data.length} ligne(s) visible(s)` : '0 lignes', 'ok');
+      score++;
+    }
+  }
+  setProgress(35);
+
+  // ── 3. CLIENTS ───────────────────────────────────────────────────
+  const s3 = section('clients', 'Table clients', '🏢');
+  const { data: clients, error: cErr } = await supa.from('clients').select('*').order('name');
+  if (cErr || !clients) {
+    row(s3, 'Clients', cErr?.message || 'Inaccessible', 'err');
+  } else {
+    maxScore++;
+    row(s3, 'Nombre de clients', clients.length, clients.length > 0 ? 'ok' : 'warn');
+    if (clients.length > 0) score++;
+
+    // Colonnes boutique
+    const hasCols = clients[0] && 'produits_autorises' in clients[0] && 'logo_url' in clients[0] && 'couleur' in clients[0];
+    maxScore++;
+    row(s3, 'Colonnes boutique (produits_autorises, logo_url, couleur)',
+      hasCols ? 'Présentes' : 'MANQUANTES',
+      hasCols ? 'ok' : 'err',
+      hasCols ? '' : '→ Exécuter sql/add_boutique_columns.sql');
+    if (hasCols) score++; else addIssue('err', 'Colonnes boutique manquantes dans clients');
+
+    // Tableau des clients
+    const tableEl = document.createElement('div');
+    tableEl.style.marginTop = '12px';
+    tableEl.innerHTML = `<table>
+      <tr><th>Nom</th><th>ID</th><th>Logo</th><th>Couleur</th><th>Produits</th></tr>
+      ${clients.map(c => `<tr>
+        <td>${c.name}</td>
+        <td style="color:#4a9fd4">${c.id}</td>
+        <td>${c.logo_url ? `<span class="badge ok">✓</span>` : `<span class="badge warn">—</span>`}</td>
+        <td><span style="display:inline-block;width:14px;height:14px;background:${c.couleur||'#4a9fd4'};border-radius:3px;vertical-align:middle"></span> ${c.couleur||'—'}</td>
+        <td>${Array.isArray(c.produits_autorises) ? c.produits_autorises.length + ' produits' : '—'}</td>
+      </tr>`).join('')}
+    </table>`;
+    document.getElementById('sc-clients').appendChild(tableEl);
+  }
+  setProgress(50);
+
+  // ── 4. UTILISATEURS ──────────────────────────────────────────────
+  const s4 = section('users', 'Table utilisateurs & liaisons', '👤');
+  const { data: users, error: uErr } = await supa.from('utilisateurs').select('*').order('role');
+  if (uErr || !users) {
+    row(s4, 'Utilisateurs', uErr?.message || 'Inaccessible', 'err');
+    addIssue('err', 'Table utilisateurs inaccessible : ' + uErr?.message);
+  } else {
+    const admins  = users.filter(u => u.role === 'superadmin' || u.role === 'team');
+    const clients_u = users.filter(u => u.role === 'client');
+    maxScore += 2;
+    row(s4, 'Comptes admin/équipe', admins.length, admins.length > 0 ? 'ok' : 'warn');
+    row(s4, 'Comptes clients portail', clients_u.length, clients_u.length > 0 ? 'ok' : 'warn',
+      clients_u.length === 0 ? '→ Aucun client ne peut se connecter via Supabase (fallback actif)' : '');
+    if (admins.length > 0) score++;
+    if (clients_u.length > 0) score++;
+
+    // Vérifier les liaisons client_id
+    if (clients && clients_u.length > 0) {
+      const clientIds = clients.map(c => c.id);
+      clients_u.forEach(u => {
+        maxScore++;
+        if (!u.client_id) {
+          row(s4, `${u.name} (${u.username})`, 'client_id NULL', 'warn',
+            '→ Le portail ne chargera pas les données de ce client');
+          addIssue('warn', `Utilisateur "${u.username}" sans client_id lié`);
+        } else if (!clientIds.includes(u.client_id)) {
+          row(s4, `${u.name} (${u.username})`, `client_id "${u.client_id}" introuvable`, 'err',
+            '→ Liaison brisée — la fiche client n\'existe plus');
+          addIssue('err', `Utilisateur "${u.username}" lié à un client inexistant (${u.client_id})`);
+        } else {
+          const linked = clients.find(c => c.id === u.client_id);
+          row(s4, `${u.name} (${u.username})`, `→ ${linked.name}`, 'ok');
+          score++;
+        }
+      });
+    }
+
+    // Clients sans compte portail
+    if (clients) {
+      const linkedIds = clients_u.filter(u=>u.client_id).map(u=>u.client_id);
+      const noAccount = clients.filter(c => !linkedIds.includes(c.id));
+      if (noAccount.length > 0) {
+        row(s4, `Clients sans compte portail (${noAccount.length})`,
+          noAccount.map(c=>c.name).join(', '), 'warn',
+          '→ Ces clients ne peuvent pas se connecter (fallback auth uniquement)');
+        addIssue('warn', `${noAccount.length} client(s) sans compte portail : ${noAccount.map(c=>c.name).join(', ')}`);
+      }
+    }
+  }
+  setProgress(65);
+
+  // ── 5. COMMANDES ─────────────────────────────────────────────────
+  const s5 = section('orders', 'Commandes', '📋');
+  const { data: orders, error: oErr } = await supa.from('commandes').select('id,client_id,client_name,status,created_at').order('created_at', {ascending:false}).limit(20);
+  if (oErr) {
+    row(s5, 'Commandes', oErr.message, 'err');
+  } else {
+    maxScore++;
+    row(s5, 'Nombre de commandes (20 dernières)', orders?.length || 0, 'ok');
+    score++;
+    if (orders?.length > 0) {
+      const orphans = orders.filter(o => clients && !clients.find(c => c.id === o.client_id));
+      if (orphans.length > 0) {
+        row(s5, 'Commandes orphelines (client supprimé)', orphans.length, 'warn',
+          orphans.map(o=>o.id).join(', '));
+        addIssue('warn', `${orphans.length} commande(s) orpheline(s)`);
+      } else {
+        row(s5, 'Intégrité commandes → clients', 'OK', 'ok');
+      }
+    }
+  }
+  setProgress(80);
+
+  // ── 6. PARAMS & STOCK ────────────────────────────────────────────
+  const s6 = section('params', 'Paramètres & Stock', '⚙');
+  const { data: params } = await supa.from('params_couts').select('id').limit(1);
+  const { data: stock }  = await supa.from('stock').select('id').limit(1);
+  maxScore += 2;
+  row(s6, 'Table params_couts', params !== null ? (params.length > 0 ? 'Données présentes' : 'Table vide') : 'Inaccessible',
+    params !== null ? (params.length > 0 ? 'ok' : 'warn') : 'err');
+  row(s6, 'Table stock', stock !== null ? (stock.length > 0 ? 'Données présentes' : 'Table vide') : 'Inaccessible',
+    stock !== null ? (stock.length > 0 ? 'ok' : 'warn') : 'err');
+  if (params !== null) score++;
+  if (stock !== null) score++;
+  setProgress(90);
+
+  // ── 7. RÉCAPITULATIF ─────────────────────────────────────────────
+  const pct = maxScore > 0 ? Math.round(score/maxScore*100) : 0;
+  const globalStatus = pct >= 90 ? 'ok' : pct >= 70 ? 'warn' : 'err';
+  const s7 = section('summary', 'Récapitulatif', '📊');
+  s7.innerHTML = `
+    <div class="score-ring">
+      <div class="score-num" style="color:${pct>=90?'#4caf88':pct>=70?'#c9a84c':'#ef5350'}">${pct}%</div>
+      <div>
+        <div class="score-label" style="font-size:16px;font-weight:700;color:#e8edf2">${pct>=90?'Excellent':'pct>=70?Acceptable':'Problèmes détectés'}</div>
+        <div class="score-label">${score} / ${maxScore} vérifications réussies</div>
+      </div>
+    </div>
+    ${issues.length === 0
+      ? '<div class="issue ok">✓ Aucun problème détecté — tout est cohérent.</div>'
+      : issues.map(i => `<div class="issue ${i.type}">${i.type==='err'?'✗':i.type==='warn'?'⚠':'ℹ'} ${i.msg}</div>`).join('')
+    }`;
+
+  setProgress(100);
+  document.getElementById('btn').disabled = false;
+  document.getElementById('btn').textContent = '↺ Relancer l\'audit';
+}
+</script>
+</body>
+</html>

@@ -44,24 +44,28 @@ const DB = {
 
   // ── Générer un ID commande CMD-XXXX ─────────────────────────
   async nextOrderId() {
-    const { data } = await this.supa
-      .rpc('nextval', { seq_name: 'commandes_seq' })
-      .single()
-      .catch(() => ({ data: null }));
+    // Essayer la séquence RPC, replier sur le max existant
+    try {
+      const { data, error } = await this.supa
+        .rpc('nextval', { seq_name: 'commandes_seq' })
+        .single();
+      if (!error && data) return `CMD-${String(data).padStart(4, '0')}`;
+    } catch { /* RPC indisponible — on continue */ }
 
-    // Repli si la fonction RPC n'existe pas encore
-    if (!data) {
+    // Repli : lire le dernier ID en base
+    try {
       const { data: rows } = await this.supa
         .from('commandes')
         .select('id')
         .order('created_at', { ascending: false })
         .limit(1);
       const lastNum = rows?.[0]?.id
-        ? parseInt(rows[0].id.replace('CMD-', '')) + 1
+        ? parseInt(rows[0].id.replace('CMD-', ''), 10) + 1
         : 1;
       return `CMD-${String(lastNum).padStart(4, '0')}`;
+    } catch {
+      return `CMD-${String(Date.now()).slice(-4)}`;
     }
-    return `CMD-${String(data).padStart(4, '0')}`;
   },
 
   // ════════════════════════════════════════════════════════════
@@ -222,37 +226,46 @@ const DB = {
   },
 
   async createOrder(data) {
-    const id = await this.nextOrderId();
-    const row = {
-      id,
-      client_id:   data.clientId,
-      client_name: data.clientName,
-      product:     data.product,
-      qty:         data.qty,
-      specs:       data.specs || {},
-      price_ht:    data.priceHT,
-      price_ttc:   data.priceTTC,
-      status:      'received',
-      note:        data.note || '',
-    };
+    try {
+      const id = await this.nextOrderId();
+      const row = {
+        id,
+        client_id:   data.clientId,
+        client_name: data.clientName,
+        product:     data.product,
+        qty:         data.qty,
+        specs:       data.specs || {},
+        price_ht:    data.priceHT,
+        price_ttc:   data.priceTTC,
+        status:      'received',
+        note:        data.note || '',
+      };
 
-    const { data: created, error } = await this.supa
-      .from('commandes')
-      .insert(row)
-      .select()
-      .single();
-    if (error) { console.error('createOrder:', error); return null; }
+      const { data: created, error } = await this.supa
+        .from('commandes')
+        .insert(row)
+        .select()
+        .single();
+      if (error) throw error;
 
-    // Insérer la première entrée timeline
-    await this.supa.from('commande_timeline').insert({
-      commande_id: id,
-      status: 'received',
-      note: 'Commande reçue'
-    });
+      // Insérer la première entrée timeline
+      try {
+        await this.supa.from('commande_timeline').insert({
+          commande_id: id,
+          status: 'received',
+          note: 'Commande reçue'
+        });
+      } catch (tlErr) {
+        console.warn('createOrder timeline:', tlErr);
+      }
 
-    return { ...created, clientId: created.client_id, clientName: created.client_name,
-             priceHT: created.price_ht, priceTTC: created.price_ttc, createdAt: created.created_at,
-             timeline: [{ status: 'received', note: 'Commande reçue', at: created.created_at }] };
+      return { ...created, clientId: created.client_id, clientName: created.client_name,
+               priceHT: created.price_ht, priceTTC: created.price_ttc, createdAt: created.created_at,
+               timeline: [{ status: 'received', note: 'Commande reçue', at: created.created_at }] };
+    } catch (err) {
+      console.error('createOrder:', err);
+      return null;
+    }
   },
 
   async updateOrderStatus(id, status, note = '') {
