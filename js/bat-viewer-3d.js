@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════
-   SIMPACT BAT VIEWER 3D v1.0
-   Viewer Three.js pour la prévisualisation 3D des maquettes BAT
+   SIMPACT BAT VIEWER 3D v2.0
+   Viewer Three.js + vérification preflight automatique du fichier BAT
    Utilisé par : client-portal.html
    ═══════════════════════════════════════════════════════════════ */
 
@@ -27,15 +27,52 @@ const BAT_VIEWER_3D = (function () {
      API PUBLIQUE
      ════════════════════════════════════════════════ */
 
-  async function open(fileUrl, productType, productName) {
+  /**
+   * @param {string}      fileUrl       - URL publique du fichier BAT (PDF ou image)
+   * @param {string}      productType   - type produit (card / fly / a4 / a3…)
+   * @param {string}      productName   - nom affiché dans le titre
+   * @param {string|null} expectedPages - nombre de pages attendues (optionnel)
+   */
+  async function open(fileUrl, productType, productName, expectedPages) {
     _showOverlay(productName || 'BAT 3D');
 
     try {
       await _loadDeps();
       _initScene();
-      const texture = await _loadTexture(fileUrl);
+
+      const ext = (fileUrl.split('?')[0].split('.').pop() || '').toLowerCase();
+      let texture = null;
+
+      if (ext === 'pdf') {
+        /* ── Charger le PDF une seule fois : preflight + texture ── */
+        _setLoading('Analyse du fichier PDF…');
+        const pdfDoc = await pdfjsLib.getDocument({ url: fileUrl, withCredentials: false }).promise;
+
+        /* Preflight (non bloquant si PREFLIGHT non chargé) */
+        if (typeof PREFLIGHT !== 'undefined') {
+          _setLoading('Vérification du fichier…');
+          try {
+            const result = await PREFLIGHT.check(
+              pdfDoc,
+              productType,
+              expectedPages ? parseInt(expectedPages, 10) : null
+            );
+            _renderBanner(result);
+          } catch (pfErr) {
+            console.warn('BAT_VIEWER_3D preflight:', pfErr);
+          }
+        }
+
+        _setLoading('Génération de la maquette 3D…');
+        texture = await _pdfDocToTexture(pdfDoc);
+
+      } else {
+        texture = await _imageToTexture(fileUrl);
+      }
+
       _buildMesh(productType, texture);
       _startLoop();
+
     } catch (err) {
       console.error('BAT_VIEWER_3D:', err);
       _setLoading('Erreur : ' + err.message);
@@ -47,6 +84,69 @@ const BAT_VIEWER_3D = (function () {
     _disposeScene();
     const overlay = document.getElementById('bat3d-overlay');
     if (overlay) overlay.style.display = 'none';
+  }
+
+  /* ════════════════════════════════════════════════
+     BANDEAU PREFLIGHT
+     ════════════════════════════════════════════════ */
+
+  function _renderBanner(result) {
+    const banner = document.getElementById('bat3d-banner');
+    if (!banner) return;
+
+    const STATUS_MAP = {
+      ok:    { border: 'rgba(76,175,136,.6)',  bg: 'rgba(76,175,136,.12)',  icon: '🟢', title: 'Fichier conforme' },
+      warn:  { border: 'rgba(201,168,76,.6)',  bg: 'rgba(201,168,76,.12)',  icon: '🟡', title: 'Avertissement(s)' },
+      error: { border: 'rgba(239,83,80,.6)',   bg: 'rgba(239,83,80,.12)',   icon: '🔴', title: 'Erreur(s) détectée(s)' },
+    };
+    const ITEM_MAP = {
+      ok:    { pill: 'rgba(76,175,136,.2)',  txt: '#4caf88', pfx: '✓' },
+      warn:  { pill: 'rgba(201,168,76,.2)',  txt: '#e0bc60', pfx: '⚠' },
+      error: { pill: 'rgba(239,83,80,.2)',   txt: '#ef5350', pfx: '✗' },
+      info:  { pill: 'rgba(74,159,212,.2)',  txt: '#4a9fd4', pfx: '·' },
+    };
+
+    const s = STATUS_MAP[result.status] || STATUS_MAP.ok;
+    banner.style.cssText = `
+      position:absolute;bottom:0;left:0;right:0;z-index:20;
+      padding:14px 20px 16px;
+      background:${s.bg};
+      border-top:1px solid ${s.border};
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+    `;
+
+    const pills = (result.items || []).map(item => {
+      const c = ITEM_MAP[item.type] || ITEM_MAP.info;
+      return `<span style="
+        display:inline-flex;align-items:center;gap:5px;
+        padding:5px 12px;border-radius:20px;
+        background:${c.pill};border:1px solid ${c.txt}44;
+        font-size:11px;color:${c.txt};
+        font-family:'DM Mono',monospace;white-space:nowrap;
+        line-height:1.4">
+        <strong>${c.pfx} ${item.label}</strong><span style="opacity:.8">— ${item.detail}</span>
+      </span>`;
+    }).join('');
+
+    banner.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:18px;line-height:1">${s.icon}</span>
+          <span style="font-size:12px;font-weight:700;color:#fff;
+                       text-transform:uppercase;letter-spacing:1px;
+                       font-family:'DM Mono',monospace">${s.title}</span>
+        </div>
+        <button onclick="document.getElementById('bat3d-banner').style.display='none'"
+          style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);
+                 color:rgba(255,255,255,.7);border-radius:50%;width:26px;height:26px;
+                 font-size:14px;cursor:pointer;line-height:1;flex-shrink:0"
+          title="Fermer">×</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">${pills}</div>
+    `;
+
+    banner.style.display = 'block';
   }
 
   /* ════════════════════════════════════════════════
@@ -125,8 +225,7 @@ const BAT_VIEWER_3D = (function () {
     const type = _normalizeType(productType);
     const [w, h, d] = DIMS[type] || DIMS.fly;
 
-    const geo = new THREE.BoxGeometry(w, h, d);
-
+    const geo      = new THREE.BoxGeometry(w, h, d);
     const edgeMat  = new THREE.MeshLambertMaterial({ color: 0xd8d8d8 });
     const frontMat = texture
       ? new THREE.MeshBasicMaterial({ map: texture })
@@ -135,14 +234,8 @@ const BAT_VIEWER_3D = (function () {
 
     /* BoxGeometry face order : +X, -X, +Y, -Y, +Z (avant), -Z (arrière) */
     _mesh = new THREE.Mesh(geo, [
-      edgeMat,   // +X tranche droite
-      edgeMat,   // -X tranche gauche
-      edgeMat,   // +Y tranche haut
-      edgeMat,   // -Y tranche bas
-      frontMat,  // +Z face avant (texture PDF)
-      backMat,   // -Z face arrière (blanc)
+      edgeMat, edgeMat, edgeMat, edgeMat, frontMat, backMat,
     ]);
-
     _mesh.rotation.x =  0.12;
     _mesh.rotation.y = -0.45;
     _scene.add(_mesh);
@@ -154,17 +247,9 @@ const BAT_VIEWER_3D = (function () {
      CHARGEMENT DE TEXTURE
      ════════════════════════════════════════════════ */
 
-  async function _loadTexture(fileUrl) {
-    if (!fileUrl) return null;
-    const ext = fileUrl.split('?')[0].split('.').pop().toLowerCase();
-    return ext === 'pdf' ? _pdfToTexture(fileUrl) : _imageToTexture(fileUrl);
-  }
-
-  async function _pdfToTexture(url) {
-    _setLoading('Rendu PDF en cours…');
-
-    const pdf  = await pdfjsLib.getDocument({ url, withCredentials: false }).promise;
-    const page = await pdf.getPage(1);
+  /** Rend la page 1 d'un PDFDocumentProxy déjà chargé en CanvasTexture Three.js */
+  async function _pdfDocToTexture(pdfDoc) {
+    const page = await pdfDoc.getPage(1);
     const vp   = page.getViewport({ scale: 2.0 });
 
     const offscreen = document.createElement('canvas');
@@ -173,7 +258,6 @@ const BAT_VIEWER_3D = (function () {
     const ctx = offscreen.getContext('2d');
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-
     await page.render({ canvasContext: ctx, viewport: vp }).promise;
 
     const tex = new THREE.CanvasTexture(offscreen);
@@ -243,43 +327,50 @@ const BAT_VIEWER_3D = (function () {
         'position:fixed;top:0;left:0;width:100%;height:100%;background:#0a0a1a;z-index:9999;display:none';
 
       overlay.innerHTML = `
-        <div style="position:absolute;top:0;left:0;right:0;padding:16px 20px;display:flex;align-items:center;
-                    justify-content:space-between;z-index:10;
-                    background:linear-gradient(180deg,rgba(10,10,26,.95) 0%,transparent 100%)">
+        <!-- Barre de titre -->
+        <div style="position:absolute;top:0;left:0;right:0;padding:16px 20px;
+                    display:flex;align-items:center;justify-content:space-between;
+                    z-index:10;background:linear-gradient(180deg,rgba(10,10,26,.95) 0%,transparent 100%)">
           <div>
             <div style="font-size:10px;color:#c9a84c;font-family:'DM Mono',monospace;
-                        text-transform:uppercase;letter-spacing:1.5px;margin-bottom:2px">
-              ✦ BAT 3D
-            </div>
+                        text-transform:uppercase;letter-spacing:1.5px;margin-bottom:2px">✦ BAT 3D</div>
             <div id="bat3d-title" style="font-size:17px;font-weight:600;color:#fff"></div>
           </div>
           <div style="display:flex;align-items:center;gap:12px">
             <div style="font-size:11px;color:rgba(255,255,255,.35);font-family:'DM Mono',monospace">
-              Glisser · Scroll · Double-clic pour réinitialiser
+              Glisser · Scroll
             </div>
             <button onclick="BAT_VIEWER_3D.close()"
-              style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;
-                     border-radius:50%;width:40px;height:40px;font-size:22px;cursor:pointer;
-                     line-height:1;transition:.2s"
+              style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);
+                     color:#fff;border-radius:50%;width:40px;height:40px;font-size:22px;
+                     cursor:pointer;line-height:1;transition:.2s"
               onmouseover="this.style.background='rgba(255,255,255,.22)'"
               onmouseout="this.style.background='rgba(255,255,255,.1)'">×</button>
           </div>
         </div>
 
+        <!-- Canvas 3D (plein écran) -->
         <canvas id="bat3d-canvas"
           style="width:100%;height:100%;display:block;touch-action:none"></canvas>
 
+        <!-- Indicateur de chargement -->
         <div id="bat3d-loading"
           style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-                 color:#c9a84c;font-size:13px;font-family:'DM Mono',monospace;letter-spacing:1px;
-                 pointer-events:none;text-align:center">
+                 color:#c9a84c;font-size:13px;font-family:'DM Mono',monospace;
+                 letter-spacing:1px;pointer-events:none;text-align:center">
           Initialisation…
         </div>
+
+        <!-- Bandeau preflight (rempli dynamiquement) -->
+        <div id="bat3d-banner" style="display:none"></div>
       `;
       document.body.appendChild(overlay);
     }
 
+    /* Reset à chaque ouverture */
     document.getElementById('bat3d-title').textContent = title;
+    const banner = document.getElementById('bat3d-banner');
+    if (banner) banner.style.display = 'none';
     overlay.style.display = 'block';
     _setLoading('Initialisation…');
     _autoRotate = true;

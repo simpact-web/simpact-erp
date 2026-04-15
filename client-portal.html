@@ -800,6 +800,7 @@
 <script src="js/pricing.js"></script>
 <script src="js/messaging.js"></script>
 <script src="js/bat-viewer-3d.js"></script>
+<script src="js/preflight.js"></script>
 <script>
 // ─── Auth ───────────────────────────────────────────────
 const session = SIMPACT_AUTH.requireAuth(["client"]);
@@ -1045,7 +1046,7 @@ async function openDetail(id) {
     ["Quantité", (o.qty||0).toLocaleString("fr-FR")+" exemplaires"],
   ];
 
-  /* Type produit pour le viewer 3D */
+  /* Type produit + pages attendues pour le viewer 3D / preflight */
   const _pn = (o.product||'').toLowerCase();
   const batType = /carte.*visite|business|card/.test(_pn) ? 'card'
     : /brochure|livret|agraf/.test(_pn) ? 'booklet'
@@ -1053,6 +1054,8 @@ async function openDetail(id) {
     : /affiche|poster|a3/.test(_pn) ? 'a3'
     : /a4/.test(_pn) ? 'a4'
     : 'fly';
+  /* Extraire le nombre de pages des specs (ex: "64p int" → 64) */
+  const batPages = o.specs?.pages ? (String(o.specs.pages).match(/\d+/)?.[0] || '') : '';
 
   document.getElementById("dp-body").innerHTML = `
     <!-- Progress -->
@@ -1103,7 +1106,8 @@ async function openDetail(id) {
             data-bat-url="${(o.file_url||'').replace(/"/g,'&quot;')}"
             data-bat-type="${batType}"
             data-bat-name="${(o.product||'').replace(/"/g,'&quot;')}"
-            onclick="BAT_VIEWER_3D.open(this.dataset.batUrl,this.dataset.batType,this.dataset.batName)">
+            data-bat-pages="${batPages}"
+            onclick="BAT_VIEWER_3D.open(this.dataset.batUrl,this.dataset.batType,this.dataset.batName,this.dataset.batPages)">
             👁 Voir en 3D
           </button>
           <a class="btn btn-secondary btn-sm" href="${o.file_url}" target="_blank" style="text-decoration:none">⬇ Télécharger</a>
