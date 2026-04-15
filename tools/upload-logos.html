@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Upload logos — SIMPACT</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',sans-serif;background:#0d1b2a;color:#e8edf2;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{background:#162032;border:1px solid #1e3050;border-radius:16px;padding:36px;max-width:580px;width:100%}
+  h1{font-size:20px;font-weight:700;color:#c9a84c;margin-bottom:6px}
+  p{font-size:13px;color:#7a99bb;margin-bottom:28px;line-height:1.5}
+  .step{background:#0d1b2a;border:1px solid #1e3050;border-radius:10px;padding:16px 20px;margin-bottom:16px}
+  .step-num{display:inline-block;width:22px;height:22px;background:#c9a84c;color:#0d1b2a;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:8px}
+  label{display:block;font-size:12px;color:#4a9fd4;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+  input[type=file]{width:100%;background:#1e3050;border:1px dashed #2a4570;border-radius:8px;padding:12px;color:#e8edf2;font-size:13px;cursor:pointer}
+  input[type=text]{width:100%;background:#1e3050;border:1px solid #2a4570;border-radius:8px;padding:10px 14px;color:#e8edf2;font-size:13px;outline:none}
+  input[type=text]:focus{border-color:#4a9fd4}
+  .note{font-size:11px;color:#5a7a99;margin-top:6px}
+  button{width:100%;background:#c9a84c;color:#0d1b2a;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;margin-top:20px;transition:.2s}
+  button:hover{background:#e0bc60}
+  button:disabled{background:#3a4a5a;color:#6a7a8a;cursor:not-allowed}
+  .log{margin-top:24px;background:#0a1422;border-radius:10px;padding:16px;font-family:'Courier New',monospace;font-size:12px;line-height:2;min-height:60px}
+  .ok{color:#4caf88}.err{color:#ef5350}.info{color:#4a9fd4}.url{color:#c9a84c;word-break:break-all;font-weight:700}
+  .url-box{background:#0a1422;border:1px solid #1e3050;border-radius:8px;padding:12px 16px;margin-top:8px;font-family:'Courier New',monospace;font-size:12px;color:#c9a84c;word-break:break-all}
+  .copy-btn{display:inline-block;margin-left:8px;background:#1e3050;color:#4a9fd4;border:none;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>⬆ Upload Logos — SIMPACT</h1>
+  <p>Uploadez les logos clients dans Supabase Storage et obtenez les URLs publiques à coller dans les fiches clients.</p>
+
+  <div class="step">
+    <span class="step-num">1</span>
+    <strong style="color:#e8edf2;font-size:14px">Créer le bucket "logos" dans Supabase</strong>
+    <p style="margin:8px 0 0;font-size:12px;color:#5a7a99">
+      → Allez sur <a href="https://supabase.com/dashboard/project/yqileqgxpihnyaauwmtr/storage/buckets" target="_blank" style="color:#4a9fd4">Supabase Storage</a><br>
+      → Cliquez <strong style="color:#c9a84c">New bucket</strong> → nom : <code style="color:#c9a84c">logos</code> → cochez <strong style="color:#c9a84c">Public bucket</strong> → Create<br>
+      → Si le bucket existe déjà, passez à l'étape 2.
+    </p>
+  </div>
+
+  <div class="step">
+    <span class="step-num">2</span>
+    <strong style="color:#e8edf2;font-size:14px">Sélectionnez les 3 fichiers PNG</strong>
+    <div style="margin-top:12px">
+      <label>attijari.png</label>
+      <input type="file" id="f-attijari" accept="image/png,image/*">
+      <div class="note">Nom enregistré : attijari.png</div>
+    </div>
+    <div style="margin-top:12px">
+      <label>biat.png</label>
+      <input type="file" id="f-biat" accept="image/png,image/*">
+    </div>
+    <div style="margin-top:12px">
+      <label>uib.png</label>
+      <input type="file" id="f-uib" accept="image/png,image/*">
+    </div>
+  </div>
+
+  <button id="btn" onclick="uploadAll()">⬆ Uploader les logos</button>
+
+  <div class="log" id="log"><span class="info">En attente…</span></div>
+  <div id="urls"></div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://yqileqgxpihnyaauwmtr.supabase.co';
+const ANON_KEY    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxaWxlcWd4cGlobnlhYXV3bXRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mjc4MTMsImV4cCI6MjA5MDAwMzgxM30.UGU_3OwlVkPZZylJPY3Wjl7WEe1-uNistfEmk5B_HUo';
+const BUCKET      = 'logos';
+
+const supa = supabase.createClient(SUPABASE_URL, ANON_KEY);
+
+function log(msg, cls='info') {
+  const el = document.getElementById('log');
+  el.innerHTML += `<div class="${cls}">${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(()=>alert('URL copiée !'));
+}
+
+async function uploadFile(inputId, filename) {
+  const input = document.getElementById(inputId);
+  if (!input.files[0]) { log(`⚠ Fichier manquant : ${filename}`, 'err'); return null; }
+  const file = input.files[0];
+  log(`Uploading ${filename}…`);
+
+  const { data, error } = await supa.storage
+    .from(BUCKET)
+    .upload(filename, file, { contentType: 'image/png', upsert: true });
+
+  if (error) {
+    log(`✗ Erreur ${filename} : ${error.message}`, 'err');
+    return null;
+  }
+
+  const { data: pub } = supa.storage.from(BUCKET).getPublicUrl(filename);
+  log(`✓ ${filename} uploadé !`, 'ok');
+  return pub.publicUrl;
+}
+
+async function uploadAll() {
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('urls').innerHTML = '';
+  document.getElementById('btn').disabled = true;
+
+  const files = [
+    { inputId: 'f-attijari', filename: 'attijari.png' },
+    { inputId: 'f-biat',     filename: 'biat.png' },
+    { inputId: 'f-uib',      filename: 'uib.png' },
+  ];
+
+  const results = [];
+  for (const f of files) {
+    const url = await uploadFile(f.inputId, f.filename);
+    if (url) results.push({ name: f.filename, url });
+  }
+
+  if (results.length) {
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+    log('URLs publiques :', 'ok');
+    let html = '<div style="margin-top:16px">';
+    results.forEach(r => {
+      log(`${r.name} → ${r.url}`, 'url');
+      html += `<div style="margin-bottom:12px">
+        <div style="font-size:11px;color:#4a9fd4;text-transform:uppercase;font-weight:700;margin-bottom:4px">${r.name}</div>
+        <div class="url-box">${r.url}
+          <button class="copy-btn" onclick="copyToClipboard('${r.url}')">Copier</button>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+    document.getElementById('urls').innerHTML = html;
+  }
+
+  document.getElementById('btn').disabled = false;
+}
+</script>
+</body>
+</html>

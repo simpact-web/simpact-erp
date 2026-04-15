@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Restauration Supabase — SIMPACT</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',sans-serif;background:#0d1b2a;color:#e8edf2;padding:24px;min-height:100vh}
+  h1{font-size:20px;font-weight:700;color:#c9a84c;margin-bottom:4px}
+  .sub{font-size:12px;color:#5a7a99;margin-bottom:24px}
+  .card{background:#162032;border:1px solid #1e3050;border-radius:12px;padding:20px 24px;margin-bottom:16px}
+  .card-title{font-size:11px;font-weight:700;color:#4a9fd4;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px}
+  .row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1e3050;font-size:13px}
+  .row:last-child{border-bottom:none}
+  .badge{padding:2px 10px;border-radius:10px;font-size:10px;font-weight:700;font-family:monospace}
+  .ok{background:rgba(76,175,136,.15);color:#4caf88;border:1px solid #4caf8844}
+  .err{background:rgba(239,83,80,.15);color:#ef5350;border:1px solid #ef535044}
+  .warn{background:rgba(201,168,76,.15);color:#c9a84c;border:1px solid #c9a84c44}
+  .info{background:rgba(74,159,212,.15);color:#4a9fd4;border:1px solid #4a9fd444}
+  btn-row{display:flex;gap:12px;margin-top:8px}
+  button{background:#c9a84c;color:#0d1b2a;border:none;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;margin:4px 4px 4px 0}
+  button:hover{background:#e0bc60}
+  button:disabled{background:#2a3a4a;color:#5a7a99;cursor:not-allowed}
+  .btn-blue{background:#4a9fd4;color:#fff}
+  .btn-blue:hover{background:#5ab0e5}
+  .btn-red{background:#ef5350;color:#fff}
+  .btn-red:hover{background:#ff6b6b}
+  .log{background:#0a1422;border-radius:8px;padding:14px;font-size:12px;line-height:1.9;min-height:50px;font-family:monospace;margin-top:12px;max-height:300px;overflow-y:auto}
+  .log .ok{background:none;border:none;color:#4caf88;padding:0}
+  .log .err{background:none;border:none;color:#ef5350;padding:0}
+  .log .warn{background:none;border:none;color:#c9a84c;padding:0}
+  .log .info{background:none;border:none;color:#4a9fd4;padding:0}
+  pre{background:#0a1422;border-radius:8px;padding:14px;font-size:11px;font-family:monospace;color:#a0c8e8;overflow-x:auto;margin-top:8px;white-space:pre-wrap;border:1px solid #1e3050}
+  .copy-btn{font-size:11px;padding:4px 12px;float:right;margin-top:-4px}
+</style>
+</head>
+<body>
+<h1>🔧 Restauration Supabase — SIMPACT ERP</h1>
+<p class="sub">Diagnostic et restauration des données au 08/04/2026</p>
+
+<!-- DIAGNOSTIC -->
+<div class="card">
+  <div class="card-title">1. Diagnostic</div>
+  <button onclick="diagnose()">▶ Lancer le diagnostic</button>
+  <div class="log" id="log-diag"><span class="info">Cliquer sur "Lancer le diagnostic"…</span></div>
+</div>
+
+<!-- RESTAURATION DONNÉES -->
+<div class="card">
+  <div class="card-title">2. Restaurer les données clients</div>
+  <p style="font-size:12px;color:#7a99bb;margin-bottom:12px">Réinsère les 22 clients (banques & assurances) + leurs comptes portail. Ne supprime pas les données existantes.</p>
+  <button onclick="restoreClients()">↺ Restaurer les 22 clients</button>
+  <button onclick="restoreUsers()" class="btn-blue">↺ Restaurer les comptes portail</button>
+  <div class="log" id="log-restore"><span class="info">Prêt.</span></div>
+</div>
+
+<!-- RLS SQL -->
+<div class="card">
+  <div class="card-title">3. Politiques RLS — À exécuter dans Supabase SQL Editor</div>
+  <p style="font-size:12px;color:#ef5350;margin-bottom:8px">⚠ Si le diagnostic indique que les clients sont inaccessibles, copiez ce SQL dans <strong>Supabase Dashboard → SQL Editor</strong> et exécutez-le.</p>
+  <button class="copy-btn" onclick="copyRLS()">📋 Copier le SQL</button>
+  <pre id="rls-sql">-- Restaurer les politiques RLS SIMPACT ERP
+-- Coller dans : Supabase Dashboard → SQL Editor → Exécuter
+
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "acces_client_propre" ON clients;
+DROP POLICY IF EXISTS "clients_full_anon" ON clients;
+CREATE POLICY "clients_full_anon" ON clients FOR ALL TO anon USING (true) WITH CHECK (true);
+
+ALTER TABLE commandes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "acces_commandes_client" ON commandes;
+DROP POLICY IF EXISTS "commandes_full_anon" ON commandes;
+CREATE POLICY "commandes_full_anon" ON commandes FOR ALL TO anon USING (true) WITH CHECK (true);
+
+ALTER TABLE commande_timeline ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "timeline_full_anon" ON commande_timeline;
+CREATE POLICY "timeline_full_anon" ON commande_timeline FOR ALL TO anon USING (true) WITH CHECK (true);
+
+ALTER TABLE stock ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "stock_full_anon" ON stock;
+CREATE POLICY "stock_full_anon" ON stock FOR ALL TO anon USING (true) WITH CHECK (true);
+
+ALTER TABLE params_couts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "admin_seulement_params" ON params_couts;
+DROP POLICY IF EXISTS "params_full_anon" ON params_couts;
+CREATE POLICY "params_full_anon" ON params_couts FOR ALL TO anon USING (true) WITH CHECK (true);
+
+ALTER TABLE utilisateurs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "admin_seulement_utilisateurs" ON utilisateurs;
+DROP POLICY IF EXISTS "utilisateurs_read_anon" ON utilisateurs;
+DROP POLICY IF EXISTS "utilisateurs_write_service" ON utilisateurs;
+CREATE POLICY "utilisateurs_read_anon" ON utilisateurs FOR SELECT TO anon USING (true);
+CREATE POLICY "utilisateurs_write_service" ON utilisateurs FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "messages_inbox_full_anon" ON messages;
+CREATE POLICY "messages_inbox_full_anon" ON messages FOR ALL TO anon USING (true) WITH CHECK (true);</pre>
+</div>
+
+<!-- COLONNES BOUTIQUE SQL -->
+<div class="card">
+  <div class="card-title">4. Colonnes boutique — Si les colonnes logo/couleur/produits sont manquantes</div>
+  <button class="copy-btn" onclick="copyBoutique()">📋 Copier le SQL</button>
+  <pre id="boutique-sql">ALTER TABLE clients
+  ADD COLUMN IF NOT EXISTS produits_autorises jsonb
+    DEFAULT '["cdv","fly","bro","aff","ent","dep","liv","off"]'::jsonb,
+  ADD COLUMN IF NOT EXISTS logo_url text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS couleur text DEFAULT '#4a9fd4';
+
+UPDATE clients SET couleur = CASE
+  WHEN name ILIKE '%amen%'      THEN '#1B5E20'
+  WHEN name ILIKE '%attijari%'  THEN '#EE3524'
+  WHEN name ILIKE '%biat%'      THEN '#004A7F'
+  WHEN name ILIKE '%astree%'    THEN '#003087'
+  WHEN name ILIKE '%atb%'       THEN '#0066CC'
+  WHEN name ILIKE '%btk%'       THEN '#009639'
+  WHEN name ILIKE '%bte%'       THEN '#003366'
+  WHEN name ILIKE '%bt bank%'   THEN '#006699'
+  WHEN name ILIKE '%qnb%'       THEN '#AE1C1F'
+  WHEN name ILIKE '%tsb%'       THEN '#005B8E'
+  WHEN name ILIKE '%uib%'       THEN '#003087'
+  WHEN name ILIKE '%carte%'     THEN '#003366'
+  WHEN name ILIKE '%comar%'     THEN '#E31837'
+  WHEN name ILIKE '%gat%'       THEN '#005B8E'
+  WHEN name ILIKE '%lloyd%'     THEN '#003366'
+  WHEN name ILIKE '%mae%'       THEN '#009B3A'
+  WHEN name ILIKE '%maghrebia%' THEN '#005B8E'
+  WHEN name ILIKE '%star%'      THEN '#003087'
+  WHEN name ILIKE '%takaful%'   THEN '#2E7D32'
+  WHEN name ILIKE '%zitouna%'   THEN '#1B5E20'
+  WHEN sector = 'Banque'        THEN '#004A7F'
+  WHEN sector = 'Assurance'     THEN '#2E7D32'
+  ELSE '#4a9fd4'
+END
+WHERE couleur IS NULL OR couleur = '#4a9fd4';</pre>
+</div>
+
+<!-- COLONNES FILE COMMANDES -->
+<div class="card">
+  <div class="card-title">5. Colonnes fichier joint — Table commandes</div>
+  <p style="font-size:12px;color:#7a99bb;margin-bottom:12px">Ajoute les colonnes <code style="color:#c9a84c">file_url</code> et <code style="color:#c9a84c">file_name</code> à la table commandes pour stocker les fichiers déposés par les clients.</p>
+  <button onclick="addFileColumns()">⬆ Ajouter les colonnes</button>
+  <div class="log" id="log-cols"><span class="info">Prêt.</span></div>
+</div>
+
+<!-- BUCKET COMMANDES -->
+<div class="card">
+  <div class="card-title">5. Bucket Storage "commandes" — Fichiers attachés aux commandes clients</div>
+  <p style="font-size:12px;color:#7a99bb;margin-bottom:12px">Nécessaire pour que les clients puissent joindre leur PDF/BAT lors d'une commande.</p>
+  <button onclick="createBucket()" style="margin-right:8px">⬆ Créer le bucket "commandes"</button>
+  <button class="copy-btn" onclick="copyStorage()" style="float:none;margin:4px 0">📋 Copier le SQL RLS</button>
+  <div class="log" id="log-bucket"><span class="info">Prêt.</span></div>
+  <pre id="storage-sql" style="margin-top:12px">-- À exécuter dans Supabase Dashboard → SQL Editor
+-- APRÈS avoir créé le bucket "commandes" (bouton ci-dessus ou Dashboard → Storage → New bucket)
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('commandes', 'commandes', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Politique : les clients (anon) peuvent uploader leurs fichiers
+CREATE POLICY "commandes_insert_anon" ON storage.objects
+  FOR INSERT TO anon
+  WITH CHECK (bucket_id = 'commandes');
+
+-- Politique : lecture publique des fichiers (pour affichage côté admin)
+CREATE POLICY "commandes_select_anon" ON storage.objects
+  FOR SELECT TO anon
+  USING (bucket_id = 'commandes');
+
+-- Politique : mise à jour autorisée (écrasement si même nom)
+CREATE POLICY "commandes_update_anon" ON storage.objects
+  FOR UPDATE TO anon
+  USING (bucket_id = 'commandes')
+  WITH CHECK (bucket_id = 'commandes');</pre>
+</div>
+
+<script>
+const SUPA_URL = 'https://yqileqgxpihnyaauwmtr.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxaWxlcWd4cGlobnlhYXV3bXRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Mjc4MTMsImV4cCI6MjA5MDAwMzgxM30.UGU_3OwlVkPZZylJPY3Wjl7WEe1-uNistfEmk5B_HUo';
+const supa = supabase.createClient(SUPA_URL, ANON_KEY);
+
+const CLIENTS_SEED = [
+  {id:'c-ubci',      name:'UBCI',              sector:'Banque',    remise:0},
+  {id:'c-attijari',  name:'Attijari',          sector:'Banque',    remise:0},
+  {id:'c-atb',       name:'ATB bank',          sector:'Banque',    remise:0},
+  {id:'c-amen',      name:'Amen Bank',         sector:'Banque',    remise:0},
+  {id:'c-biat',      name:'BIAT',              sector:'Banque',    remise:0},
+  {id:'c-zitouna',   name:'Zitouna Bank',      sector:'Banque',    remise:0},
+  {id:'c-btk',       name:'BTK Bank',          sector:'Banque',    remise:0},
+  {id:'c-qnb',       name:'QNB Bank',          sector:'Banque',    remise:0},
+  {id:'c-tsb',       name:'TSB Bank',          sector:'Banque',    remise:0},
+  {id:'c-bte',       name:'BTE Bank',          sector:'Banque',    remise:0},
+  {id:'c-bt',        name:'BT Bank',           sector:'Banque',    remise:0},
+  {id:'c-star',      name:'STAR',              sector:'Assurance', remise:0},
+  {id:'c-astree',    name:'Astree',            sector:'Assurance', remise:0},
+  {id:'c-comar',     name:'Comar',             sector:'Assurance', remise:0},
+  {id:'c-carte',     name:'La Carte',          sector:'Assurance', remise:0},
+  {id:'c-gat',       name:'GAT Assurance',     sector:'Assurance', remise:0},
+  {id:'c-maghrebia', name:'Maghrebia',         sector:'Assurance', remise:0},
+  {id:'c-biatassur', name:'Biat Assurance',    sector:'Assurance', remise:0},
+  {id:'c-lloyd',     name:'Lloyd Assurances',  sector:'Assurance', remise:0},
+  {id:'c-mae',       name:'MAE Assurance',     sector:'Assurance', remise:0},
+  {id:'c-takaful',   name:'Zitouna Takaful',   sector:'Assurance', remise:0},
+  {id:'c-takafulia', name:'At-Takafulia',      sector:'Assurance', remise:0},
+];
+
+const USERS_SEED = [
+  {id:'u-ubci',      username:'ubci',      password:'ubci2026',      name:'UBCI',             role:'client', avatar:'UB', email:'', permissions:['client-portal'], client_id:'c-ubci'},
+  {id:'u-attijari',  username:'attijari',  password:'attijari2026',  name:'Attijari',         role:'client', avatar:'AT', email:'', permissions:['client-portal'], client_id:'c-attijari'},
+  {id:'u-atb',       username:'atb',       password:'atb2026',       name:'ATB bank',         role:'client', avatar:'AT', email:'', permissions:['client-portal'], client_id:'c-atb'},
+  {id:'u-amen',      username:'amen',      password:'amen2026',      name:'Amen Bank',        role:'client', avatar:'AM', email:'', permissions:['client-portal'], client_id:'c-amen'},
+  {id:'u-biat',      username:'biat',      password:'biat2026',      name:'BIAT',             role:'client', avatar:'BI', email:'', permissions:['client-portal'], client_id:'c-biat'},
+  {id:'u-zitouna',   username:'zitouna',   password:'zitouna2026',   name:'Zitouna Bank',     role:'client', avatar:'ZI', email:'', permissions:['client-portal'], client_id:'c-zitouna'},
+  {id:'u-btk',       username:'btk',       password:'btk2026',       name:'BTK Bank',         role:'client', avatar:'BT', email:'', permissions:['client-portal'], client_id:'c-btk'},
+  {id:'u-qnb',       username:'qnb',       password:'qnb2026',       name:'QNB Bank',         role:'client', avatar:'QN', email:'', permissions:['client-portal'], client_id:'c-qnb'},
+  {id:'u-tsb',       username:'tsb',       password:'tsb2026',       name:'TSB Bank',         role:'client', avatar:'TS', email:'', permissions:['client-portal'], client_id:'c-tsb'},
+  {id:'u-bte',       username:'bte',       password:'bte2026',       name:'BTE Bank',         role:'client', avatar:'BT', email:'', permissions:['client-portal'], client_id:'c-bte'},
+  {id:'u-bt',        username:'bt',        password:'bt2026',        name:'BT Bank',          role:'client', avatar:'BT', email:'', permissions:['client-portal'], client_id:'c-bt'},
+  {id:'u-star',      username:'star',      password:'star2026',      name:'STAR',             role:'client', avatar:'ST', email:'', permissions:['client-portal'], client_id:'c-star'},
+  {id:'u-astree',    username:'astree',    password:'astree2026',    name:'Astree',           role:'client', avatar:'AS', email:'', permissions:['client-portal'], client_id:'c-astree'},
+  {id:'u-comar',     username:'comar',     password:'comar2026',     name:'Comar',            role:'client', avatar:'CO', email:'', permissions:['client-portal'], client_id:'c-comar'},
+  {id:'u-carte',     username:'carte',     password:'carte2026',     name:'La Carte',         role:'client', avatar:'LC', email:'', permissions:['client-portal'], client_id:'c-carte'},
+  {id:'u-gat',       username:'gat',       password:'gat2026',       name:'GAT Assurance',    role:'client', avatar:'GA', email:'', permissions:['client-portal'], client_id:'c-gat'},
+  {id:'u-maghrebia', username:'maghrebia', password:'maghrebia2026', name:'Maghrebia',        role:'client', avatar:'MA', email:'', permissions:['client-portal'], client_id:'c-maghrebia'},
+  {id:'u-biatassur', username:'biatassur', password:'biatassur2026', name:'Biat Assurance',   role:'client', avatar:'BA', email:'', permissions:['client-portal'], client_id:'c-biatassur'},
+  {id:'u-lloyd',     username:'lloyd',     password:'lloyd2026',     name:'Lloyd Assurances', role:'client', avatar:'LL', email:'', permissions:['client-portal'], client_id:'c-lloyd'},
+  {id:'u-mae',       username:'mae',       password:'mae2026',       name:'MAE Assurance',    role:'client', avatar:'MA', email:'', permissions:['client-portal'], client_id:'c-mae'},
+  {id:'u-takaful',   username:'takaful',   password:'takaful2026',   name:'Zitouna Takaful',  role:'client', avatar:'ZT', email:'', permissions:['client-portal'], client_id:'c-takaful'},
+  {id:'u-takafulia', username:'takafulia', password:'takafulia2026', name:'At-Takafulia',     role:'client', avatar:'AT', email:'', permissions:['client-portal'], client_id:'c-takafulia'},
+];
+
+function logTo(id, msg, cls='info') {
+  const el = document.getElementById(id);
+  if (el.querySelector('.info')?.textContent.includes('Prêt') ||
+      el.querySelector('.info')?.textContent.includes('Cliquer')) el.innerHTML = '';
+  el.innerHTML += `<div class="${cls}">${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function diagnose() {
+  const el = document.getElementById('log-diag');
+  el.innerHTML = '';
+  logTo('log-diag', '▶ Connexion Supabase…');
+
+  try {
+    const t0 = Date.now();
+    const {data, error} = await supa.from('clients').select('*', {count:'exact'}).limit(0);
+    const ms = Date.now()-t0;
+    if (error) {
+      logTo('log-diag', `✗ Clients inaccessibles : ${error.message}`, 'err');
+      logTo('log-diag', '→ Exécutez le SQL "Politiques RLS" ci-dessous (étape 3)', 'warn');
+      return;
+    }
+    // Fetch data to count
+    const {data: rows, error: e2} = await supa.from('clients').select('id,name');
+    const cnt = rows?.length || 0;
+    logTo('log-diag', `✓ Table clients accessible (${ms}ms)`, 'ok');
+    logTo('log-diag', cnt > 0
+      ? `✓ ${cnt} client(s) trouvé(s) en base`
+      : `✗ Table clients VIDE — cliquer "Restaurer les 22 clients" (étape 2)`,
+      cnt > 0 ? 'ok' : 'err');
+
+    if (cnt > 0 && rows) {
+      rows.forEach(r => logTo('log-diag', `  · ${r.name} (${r.id})`, 'info'));
+    }
+
+    // Check utilisateurs
+    const {data: users} = await supa.from('utilisateurs').select('id').limit(1);
+    logTo('log-diag', users !== null
+      ? `✓ Table utilisateurs accessible`
+      : `✗ Table utilisateurs inaccessible — vérifier les RLS`,
+      users !== null ? 'ok' : 'err');
+
+  } catch(e) {
+    logTo('log-diag', '✗ Erreur : ' + e.message, 'err');
+  }
+}
+
+async function restoreClients() {
+  logTo('log-restore', '▶ Restauration des clients…');
+  const {data, error} = await supa
+    .from('clients')
+    .upsert(CLIENTS_SEED, {onConflict: 'id', ignoreDuplicates: false});
+  if (error) {
+    logTo('log-restore', '✗ Erreur : ' + error.message, 'err');
+    if (error.message.includes('policy') || error.code === '42501') {
+      logTo('log-restore', '→ RLS bloque l\'INSERT — exécutez le SQL étape 3 d\'abord', 'warn');
+    }
+    return;
+  }
+  logTo('log-restore', `✓ 22 clients restaurés avec succès !`, 'ok');
+  logTo('log-restore', '→ Relancez le diagnostic pour vérifier', 'info');
+}
+
+async function restoreUsers() {
+  logTo('log-restore', '▶ Restauration des comptes portail…');
+  const {data, error} = await supa
+    .from('utilisateurs')
+    .upsert(USERS_SEED, {onConflict: 'id', ignoreDuplicates: false});
+  if (error) {
+    logTo('log-restore', '✗ Erreur : ' + error.message, 'err');
+    if (error.message.includes('policy') || error.code === '42501') {
+      logTo('log-restore', '→ RLS bloque l\'INSERT sur utilisateurs — normal (service_role requis)', 'warn');
+      logTo('log-restore', '→ Utiliser Supabase Dashboard → Table Editor pour insérer les utilisateurs', 'warn');
+    }
+    return;
+  }
+  logTo('log-restore', `✓ 22 comptes portail restaurés !`, 'ok');
+}
+
+function copyRLS() {
+  navigator.clipboard.writeText(document.getElementById('rls-sql').textContent);
+  alert('SQL copié dans le presse-papiers !');
+}
+function copyBoutique() {
+  navigator.clipboard.writeText(document.getElementById('boutique-sql').textContent);
+  alert('SQL copié dans le presse-papiers !');
+}
+function copyStorage() {
+  navigator.clipboard.writeText(document.getElementById('storage-sql').textContent);
+  alert('SQL copié dans le presse-papiers !');
+}
+
+async function addFileColumns() {
+  logTo('log-cols', '▶ Ajout colonnes file_url / file_name sur commandes…');
+  // On teste en faisant un UPDATE avec les colonnes — si elles existent déjà, pas d'erreur
+  const { error } = await supa.from('commandes')
+    .update({ file_url: null, file_name: null })
+    .eq('id', '__test_inexistant__');
+
+  if (!error || error.code === 'PGRST116') {
+    logTo('log-cols', '✓ Colonnes déjà présentes ou ajoutées.', 'ok');
+    return;
+  }
+
+  if (error.message?.includes('column') || error.message?.includes('schema')) {
+    logTo('log-cols', '✗ Colonnes manquantes — exécutez ce SQL dans Supabase SQL Editor :', 'err');
+    logTo('log-cols', 'ALTER TABLE commandes ADD COLUMN IF NOT EXISTS file_url text;', 'warn');
+    logTo('log-cols', 'ALTER TABLE commandes ADD COLUMN IF NOT EXISTS file_name text;', 'warn');
+  } else {
+    logTo('log-cols', '✓ Colonnes probablement présentes (test non concluant).', 'ok');
+  }
+}
+
+async function createBucket() {
+  logTo('log-bucket', '▶ Création du bucket "commandes"…');
+  // Tenter via l'API Storage (nécessite que le RLS storage soit ouvert)
+  const { data, error } = await supa.storage.createBucket('commandes', {
+    public: true,
+    allowedMimeTypes: ['application/pdf','image/jpeg','image/png','image/jpg','application/postscript'],
+    fileSizeLimit: 31457280, // 30 Mo
+  });
+
+  if (error) {
+    if (error.message?.includes('already exists') || error.statusCode === '409') {
+      logTo('log-bucket', '✓ Bucket "commandes" existe déjà.', 'ok');
+      logTo('log-bucket', '→ Copiez le SQL ci-dessous et exécutez-le dans Supabase SQL Editor pour les politiques RLS.', 'warn');
+    } else {
+      logTo('log-bucket', '✗ Création impossible via JS (service_role requis) : ' + error.message, 'err');
+      logTo('log-bucket', '→ Solution : Supabase Dashboard → Storage → New bucket → nom : "commandes" → Public ✓', 'warn');
+      logTo('log-bucket', '→ Puis copiez le SQL ci-dessous pour les politiques RLS.', 'warn');
+    }
+    return;
+  }
+
+  logTo('log-bucket', '✓ Bucket "commandes" créé avec succès !', 'ok');
+  logTo('log-bucket', '→ Maintenant copiez le SQL et exécutez-le dans Supabase SQL Editor pour activer les politiques RLS.', 'warn');
+}
+</script>
+</body>
+</html>

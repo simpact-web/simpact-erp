@@ -431,9 +431,8 @@
   <!-- ── TOPBAR ─────────────────────────────────────── -->
   <header class="cp-topbar">
     <div class="cp-brand">
-      <div class="cp-brand-logo">S</div>
       <div>
-        <div class="cp-brand-name">SIMPACT</div>
+        <div class="cp-brand-name" id="cpBrandName">SIMPACT</div>
         <div class="cp-brand-sub">Espace Client</div>
       </div>
     </div>
@@ -633,24 +632,35 @@
           <textarea class="form-control" id="cp-note" rows="3" placeholder="Pantone 485, livraison urgente, format spécial…" style="resize:none"></textarea>
         </div>
 
-        <!-- Fichier BAT / PDF -->
-        <div style="margin-bottom:20px">
+        <!-- Fichier PDF / BAT -->
+        <div style="margin-bottom:24px">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:8px">
-            📎 Joindre votre fichier BAT / PDF
-            <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">(optionnel — PDF, AI, EPS, JPG, ZIP)</span>
+            📎 Fichier BAT / PDF <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-dim)">(optionnel — PDF, AI, JPG, PNG · max 30 Mo)</span>
           </div>
-          <div id="cp-file-drop"
-               onclick="document.getElementById('cp-file-input').click()"
-               ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
-               ondragleave="this.style.borderColor='var(--navy-border)'"
-               ondrop="cpHandleDrop(event)"
-               style="border:2px dashed var(--navy-border);border-radius:var(--radius-md);padding:14px 16px;text-align:center;cursor:pointer;font-size:12px;color:var(--text-muted);display:flex;align-items:center;justify-content:space-between;gap:10px">
-            <span id="cp-file-label">Déposer le fichier ici ou <u>cliquer pour sélectionner</u></span>
-            <button id="cp-file-clear" onclick="event.stopPropagation();cpClearFile()" style="display:none;background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;padding:0;line-height:1">✕</button>
+          <div id="cp-drop-zone"
+            style="border:2px dashed #c9a84c44;border-radius:10px;padding:24px 16px;text-align:center;cursor:pointer;transition:.2s;background:rgba(201,168,76,0.03)"
+            onclick="document.getElementById('cp-file-input').click()"
+            ondragover="event.preventDefault();this.style.borderColor='#c9a84c';this.style.background='rgba(201,168,76,0.07)'"
+            ondragleave="this.style.borderColor='#c9a84c44';this.style.background='rgba(201,168,76,0.03)'"
+            ondrop="cpHandleDrop(event)">
+            <div style="font-size:28px;margin-bottom:6px">📂</div>
+            <div style="font-size:13px;color:var(--text-secondary)">Déposer le fichier ici</div>
+            <div style="font-size:11px;color:var(--text-dim);margin-top:3px">ou cliquer pour sélectionner</div>
           </div>
-          <input type="file" id="cp-file-input" style="display:none"
-                 accept=".pdf,.ai,.eps,.jpg,.jpeg,.png,.zip,.indd"
-                 onchange="if(this.files[0])cpHandleFile(this.files[0]);this.value=''">
+          <input type="file" id="cp-file-input" accept=".pdf,.ai,.jpg,.jpeg,.png" style="display:none" onchange="cpHandleFile(this.files[0])">
+          <div id="cp-file-info" style="display:none;margin-top:10px;padding:10px 14px;background:rgba(76,175,136,0.08);border:1px solid rgba(76,175,136,0.25);border-radius:8px;display:none;align-items:center;justify-content:space-between">
+            <div>
+              <span id="cp-file-name" style="font-size:12px;color:#4caf88;font-weight:600"></span>
+              <span id="cp-file-size" style="font-size:11px;color:var(--text-dim);margin-left:8px"></span>
+            </div>
+            <span style="font-size:16px;cursor:pointer;color:var(--text-dim)" onclick="cpClearFile()" title="Supprimer">✕</span>
+          </div>
+          <div id="cp-upload-progress" style="display:none;margin-top:8px">
+            <div style="height:3px;background:rgba(201,168,76,0.2);border-radius:2px;overflow:hidden">
+              <div id="cp-upload-bar" style="height:100%;background:var(--gold);width:0%;transition:width .3s;border-radius:2px"></div>
+            </div>
+            <div id="cp-upload-label" style="font-size:11px;color:var(--text-dim);margin-top:4px">Envoi en cours…</div>
+          </div>
         </div>
 
         <div class="wz-nav">
@@ -833,20 +843,31 @@ async function applyClientBranding() {
     `;
     document.head.appendChild(styleOverride);
 
-    // ── Logo dans la topbar ────────────────────────────
-    const brandLogo = document.querySelector('.cp-brand-logo');
-    const brandName = document.querySelector('.cp-brand-name');
+    // ── Logo dans la topbar (gauche) ───────────────────
+    const brandLogo = document.getElementById('cpBrandLogo');
+    const brandName = document.getElementById('cpBrandName');
+    const initials = clientName.split(' ').filter(w=>w.length>1).slice(0,2).map(w=>w[0]).join('').toUpperCase() || 'CL';
+    if (brandName) brandName.textContent = clientName;
     if (brandLogo) {
       if (logoUrl) {
         brandLogo.style.cssText = `background:${couleur};border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:2px`;
-        brandLogo.innerHTML = `<img src="${logoUrl}" style="height:32px;width:auto;max-width:80px;object-fit:contain" onerror="this.parentNode.innerHTML='${clientName.split(' ').filter(w=>w.length>1).slice(0,2).map(w=>w[0]).join('')||'CL'}'">`;
+        brandLogo.innerHTML = `<img src="${logoUrl}" style="height:32px;width:auto;max-width:80px;object-fit:contain" onerror="this.parentNode.textContent='${initials}'">`;
       } else {
-        const initials = clientName.split(' ').filter(w=>w.length>1).slice(0,2).map(w=>w[0]).join('').toUpperCase() || 'CL';
         brandLogo.style.background = couleur;
         brandLogo.textContent = initials;
       }
     }
-    if (brandName) brandName.textContent = clientName;
+
+    // ── Logo dans le badge top-right ───────────────────
+    const badge = document.getElementById('topClientBadge');
+    if (badge) {
+      if (logoUrl) {
+        badge.style.cssText = `padding:0;border-radius:8px;background:transparent;border:none;display:inline-flex;align-items:center;overflow:hidden`;
+        badge.innerHTML = `<img src="${logoUrl}" style="height:42px;width:auto;max-width:120px;object-fit:contain;display:block" onerror="this.parentNode.textContent='${initials}'">`;
+      } else {
+        badge.textContent = initials;
+      }
+    }
 
     // ── Filtrer les produits autorisés ────────────────
     const allowed = Array.isArray(CLIENT_DATA.produits_autorises)
@@ -1107,6 +1128,18 @@ async function openDetail(id) {
     </div></div>
 
     ${o.note ? `<div class="alert alert-info" style="margin-top:14px">📝 <strong>Note :</strong> ${o.note}</div>` : ""}
+
+    ${o.file_url ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding:12px 16px;background:rgba(74,159,212,0.06);border:1px solid rgba(74,159,212,0.2);border-radius:var(--radius-lg)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:22px">${(o.file_name||'').endsWith('.pdf')?'📄':['jpg','jpeg','png'].some(e=>(o.file_name||'').endsWith(e))?'🖼':'📎'}</span>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-primary)">${o.file_name||'Fichier joint'}</div>
+          <div style="font-size:11px;color:var(--text-dim)">Fichier envoyé avec votre commande</div>
+        </div>
+      </div>
+      <a href="${o.file_url}" target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px">👁 Voir</a>
+    </div>` : ""}
 
     ${o.status === "bat" ? `
     <div style="background:rgba(232,160,48,0.08);border:1px solid rgba(232,160,48,0.3);border-radius:var(--radius-lg);padding:20px 24px;margin-top:16px">
@@ -1560,41 +1593,58 @@ function updateCpPrice() {
 let cpPendingFile = null;
 
 function cpHandleFile(file) {
+  if (!file) return;
+  if (file.size > 30 * 1024 * 1024) {
+    showToast("Fichier trop volumineux (max 30 Mo)", "error");
+    return;
+  }
   cpPendingFile = file;
-  document.getElementById('cp-file-label').textContent = `📄 ${file.name} (${(file.size/1024).toFixed(0)} Ko)`;
-  document.getElementById('cp-file-clear').style.display = '';
-  document.getElementById('cp-file-drop').style.borderColor = 'var(--gold)';
+  document.getElementById('cp-file-name').textContent = '📄 ' + file.name;
+  document.getElementById('cp-file-size').textContent = '(' + (file.size / 1024 / 1024).toFixed(1) + ' Mo)';
+  document.getElementById('cp-file-info').style.display = 'flex';
+  document.getElementById('cp-drop-zone').style.display = 'none';
 }
 
 function cpHandleDrop(e) {
   e.preventDefault();
-  document.getElementById('cp-file-drop').style.borderColor = 'var(--navy-border)';
+  e.currentTarget.style.borderColor = '#c9a84c44';
+  e.currentTarget.style.background  = 'rgba(201,168,76,0.03)';
   const file = e.dataTransfer.files[0];
   if (file) cpHandleFile(file);
 }
 
 function cpClearFile() {
   cpPendingFile = null;
+  document.getElementById('cp-file-info').style.display = 'none';
+  document.getElementById('cp-drop-zone').style.display = '';
   document.getElementById('cp-file-input').value = '';
-  document.getElementById('cp-file-label').innerHTML = 'Déposer le fichier ici ou <u>cliquer pour sélectionner</u>';
-  document.getElementById('cp-file-clear').style.display = 'none';
-  document.getElementById('cp-file-drop').style.borderColor = 'var(--navy-border)';
 }
 
 async function cpUploadFile(file, orderId) {
+  const supa = getSupabaseClient();
+  if (!supa || !file) return null;
   try {
     const ext  = file.name.split('.').pop().toLowerCase();
-    const path = `${orderId}/${Date.now()}.${ext}`;
-    const supa = getSupabaseClient();
-    const { error: upErr } = await supa
-      .storage.from('commandes')
-      .upload(path, file, { upsert: true });
-    if (upErr) throw upErr;
+    const path = `commandes/${orderId}/${Date.now()}.${ext}`;
+    document.getElementById('cp-upload-progress').style.display = '';
+    document.getElementById('cp-upload-bar').style.width = '30%';
+
+    const { data, error } = await supa.storage
+      .from('commandes')
+      .upload(path, file, { upsert: true, contentType: file.type });
+
+    document.getElementById('cp-upload-bar').style.width = '100%';
+    if (error) throw error;
+
     const { data: urlData } = supa.storage.from('commandes').getPublicUrl(path);
     return { file_url: urlData.publicUrl, file_name: file.name };
-  } catch (err) {
-    console.error('cpUploadFile:', err);
+  } catch (e) {
+    console.warn('cpUploadFile:', e.message);
     return null;
+  } finally {
+    setTimeout(() => {
+      document.getElementById('cp-upload-progress').style.display = 'none';
+    }, 600);
   }
 }
 

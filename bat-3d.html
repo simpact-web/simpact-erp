@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>BAT 3D — SIMPACT ERP</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#0d1b2a;color:#e8edf2;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#topbar{background:#162032;border-bottom:1px solid #1e3050;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#topbar h1{font-size:16px;font-weight:700;color:#c9a84c}
+#topbar .sub{font-size:11px;color:#5a7a99;margin-top:2px}
+.controls{display:flex;gap:8px;align-items:center}
+button{background:#c9a84c;color:#0d1b2a;border:none;border-radius:7px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer}
+button:hover{background:#e0bc60}
+.btn-ok{background:#4caf88;color:#fff}
+.btn-ok:hover{background:#5bc99a}
+.btn-gray{background:#2a3a4a;color:#a0b4c8}
+.btn-gray:hover{background:#3a4a5a}
+#main{display:flex;flex:1;overflow:hidden}
+#sidebar{width:260px;background:#162032;border-right:1px solid #1e3050;padding:16px;overflow-y:auto;flex-shrink:0}
+#canvas-wrap{flex:1;position:relative}
+canvas{display:block}
+.section{margin-bottom:20px}
+.section-title{font-size:10px;font-weight:700;color:#4a9fd4;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px}
+.row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid #1e3050}
+.row:last-child{border-bottom:none}
+.row-label{color:#7a99bb}
+.row-val{color:#e8edf2;font-family:monospace}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700}
+.ok{background:rgba(76,175,136,.2);color:#4caf88;border:1px solid #4caf8844}
+.warn{background:rgba(201,168,76,.2);color:#c9a84c;border:1px solid #c9a84c44}
+.err{background:rgba(239,83,80,.2);color:#ef5350;border:1px solid #ef535044}
+.issue{font-size:11px;padding:6px 8px;border-radius:5px;margin-top:4px;line-height:1.5}
+.issue.warn{background:rgba(201,168,76,.08);border-left:3px solid #c9a84c;color:#c9a84c}
+.issue.err{background:rgba(239,83,80,.08);border-left:3px solid #ef5350;color:#ef5350}
+.issue.ok{background:rgba(76,175,136,.08);border-left:3px solid #4caf88;color:#4caf88}
+#page-nav{display:flex;align-items:center;gap:8px;margin-top:10px}
+#page-nav button{padding:5px 12px;font-size:11px}
+#page-info{font-size:12px;color:#7a99bb}
+#hint{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);font-size:11px;color:#3a5570;pointer-events:none}
+#loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0d1b2a;z-index:10}
+#loading .spinner{width:40px;height:40px;border:3px solid #1e3050;border-top-color:#c9a84c;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:16px}
+#loading p{font-size:13px;color:#5a7a99}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div>
+    <h1>🎯 Bon à Tirer 3D</h1>
+    <div class="sub" id="job-title">Chargement…</div>
+  </div>
+  <div class="controls">
+    <button class="btn-gray" onclick="toggleWireframe()">Wireframe</button>
+    <button class="btn-gray" onclick="resetCamera()">↺ Réinitialiser</button>
+    <button class="btn-gray" id="btn-dl" onclick="downloadCorrected()" style="display:none">⬇ PDF corrigé</button>
+    <button class="btn-ok" id="btn-validate" onclick="validateBAT()" style="display:none">✓ Valider pour impression</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="sidebar">
+    <div class="section">
+      <div class="section-title">Résumé preflight</div>
+      <div id="report-summary"></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Corrections appliquées</div>
+      <div id="report-corrections"></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Navigation pages</div>
+      <div id="page-nav">
+        <button class="btn-gray" onclick="prevPage()">‹</button>
+        <span id="page-info">Page 1/1</span>
+        <button class="btn-gray" onclick="nextPage()">›</button>
+      </div>
+    </div>
+  </div>
+  <div id="canvas-wrap">
+    <div id="loading">
+      <div class="spinner"></div>
+      <p id="loading-text">Initialisation…</p>
+    </div>
+    <span id="hint">🖱 Clic-glisser pour tourner · Molette pour zoomer · Clic-droit pour déplacer</span>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.165.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   SIMPACT BAT 3D VIEWER
+   Paramètres URL : ?jobId=xxx&server=http://localhost:3200
+                    &type=fly&pages=2
+   ══════════════════════════════════════════════════════ */
+
+const params = new URLSearchParams(location.search);
+const JOB_ID = params.get('jobId');
+const SERVER = params.get('server') || 'http://localhost:3200';
+const PTYPE  = params.get('type')   || 'fly';
+
+let scene, camera, renderer, controls;
+let meshGroup;
+let pageTextures = [];
+let currentPage  = 0;
+let totalPages   = 1;
+let wireframeMode = false;
+let jobData = null;
+
+/* ── Initialisation Three.js ─────────────────────────── */
+function initThree() {
+  const wrap = document.getElementById('canvas-wrap');
+
+  scene    = new THREE.Scene();
+  scene.background = new THREE.Color(0x0d1b2a);
+
+  camera   = new THREE.PerspectiveCamera(45, wrap.clientWidth / wrap.clientHeight, 0.01, 100);
+  camera.position.set(0, 0, 3);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+  renderer.shadowMap.enabled = true;
+  wrap.appendChild(renderer.domElement);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance   = 0.5;
+  controls.maxDistance   = 10;
+
+  // Lumières
+  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambient);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight.position.set(2, 3, 4);
+  dirLight.castShadow = true;
+  scene.add(dirLight);
+
+  const fillLight = new THREE.DirectionalLight(0x4a9fd4, 0.3);
+  fillLight.position.set(-3, -1, -2);
+  scene.add(fillLight);
+
+  meshGroup = new THREE.Group();
+  scene.add(meshGroup);
+
+  // Grille de fond
+  const grid = new THREE.GridHelper(10, 20, 0x1e3050, 0x162032);
+  grid.position.y = -1.5;
+  scene.add(grid);
+
+  window.addEventListener('resize', onResize);
+  animate();
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+function onResize() {
+  const wrap = document.getElementById('canvas-wrap');
+  camera.aspect = wrap.clientWidth / wrap.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+}
+
+/* ── Chargement des données job ──────────────────────── */
+async function loadJob() {
+  setLoading('Connexion au serveur preflight…');
+
+  // Mode démo si pas de jobId
+  if (!JOB_ID) {
+    await loadDemo();
+    return;
+  }
+
+  try {
+    const res = await fetch(`${SERVER}/api/preflight/${JOB_ID}`);
+    if (!res.ok) throw new Error('Job introuvable');
+    jobData = await res.json();
+
+    document.getElementById('job-title').textContent =
+      `Job ${JOB_ID.slice(0,8)}… — ${jobData.spec?.productType?.toUpperCase() || PTYPE}`;
+
+    renderReport(jobData.report);
+
+    const previews = jobData.report?.previews || [];
+    totalPages = previews.length || 1;
+
+    if (previews.length > 0) {
+      setLoading('Chargement des textures…');
+      await loadTextures(previews.map(p => `${SERVER}${p.url}`));
+    } else {
+      await loadDemo();
+      return;
+    }
+
+    document.getElementById('btn-validate').style.display = '';
+    document.getElementById('btn-dl').style.display = '';
+
+  } catch (err) {
+    console.warn('Preflight server unreachable, demo mode:', err.message);
+    await loadDemo();
+  }
+}
+
+async function loadTextures(urls) {
+  pageTextures = [];
+  const loader = new THREE.TextureLoader();
+  for (const url of urls) {
+    try {
+      const tex = await new Promise((res, rej) =>
+        loader.load(url, res, undefined, rej)
+      );
+      tex.colorSpace = THREE.SRGBColorSpace;
+      pageTextures.push(tex);
+    } catch {
+      pageTextures.push(null);
+    }
+  }
+  buildMesh(PTYPE, pageTextures);
+  hideLoading();
+  updatePageNav();
+}
+
+async function loadDemo() {
+  setLoading('Mode démonstration…');
+
+  // Créer une texture de démonstration (canvas)
+  const makeDemo = (label, bg, fg) => {
+    const c = document.createElement('canvas');
+    c.width = 800; c.height = 1130;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = fg;
+    ctx.font = 'bold 60px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('SIMPACT', c.width/2, c.height/2 - 40);
+    ctx.font = '30px sans-serif';
+    ctx.fillStyle = fg + '99';
+    ctx.fillText(label, c.width/2, c.height/2 + 20);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  };
+
+  pageTextures = [
+    makeDemo('RECTO', '#1a2d45', '#c9a84c'),
+    makeDemo('VERSO', '#c9a84c', '#0d1b2a'),
+  ];
+  totalPages = 2;
+
+  document.getElementById('job-title').textContent = 'Mode démonstration — ' + PTYPE.toUpperCase();
+  buildMesh(PTYPE, pageTextures);
+  hideLoading();
+  updatePageNav();
+}
+
+/* ── Construire le mesh 3D selon le type produit ─────── */
+function buildMesh(type, textures) {
+  // Vider le groupe
+  while (meshGroup.children.length) {
+    const obj = meshGroup.children[0];
+    obj.geometry?.dispose();
+    meshGroup.remove(obj);
+  }
+
+  switch (type) {
+    case 'cdv': buildCard(textures); break;
+    case 'bro':
+    case 'liv': buildBooklet(textures); break;
+    case 'dep': buildFolded(textures); break;
+    case 'aff': buildPoster(textures); break;
+    default:    buildSheet(textures); break; // fly, ent, off
+  }
+}
+
+/* ── Feuille simple (flyer, affiche, en-tête) ─────────── */
+function buildSheet(textures) {
+  const frontTex = textures[currentPage]     || makeBlankTex();
+  const backTex  = textures[currentPage + 1] || textures[0] || makeBlankTex();
+
+  const AR = frontTex.image ? frontTex.image.width / frontTex.image.height : 210/297;
+  const W  = 1.5, H = W / AR;
+  const D  = 0.003; // épaisseur papier
+
+  const geo = new THREE.BoxGeometry(W, H, D);
+  const mats = [
+    new THREE.MeshStandardMaterial({ color: 0xffffff }), // droite
+    new THREE.MeshStandardMaterial({ color: 0xffffff }), // gauche
+    new THREE.MeshStandardMaterial({ color: 0xffffff }), // haut
+    new THREE.MeshStandardMaterial({ color: 0xffffff }), // bas
+    new THREE.MeshStandardMaterial({ map: frontTex, side: THREE.FrontSide }),  // avant
+    new THREE.MeshStandardMaterial({ map: backTex,  side: THREE.FrontSide }),  // arrière
+  ];
+
+  const mesh = new THREE.Mesh(geo, mats);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  meshGroup.add(mesh);
+}
+
+/* ── Carte de visite ─────────────────────────────────── */
+function buildCard(textures) {
+  const frontTex = textures[0] || makeBlankTex();
+  const backTex  = textures[1] || makeBlankTex();
+
+  const W = 1.7, H = 1.1, D = 0.012;
+  const geo = new THREE.BoxGeometry(W, H, D);
+  const mats = [
+    new THREE.MeshStandardMaterial({ color: 0xcccccc }),
+    new THREE.MeshStandardMaterial({ color: 0xcccccc }),
+    new THREE.MeshStandardMaterial({ color: 0xcccccc }),
+    new THREE.MeshStandardMaterial({ color: 0xcccccc }),
+    new THREE.MeshStandardMaterial({ map: frontTex }),
+    new THREE.MeshStandardMaterial({ map: backTex  }),
+  ];
+
+  // Stack de 3 cartes légèrement décalées
+  for (let i = 0; i < 3; i++) {
+    const m = new THREE.Mesh(geo, mats);
+    m.position.set(i * 0.02, -i * 0.015, -i * D * 1.5);
+    m.rotation.z = (i - 1) * 0.015;
+    m.castShadow = true;
+    meshGroup.add(m);
+  }
+}
+
+/* ── Brochure / livre ────────────────────────────────── */
+function buildBooklet(textures) {
+  const coverF = textures[0] || makeBlankTex();
+  const coverB = textures[textures.length - 1] || makeBlankTex();
+
+  const W = 1.5, H = W * (297/210), D = 0.04;
+
+  // Couverture avant
+  const frontGeo = new THREE.BoxGeometry(W, H, D);
+  const frontMats = [
+    new THREE.MeshStandardMaterial({ color: 0x8a9ab0 }),
+    new THREE.MeshStandardMaterial({ color: 0x8a9ab0 }),
+    new THREE.MeshStandardMaterial({ color: 0x8a9ab0 }),
+    new THREE.MeshStandardMaterial({ color: 0x8a9ab0 }),
+    new THREE.MeshStandardMaterial({ map: coverF }),
+    new THREE.MeshStandardMaterial({ map: coverB }),
+  ];
+
+  const book = new THREE.Mesh(frontGeo, frontMats);
+  book.castShadow = true;
+
+  // Dos (spine) — une bande colorée sur le côté gauche
+  const spineGeo = new THREE.BoxGeometry(D, H, 0.002);
+  const spineMat = new THREE.MeshStandardMaterial({ color: 0x4a9fd4 });
+  const spine = new THREE.Mesh(spineGeo, spineMat);
+  spine.position.x = -W / 2 - D / 2;
+
+  // Pages intérieures (illusion de feuillets)
+  const innerGeo = new THREE.BoxGeometry(W * 0.98, H * 0.97, D * 0.85);
+  const innerMat = new THREE.MeshStandardMaterial({ color: 0xf5f0e8 });
+  const inner = new THREE.Mesh(innerGeo, innerMat);
+  inner.position.z = D * 0.05;
+
+  const group = new THREE.Group();
+  group.add(inner);
+  group.add(book);
+  group.add(spine);
+  meshGroup.add(group);
+}
+
+/* ── Dépliant plié ───────────────────────────────────── */
+function buildFolded(textures) {
+  const tex1 = textures[0] || makeBlankTex();
+  const W  = 0.9, H = 1.3, gap = 0.001;
+
+  // Simuler un dépliant 3 volets ouvert en accordéon
+  const angles = [0.35, 0, -0.35];
+
+  for (let i = 0; i < 3; i++) {
+    const geo = new THREE.BoxGeometry(W, H, 0.002);
+    const mat = [
+      new THREE.MeshStandardMaterial({ color: 0xcccccc }),
+      new THREE.MeshStandardMaterial({ color: 0xcccccc }),
+      new THREE.MeshStandardMaterial({ color: 0xcccccc }),
+      new THREE.MeshStandardMaterial({ color: 0xcccccc }),
+      new THREE.MeshStandardMaterial({ map: textures[i % textures.length] || makeBlankTex() }),
+      new THREE.MeshStandardMaterial({ color: 0xf0f0f0 }),
+    ];
+
+    const panel = new THREE.Mesh(geo, mat);
+    panel.position.x = (i - 1) * (W + gap);
+    panel.rotation.y  = angles[i];
+    panel.castShadow = true;
+    meshGroup.add(panel);
+  }
+}
+
+/* ── Affiche grande taille ───────────────────────────── */
+function buildPoster(textures) {
+  const tex = textures[currentPage] || makeBlankTex();
+  const W = 1.2, H = W * (420/297);
+
+  const geo = new THREE.PlaneGeometry(W, H);
+  const mat = new THREE.MeshStandardMaterial({
+    map: tex,
+    side: THREE.DoubleSide,
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+
+  // Légère inclinaison comme une affiche appuyée contre un mur
+  mesh.rotation.x = -0.1;
+  meshGroup.add(mesh);
+}
+
+/* ── Texture vide ────────────────────────────────────── */
+function makeBlankTex() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 4;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#e8edf2';
+  ctx.fillRect(0, 0, 4, 4);
+  return new THREE.CanvasTexture(c);
+}
+
+/* ── Navigation pages ────────────────────────────────── */
+function updatePageNav() {
+  document.getElementById('page-info').textContent =
+    `Page ${currentPage + 1} / ${totalPages}`;
+  buildMesh(PTYPE, pageTextures);
+}
+
+function prevPage() {
+  if (currentPage > 0) { currentPage--; updatePageNav(); }
+}
+function nextPage() {
+  if (currentPage < totalPages - 1) { currentPage++; updatePageNav(); }
+}
+
+/* ── Rapport preflight ───────────────────────────────── */
+function renderReport(report) {
+  if (!report) return;
+
+  const sum = document.getElementById('report-summary');
+  const cor = document.getElementById('report-corrections');
+
+  const statusBadge = (s) => {
+    const cls = s === 'ok' || s === 'corrected' ? 'ok' :
+                s === 'warning' ? 'warn' : 'err';
+    const lbl = s === 'ok' ? 'OK' : s === 'corrected' ? 'CORRIGÉ' :
+                s === 'warning' ? 'AVERT.' : 'ERREUR';
+    return `<span class="badge ${cls}">${lbl}</span>`;
+  };
+
+  const checks = report.checks || {};
+  sum.innerHTML = `
+    ${row('Pages', `${report.finalPageCount || '—'}`, statusBadge(checks.pagination?.status))}
+    ${row('Format', `${checks.format?.targetMm?.w || '—'}×${checks.format?.targetMm?.h || '—'}mm`, statusBadge(checks.format?.status))}
+    ${row('Traits coupe', checks.cropMarks?.added ? 'Ajoutés' : 'Présents', statusBadge(checks.cropMarks?.status))}
+    ${row('Fond perdu', `${checks.bleed?.bleedMm || 0}mm`, statusBadge(checks.bleed?.status))}
+    ${row('DPI images', `${report.checks?.dpi?.images?.length || 0} image(s)`, statusBadge(checks.dpi?.status))}
+  `;
+
+  // Corrections appliquées
+  const corrections = report.corrections || [];
+  cor.innerHTML = corrections.length
+    ? corrections.map(c => `<div class="issue ok">✓ ${c}</div>`).join('')
+    : '<div style="font-size:11px;color:#3a5570">Aucune correction nécessaire.</div>';
+
+  // Erreurs DPI
+  const dpiErrors = checks.dpi?.rejected || [];
+  const dpiWarns  = checks.dpi?.warned   || [];
+  if (dpiErrors.length) {
+    cor.innerHTML += dpiErrors.map(i =>
+      `<div class="issue err">✗ Page ${i.page} : ${i.effectiveDpi} DPI — résolution insuffisante</div>`
+    ).join('');
+  }
+  if (dpiWarns.length) {
+    cor.innerHTML += dpiWarns.map(i =>
+      `<div class="issue warn">⚠ Page ${i.page} : ${i.effectiveDpi} DPI — résolution faible</div>`
+    ).join('');
+  }
+}
+
+function row(label, val, badge) {
+  return `<div class="row"><span class="row-label">${label}</span>
+    <span style="display:flex;align-items:center;gap:6px">
+      <span class="row-val">${val}</span>${badge || ''}
+    </span></div>`;
+}
+
+/* ── Actions ─────────────────────────────────────────── */
+function toggleWireframe() {
+  wireframeMode = !wireframeMode;
+  meshGroup.traverse(obj => {
+    if (obj.material) {
+      (Array.isArray(obj.material) ? obj.material : [obj.material])
+        .forEach(m => { m.wireframe = wireframeMode; });
+    }
+  });
+}
+
+function resetCamera() {
+  camera.position.set(0, 0, 3);
+  controls.reset();
+}
+
+async function downloadCorrected() {
+  if (!JOB_ID) return;
+  window.open(`${SERVER}/api/preflight/${JOB_ID}/corrected`, '_blank');
+}
+
+async function validateBAT() {
+  const btn = document.getElementById('btn-validate');
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  // Émettre un événement vers la fenêtre parente (si iframe)
+  if (window.opener || window.parent !== window) {
+    (window.opener || window.parent).postMessage({
+      type: 'bat-validated',
+      jobId: JOB_ID,
+    }, '*');
+  }
+
+  // Feedback visuel
+  btn.textContent = '✓ BAT validé !';
+  btn.style.background = '#4caf88';
+
+  // Optionnel : appel API pour marquer comme validé
+  if (JOB_ID) {
+    try {
+      await fetch(`${SERVER}/api/preflight/${JOB_ID}/validate`, { method: 'POST' });
+    } catch {}
+  }
+}
+
+/* ── Loading overlay ─────────────────────────────────── */
+function setLoading(msg) {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('loading-text').textContent = msg;
+}
+
+function hideLoading() {
+  document.getElementById('loading').style.display = 'none';
+}
+
+/* ── Démarrage ───────────────────────────────────────── */
+initThree();
+loadJob();
+</script>
+</body>
+</html>

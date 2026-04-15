@@ -164,7 +164,10 @@ const DB = {
       .eq('id', id)
       .select()
       .single();
-    if (error) { console.error('updateClient:', error); return null; }
+    if (error) {
+      console.error('updateClient:', error);
+      throw new Error(error.message || error.details || JSON.stringify(error));
+    }
     return data;
   },
 
