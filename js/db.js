@@ -50,9 +50,8 @@ const DB = {
         .rpc('next_order_id')
         .single();
       if (!error && data != null) {
-        // next_order_id() peut retourner un entier ou une chaîne "CMD-XXXX"
-        const num = parseInt(String(data).replace(/\D/g, ''), 10);
-        if (!isNaN(num)) return `CMD-${String(num).padStart(4, '0')}`;
+        // next_order_id() retourne directement 'CMD-XXXX'
+        return String(data);
       }
     } catch { /* RPC indisponible — on continue */ }
 
