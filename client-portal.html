@@ -789,6 +789,7 @@
 <script src="js/params.js"></script>
 <script src="js/pricing.js"></script>
 <script src="js/messaging.js"></script>
+<script src="js/bat-viewer-3d.js"></script>
 <script>
 // ─── Auth ───────────────────────────────────────────────
 const session = SIMPACT_AUTH.requireAuth(["client"]);
@@ -1023,6 +1024,15 @@ async function openDetail(id) {
     ["Quantité", (o.qty||0).toLocaleString("fr-FR")+" exemplaires"],
   ];
 
+  /* Type produit pour le viewer 3D */
+  const _pn = (o.product||'').toLowerCase();
+  const batType = /carte.*visite|business|card/.test(_pn) ? 'card'
+    : /brochure|livret|agraf/.test(_pn) ? 'booklet'
+    : /livre|book/.test(_pn) ? 'book'
+    : /affiche|poster|a3/.test(_pn) ? 'a3'
+    : /a4/.test(_pn) ? 'a4'
+    : 'fly';
+
   document.getElementById("dp-body").innerHTML = `
     <!-- Progress -->
     <div style="margin-bottom:24px">
@@ -1057,6 +1067,28 @@ async function openDetail(id) {
         </div>
       </div></div>
     </div>
+
+    <!-- Fichier joint + Viewer 3D -->
+    ${o.file_url ? `
+    <div class="card" style="margin-bottom:20px"><div class="card-body">
+      <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">📎 Fichier joint</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:30px;flex-shrink:0">${(o.file_name||'').toLowerCase().endsWith('.pdf') ? '📄' : '🖼'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.file_name||'Fichier'}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <button class="btn btn-primary btn-sm"
+            data-bat-url="${(o.file_url||'').replace(/"/g,'&quot;')}"
+            data-bat-type="${batType}"
+            data-bat-name="${(o.product||'').replace(/"/g,'&quot;')}"
+            onclick="BAT_VIEWER_3D.open(this.dataset.batUrl,this.dataset.batType,this.dataset.batName)">
+            👁 Voir en 3D
+          </button>
+          <a class="btn btn-secondary btn-sm" href="${o.file_url}" target="_blank" style="text-decoration:none">⬇ Télécharger</a>
+        </div>
+      </div>
+    </div></div>` : ''}
 
     <!-- Timeline -->
     <div class="card"><div class="card-body">
