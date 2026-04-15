@@ -799,6 +799,7 @@
 <script src="js/params.js"></script>
 <script src="js/pricing.js"></script>
 <script src="js/messaging.js"></script>
+<script src="js/bat-viewer-3d.js"></script>
 <script>
 // ─── Auth ───────────────────────────────────────────────
 const session = SIMPACT_AUTH.requireAuth(["client"]);
@@ -1044,6 +1045,15 @@ async function openDetail(id) {
     ["Quantité", (o.qty||0).toLocaleString("fr-FR")+" exemplaires"],
   ];
 
+  /* Type produit pour le viewer 3D */
+  const _pn = (o.product||'').toLowerCase();
+  const batType = /carte.*visite|business|card/.test(_pn) ? 'card'
+    : /brochure|livret|agraf/.test(_pn) ? 'booklet'
+    : /livre|book/.test(_pn) ? 'book'
+    : /affiche|poster|a3/.test(_pn) ? 'a3'
+    : /a4/.test(_pn) ? 'a4'
+    : 'fly';
+
   document.getElementById("dp-body").innerHTML = `
     <!-- Progress -->
     <div style="margin-bottom:24px">
@@ -1078,6 +1088,28 @@ async function openDetail(id) {
         </div>
       </div></div>
     </div>
+
+    <!-- Fichier joint + Viewer 3D -->
+    ${o.file_url ? `
+    <div class="card" style="margin-bottom:20px"><div class="card-body">
+      <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">📎 Fichier joint</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:30px;flex-shrink:0">${(o.file_name||'').toLowerCase().endsWith('.pdf') ? '📄' : '🖼'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.file_name||'Fichier'}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <button class="btn btn-primary btn-sm"
+            data-bat-url="${(o.file_url||'').replace(/"/g,'&quot;')}"
+            data-bat-type="${batType}"
+            data-bat-name="${(o.product||'').replace(/"/g,'&quot;')}"
+            onclick="BAT_VIEWER_3D.open(this.dataset.batUrl,this.dataset.batType,this.dataset.batName)">
+            👁 Voir en 3D
+          </button>
+          <a class="btn btn-secondary btn-sm" href="${o.file_url}" target="_blank" style="text-decoration:none">⬇ Télécharger</a>
+        </div>
+      </div>
+    </div></div>` : ''}
 
     <!-- Timeline -->
     <div class="card"><div class="card-body">
@@ -1557,9 +1589,8 @@ function updateCpPrice() {
   }).join("");
 }
 
-// ─── SOUMETTRE UNE COMMANDE ──────────────────────────────────
-/* ── Gestion fichier client ──────────────────────────── */
-let cpAttachedFile = null;
+// ─── FICHIER JOINT À LA COMMANDE ─────────────────────────────
+let cpPendingFile = null;
 
 function cpHandleFile(file) {
   if (!file) return;
@@ -1567,11 +1598,10 @@ function cpHandleFile(file) {
     showToast("Fichier trop volumineux (max 30 Mo)", "error");
     return;
   }
-  cpAttachedFile = file;
-  const infoEl = document.getElementById('cp-file-info');
+  cpPendingFile = file;
   document.getElementById('cp-file-name').textContent = '📄 ' + file.name;
   document.getElementById('cp-file-size').textContent = '(' + (file.size / 1024 / 1024).toFixed(1) + ' Mo)';
-  infoEl.style.display = 'flex';
+  document.getElementById('cp-file-info').style.display = 'flex';
   document.getElementById('cp-drop-zone').style.display = 'none';
 }
 
@@ -1584,9 +1614,9 @@ function cpHandleDrop(e) {
 }
 
 function cpClearFile() {
-  cpAttachedFile = null;
-  document.getElementById('cp-file-info').style.display  = 'none';
-  document.getElementById('cp-drop-zone').style.display  = '';
+  cpPendingFile = null;
+  document.getElementById('cp-file-info').style.display = 'none';
+  document.getElementById('cp-drop-zone').style.display = '';
   document.getElementById('cp-file-input').value = '';
 }
 
@@ -1604,16 +1634,12 @@ async function cpUploadFile(file, orderId) {
       .upload(path, file, { upsert: true, contentType: file.type });
 
     document.getElementById('cp-upload-bar').style.width = '100%';
+    if (error) throw error;
 
-    if (error) { console.warn('Upload fichier:', error.message); return null; }
-
-    const { data: { publicUrl } } = supa.storage
-      .from('commandes')
-      .getPublicUrl(path);
-
-    return publicUrl;
+    const { data: urlData } = supa.storage.from('commandes').getPublicUrl(path);
+    return { file_url: urlData.publicUrl, file_name: file.name };
   } catch (e) {
-    console.warn('Upload fichier erreur:', e.message);
+    console.warn('cpUploadFile:', e.message);
     return null;
   } finally {
     setTimeout(() => {
@@ -1622,63 +1648,71 @@ async function cpUploadFile(file, orderId) {
   }
 }
 
+// ─── SOUMETTRE UNE COMMANDE ──────────────────────────────────
 async function submitOrder() {
-  const p     = PRODUCTS[cfg.pi];
-  const qty   = cfg.qLibre ?? p.qty[Math.min(cfg.qi, p.qty.length-1)] ?? p.qty[0];
-  const client = await DB.getClient(CLIENT_ID);
-  const state = cfgToState(qty);
-  const res   = SIMPACT_PRICING.compute(p, state);
-  if (!res) {
-    showToast("Configurez tous les paramètres avant de soumettre.", "error");
-    return;
-  }
+  const btn = document.querySelector('#wz-panel-3 .btn-primary');
+  if (btn) btn.disabled = true;
 
-  // Désactiver le bouton pendant le traitement
-  const btn = document.querySelector('[onclick="submitOrder()"]');
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
-
-  const priceHT  = res.finalHT;
-  const finNames = cfg.fins.map(i => p.fins[i]?.label).filter(Boolean);
-
-  const order = await DB.createOrder({
-    clientId:   CLIENT_ID,
-    clientName: client?.name || session.name,
-    product:    p.name,
-    qty,
-    priceHT,
-    priceTTC: +(priceHT * 1.19).toFixed(2),
-    specs: {
-      format:    p.formats[cfg.fi]?.label||"—",
-      ...(p.type==="booklet" ? {reliure:p.bindings[cfg.bi]?.label, pages:(cfg.pages||0)+"p int",
-          couverture:p.covTypes[cfg.cov]?.label, papierCouv:p.cPapers[cfg.pa2]?.label, papierInt:p.iPapers[cfg.pa]?.label,
-          impression:p.colors[cfg.co]?.label} : {}),
-      ...(p.type==="book"    ? {pages:(cfg.pages||0)+"p N&B", couverture:p.covTypes[cfg.cov]?.label,
-          papierCouv:p.cPapers[cfg.pa2]?.label, papierInt:p.papers[cfg.pa]?.label} : {}),
-      ...(p.type==="std"     ? {paper:p.papers[cfg.pa]?.label, color:p.colors[cfg.co]?.label} : {}),
-      finitions: finNames,
-    },
-    note: document.getElementById("cp-note")?.value.trim() || "",
-  });
-
-  // Uploader le fichier attaché si présent
-  if (cpAttachedFile && order?.id) {
-    const fileUrl = await cpUploadFile(cpAttachedFile, order.id);
-    if (fileUrl) {
-      try {
-        await DB.updateOrder(order.id, { file_url: fileUrl, file_name: cpAttachedFile.name });
-      } catch {}
+  try {
+    const p     = PRODUCTS[cfg.pi];
+    const qty   = cfg.qLibre ?? p.qty[Math.min(cfg.qi, p.qty.length-1)] ?? p.qty[0];
+    const client = await DB.getClient(CLIENT_ID);
+    const state = cfgToState(qty);
+    const res   = SIMPACT_PRICING.compute(p, state);
+    if (!res) {
+      showToast("Configurez tous les paramètres avant de soumettre.", "error");
+      return;
     }
+    const priceHT  = res.finalHT;
+    const finNames = cfg.fins.map(i => p.fins[i]?.label).filter(Boolean);
+
+    const order = await DB.createOrder({
+      clientId:   CLIENT_ID,
+      clientName: client?.name || session.name,
+      product:    p.name,
+      qty,
+      priceHT,
+      priceTTC: +(priceHT * 1.19).toFixed(2),
+      specs: {
+        format:    p.formats[cfg.fi]?.label||"—",
+        ...(p.type==="booklet" ? {reliure:p.bindings[cfg.bi]?.label, pages:(cfg.pages||0)+"p int",
+            couverture:p.covTypes[cfg.cov]?.label, papierCouv:p.cPapers[cfg.pa2]?.label, papierInt:p.iPapers[cfg.pa]?.label,
+            impression:p.colors[cfg.co]?.label} : {}),
+        ...(p.type==="book"    ? {pages:(cfg.pages||0)+"p N&B", couverture:p.covTypes[cfg.cov]?.label,
+            papierCouv:p.cPapers[cfg.pa2]?.label, papierInt:p.papers[cfg.pa]?.label} : {}),
+        ...(p.type==="std"     ? {paper:p.papers[cfg.pa]?.label, color:p.colors[cfg.co]?.label} : {}),
+        finitions: finNames,
+      },
+      note: document.getElementById("cp-note")?.value.trim() || "",
+    });
+
+    if (!order) throw new Error("Échec de la création de la commande");
+
+    // Upload du fichier BAT/PDF si présent
+    if (cpPendingFile) {
+      const uploaded = await cpUploadFile(cpPendingFile, order.id);
+      if (uploaded) {
+        await DB.updateOrder(order.id, uploaded);
+      } else {
+        showToast("⚠ Commande créée, mais le fichier n'a pas pu être uploadé.", "error");
+      }
+    }
+
+    // Reset
+    cfg = {pi:cfg.pi, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null};
+    if (document.getElementById("cp-note")) document.getElementById("cp-note").value = "";
+    cpClearFile();
+    renderCpChips(); updateCpPrice();
+
+    showToast(`✓ Commande ${order.id} envoyée ! SIMPACT vous contactera sous 24h.`, "success");
+    setTimeout(() => { showView("dashboard"); renderDashboard(); }, 1200);
+
+  } catch (err) {
+    console.error('submitOrder:', err);
+    showToast("Erreur lors de l'envoi : " + err.message, "error");
+  } finally {
+    if (btn) btn.disabled = false;
   }
-
-  // Reset
-  cfg = {pi:cfg.pi, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null};
-  if (document.getElementById("cp-note")) document.getElementById("cp-note").value = "";
-  cpClearFile();
-  renderCpChips(); updateCpPrice();
-  if (btn) { btn.disabled = false; btn.innerHTML = '📤 Envoyer la demande'; }
-
-  showToast(`✓ Commande ${order.id} envoyée ! SIMPACT vous contactera sous 24h.`, "success");
-  setTimeout(() => { showView("dashboard"); renderDashboard(); }, 1200);
 }
 
 // ─── MESSAGERIE CLIENT ────────────────────────────────────

@@ -49,7 +49,10 @@ const DB = {
       const { data, error } = await this.supa
         .rpc('next_order_id')
         .single();
-      if (!error && data) return `CMD-${String(data).padStart(4, '0')}`;
+      if (!error && data != null) {
+        // next_order_id() retourne directement 'CMD-XXXX'
+        return String(data);
+      }
     } catch { /* RPC indisponible — on continue */ }
 
     // Repli : lire le dernier ID en base
@@ -290,11 +293,13 @@ const DB = {
 
   async updateOrder(id, changes) {
     const dbChanges = {};
-    if (changes.status)   dbChanges.status    = changes.status;
-    if (changes.note)     dbChanges.note      = changes.note;
-    if (changes.specs)    dbChanges.specs     = changes.specs;
-    if (changes.priceHT)  dbChanges.price_ht  = changes.priceHT;
-    if (changes.priceTTC) dbChanges.price_ttc = changes.priceTTC;
+    if (changes.status)    dbChanges.status    = changes.status;
+    if (changes.note)      dbChanges.note      = changes.note;
+    if (changes.specs)     dbChanges.specs     = changes.specs;
+    if (changes.priceHT)   dbChanges.price_ht  = changes.priceHT;
+    if (changes.priceTTC)  dbChanges.price_ttc = changes.priceTTC;
+    if (changes.file_url)  dbChanges.file_url  = changes.file_url;
+    if (changes.file_name) dbChanges.file_name = changes.file_name;
 
     const { data, error } = await this.supa
       .from('commandes')
