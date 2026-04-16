@@ -44,24 +44,18 @@ const BAT_VIEWER_3D = (function () {
       let texture = null;
 
       if (ext === 'pdf') {
-        /* ── Charger le PDF une seule fois : preflight + texture ── */
-        _setLoading('Analyse du fichier PDF…');
-        const pdfDoc = await pdfjsLib.getDocument({ url: fileUrl, withCredentials: false }).promise;
-
-        /* Preflight (non bloquant si PREFLIGHT non chargé) */
-        if (typeof PREFLIGHT !== 'undefined') {
-          _setLoading('Vérification du fichier…');
-          try {
-            const result = await PREFLIGHT.check(
-              pdfDoc,
-              productType,
-              expectedPages ? parseInt(expectedPages, 10) : null
-            );
-            _renderBanner(result);
-          } catch (pfErr) {
-            console.warn('BAT_VIEWER_3D preflight:', pfErr);
-          }
+        /* ── Preflight côté serveur (Edge Function) ── */
+        _setLoading('Vérification du fichier…');
+        try {
+          const result = await _preflightCheck(fileUrl, productType, expectedPages);
+          _renderBanner(result);
+        } catch (pfErr) {
+          console.warn('BAT_VIEWER_3D preflight:', pfErr);
         }
+
+        /* ── Chargement local du PDF pour la texture ── */
+        _setLoading('Chargement du fichier PDF…');
+        const pdfDoc = await pdfjsLib.getDocument({ url: fileUrl, withCredentials: false }).promise;
 
         _setLoading('Génération de la maquette 3D…');
         texture = await _pdfDocToTexture(pdfDoc);
@@ -87,6 +81,27 @@ const BAT_VIEWER_3D = (function () {
   }
 
   /* ════════════════════════════════════════════════
+     PREFLIGHT — appel Edge Function
+     ════════════════════════════════════════════════ */
+
+  async function _preflightCheck(fileUrl, productType, expectedPages) {
+    const resp = await fetch(
+      'https://yqileqgxpihnyaauwmtr.supabase.co/functions/v1/preflight-check',
+      {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          fileUrl,
+          productType,
+          expectedPages: expectedPages ? parseInt(String(expectedPages), 10) : null,
+        }),
+      }
+    );
+    if (!resp.ok) throw new Error(`Preflight HTTP ${resp.status}`);
+    return resp.json();
+  }
+
+  /* ════════════════════════════════════════════════
      BANDEAU PREFLIGHT
      ════════════════════════════════════════════════ */
 
@@ -95,15 +110,14 @@ const BAT_VIEWER_3D = (function () {
     if (!banner) return;
 
     const STATUS_MAP = {
-      ok:    { border: 'rgba(76,175,136,.6)',  bg: 'rgba(76,175,136,.12)',  icon: '🟢', title: 'Fichier conforme' },
-      warn:  { border: 'rgba(201,168,76,.6)',  bg: 'rgba(201,168,76,.12)',  icon: '🟡', title: 'Avertissement(s)' },
-      error: { border: 'rgba(239,83,80,.6)',   bg: 'rgba(239,83,80,.12)',   icon: '🔴', title: 'Erreur(s) détectée(s)' },
+      ok:      { border: 'rgba(76,175,136,.6)',  bg: 'rgba(76,175,136,.12)',  icon: '🟢', title: 'Fichier conforme' },
+      warning: { border: 'rgba(201,168,76,.6)',  bg: 'rgba(201,168,76,.12)',  icon: '🟡', title: 'Avertissement(s)' },
+      error:   { border: 'rgba(239,83,80,.6)',   bg: 'rgba(239,83,80,.12)',   icon: '🔴', title: 'Erreur(s) détectée(s)' },
     };
     const ITEM_MAP = {
-      ok:    { pill: 'rgba(76,175,136,.2)',  txt: '#4caf88', pfx: '✓' },
-      warn:  { pill: 'rgba(201,168,76,.2)',  txt: '#e0bc60', pfx: '⚠' },
-      error: { pill: 'rgba(239,83,80,.2)',   txt: '#ef5350', pfx: '✗' },
-      info:  { pill: 'rgba(74,159,212,.2)',  txt: '#4a9fd4', pfx: '·' },
+      ok:      { pill: 'rgba(76,175,136,.2)',  txt: '#4caf88', pfx: '✓' },
+      warning: { pill: 'rgba(201,168,76,.2)',  txt: '#e0bc60', pfx: '⚠' },
+      error:   { pill: 'rgba(239,83,80,.2)',   txt: '#ef5350', pfx: '✗' },
     };
 
     const s = STATUS_MAP[result.status] || STATUS_MAP.ok;
@@ -116,8 +130,8 @@ const BAT_VIEWER_3D = (function () {
       -webkit-backdrop-filter:blur(10px);
     `;
 
-    const pills = (result.items || []).map(item => {
-      const c = ITEM_MAP[item.type] || ITEM_MAP.info;
+    const pills = (result.checks || []).map(item => {
+      const c = ITEM_MAP[item.status] || ITEM_MAP.ok;
       return `<span style="
         display:inline-flex;align-items:center;gap:5px;
         padding:5px 12px;border-radius:20px;
