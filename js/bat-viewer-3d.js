@@ -18,6 +18,18 @@ const BAT_VIEWER_3D = (function () {
     book:    [2.10, 2.97, 0.50],    // Livre
   };
 
+  /** Dimensions réelles du produit fini [largeur_mm, hauteur_mm] — rognage fond perdu */
+  const PRODUCT_MM = {
+    fly:     [148, 210],
+    a4:      [210, 297],
+    a3:      [297, 420],
+    a2:      [420, 594],
+    poster:  [297, 420],
+    card:    [85,  55 ],
+    booklet: [210, 297],
+    book:    [210, 297],
+  };
+
   /* ── État interne ── */
   let _renderer = null, _scene = null, _camera = null;
   let _controls = null, _mesh = null, _animId = null;
@@ -58,7 +70,7 @@ const BAT_VIEWER_3D = (function () {
         const pdfDoc = await pdfjsLib.getDocument({ url: fileUrl, withCredentials: false }).promise;
 
         _setLoading('Génération de la maquette 3D…');
-        texture = await _pdfDocToTexture(pdfDoc);
+        texture = await _pdfDocToTexture(pdfDoc, productType);
 
       } else {
         texture = await _imageToTexture(fileUrl);
@@ -261,20 +273,76 @@ const BAT_VIEWER_3D = (function () {
      CHARGEMENT DE TEXTURE
      ════════════════════════════════════════════════ */
 
-  /** Rend la page 1 d'un PDFDocumentProxy déjà chargé en CanvasTexture Three.js */
-  async function _pdfDocToTexture(pdfDoc) {
-    const page = await pdfDoc.getPage(1);
-    const vp   = page.getViewport({ scale: 2.0 });
+  /**
+   * Rend la page 1 d'un PDFDocumentProxy en CanvasTexture Three.js,
+   * en rognant automatiquement le fond perdu et les traits de coupe.
+   */
+  async function _pdfDocToTexture(pdfDoc, productType) {
+    const SCALE = 2.0;
+    const MM_PT = 72 / 25.4;   // 1 mm → points PDF
+    const EPS   = 2;            // tolérance floating-point (pts ≈ 0.7 mm)
 
-    const offscreen = document.createElement('canvas');
-    offscreen.width  = vp.width;
-    offscreen.height = vp.height;
-    const ctx = offscreen.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    const page  = await pdfDoc.getPage(1);
 
-    const tex = new THREE.CanvasTexture(offscreen);
+    /* ── Dimensions réelles du PDF en points (scale = 1) ── */
+    const rawVp = page.getViewport({ scale: 1 });
+    const pdfW  = rawVp.width;
+    const pdfH  = rawVp.height;
+
+    /* ── Zone à copier (par défaut = PDF complet) ── */
+    let cropX = 0, cropY = 0, cropW = pdfW, cropH = pdfH;
+
+    const spec = PRODUCT_MM[_normalizeType(productType)];
+    if (spec) {
+      const [sw, sh] = spec;
+      const prodWPts = sw * MM_PT;
+      const prodHPts = sh * MM_PT;
+
+      /* Excédent en points (positif = fond perdu présent) */
+      const dW_port = pdfW - prodWPts;
+      const dH_port = pdfH - prodHPts;
+      const dW_land = pdfW - prodHPts;
+      const dH_land = pdfH - prodWPts;
+
+      if (dW_port >= -EPS && dH_port >= -EPS) {
+        /* Portrait */
+        cropX = Math.max(0, dW_port / 2);
+        cropY = Math.max(0, dH_port / 2);
+        cropW = Math.min(prodWPts, pdfW);
+        cropH = Math.min(prodHPts, pdfH);
+      } else if (dW_land >= -EPS && dH_land >= -EPS) {
+        /* Paysage */
+        cropX = Math.max(0, dW_land / 2);
+        cropY = Math.max(0, dH_land / 2);
+        cropW = Math.min(prodHPts, pdfW);
+        cropH = Math.min(prodWPts, pdfH);
+      }
+      /* Sinon : PDF plus petit que le spec → pas de rognage */
+    }
+
+    /* ── Rendu grande taille sur canvas temporaire ── */
+    const bigVp  = page.getViewport({ scale: SCALE });
+    const tmp    = document.createElement('canvas');
+    tmp.width    = bigVp.width;
+    tmp.height   = bigVp.height;
+    const tmpCtx = tmp.getContext('2d');
+    tmpCtx.fillStyle = '#ffffff';
+    tmpCtx.fillRect(0, 0, tmp.width, tmp.height);
+    await page.render({ canvasContext: tmpCtx, viewport: bigVp }).promise;
+
+    /* ── Copie de la zone rognée sur le canvas final ── */
+    const finalW = Math.round(cropW * SCALE);
+    const finalH = Math.round(cropH * SCALE);
+    const final  = document.createElement('canvas');
+    final.width  = finalW;
+    final.height = finalH;
+    final.getContext('2d').drawImage(
+      tmp,
+      Math.round(cropX * SCALE), Math.round(cropY * SCALE), finalW, finalH,
+      0, 0, finalW, finalH
+    );
+
+    const tex = new THREE.CanvasTexture(final);
     tex.needsUpdate = true;
     return tex;
   }
