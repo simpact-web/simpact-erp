@@ -18,6 +18,18 @@ const BAT_VIEWER_3D = (function () {
     book:    [2.10, 2.97, 0.50],    // Livre
   };
 
+  /** Dimensions réelles du produit fini [largeur_mm, hauteur_mm] — rognage fond perdu */
+  const PRODUCT_MM = {
+    fly:     [148, 210],
+    a4:      [210, 297],
+    a3:      [297, 420],
+    a2:      [420, 594],
+    poster:  [297, 420],
+    card:    [85,  55 ],
+    booklet: [210, 297],
+    book:    [210, 297],
+  };
+
   /* ── État interne ── */
   let _renderer = null, _scene = null, _camera = null;
   let _controls = null, _mesh = null, _animId = null;
@@ -44,27 +56,21 @@ const BAT_VIEWER_3D = (function () {
       let texture = null;
 
       if (ext === 'pdf') {
-        /* ── Charger le PDF une seule fois : preflight + texture ── */
-        _setLoading('Analyse du fichier PDF…');
-        const pdfDoc = await pdfjsLib.getDocument({ url: fileUrl, withCredentials: false }).promise;
-
-        /* Preflight (non bloquant si PREFLIGHT non chargé) */
-        if (typeof PREFLIGHT !== 'undefined') {
-          _setLoading('Vérification du fichier…');
-          try {
-            const result = await PREFLIGHT.check(
-              pdfDoc,
-              productType,
-              expectedPages ? parseInt(expectedPages, 10) : null
-            );
-            _renderBanner(result);
-          } catch (pfErr) {
-            console.warn('BAT_VIEWER_3D preflight:', pfErr);
-          }
+        /* ── Preflight côté serveur (Edge Function) ── */
+        _setLoading('Vérification du fichier…');
+        try {
+          const result = await _preflightCheck(fileUrl, productType, expectedPages);
+          _renderBanner(result);
+        } catch (pfErr) {
+          console.warn('BAT_VIEWER_3D preflight:', pfErr);
         }
 
+        /* ── Chargement local du PDF pour la texture ── */
+        _setLoading('Chargement du fichier PDF…');
+        const pdfDoc = await pdfjsLib.getDocument({ url: fileUrl, withCredentials: false }).promise;
+
         _setLoading('Génération de la maquette 3D…');
-        texture = await _pdfDocToTexture(pdfDoc);
+        texture = await _pdfDocToTexture(pdfDoc, productType);
 
       } else {
         texture = await _imageToTexture(fileUrl);
@@ -87,6 +93,27 @@ const BAT_VIEWER_3D = (function () {
   }
 
   /* ════════════════════════════════════════════════
+     PREFLIGHT — appel Edge Function
+     ════════════════════════════════════════════════ */
+
+  async function _preflightCheck(fileUrl, productType, expectedPages) {
+    const resp = await fetch(
+      'https://yqileqgxpihnyaauwmtr.supabase.co/functions/v1/preflight-check',
+      {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          fileUrl,
+          productType,
+          expectedPages: expectedPages ? parseInt(String(expectedPages), 10) : null,
+        }),
+      }
+    );
+    if (!resp.ok) throw new Error(`Preflight HTTP ${resp.status}`);
+    return resp.json();
+  }
+
+  /* ════════════════════════════════════════════════
      BANDEAU PREFLIGHT
      ════════════════════════════════════════════════ */
 
@@ -95,15 +122,14 @@ const BAT_VIEWER_3D = (function () {
     if (!banner) return;
 
     const STATUS_MAP = {
-      ok:    { border: 'rgba(76,175,136,.6)',  bg: 'rgba(76,175,136,.12)',  icon: '🟢', title: 'Fichier conforme' },
-      warn:  { border: 'rgba(201,168,76,.6)',  bg: 'rgba(201,168,76,.12)',  icon: '🟡', title: 'Avertissement(s)' },
-      error: { border: 'rgba(239,83,80,.6)',   bg: 'rgba(239,83,80,.12)',   icon: '🔴', title: 'Erreur(s) détectée(s)' },
+      ok:      { border: 'rgba(76,175,136,.6)',  bg: 'rgba(76,175,136,.12)',  icon: '🟢', title: 'Fichier conforme' },
+      warning: { border: 'rgba(201,168,76,.6)',  bg: 'rgba(201,168,76,.12)',  icon: '🟡', title: 'Avertissement(s)' },
+      error:   { border: 'rgba(239,83,80,.6)',   bg: 'rgba(239,83,80,.12)',   icon: '🔴', title: 'Erreur(s) détectée(s)' },
     };
     const ITEM_MAP = {
-      ok:    { pill: 'rgba(76,175,136,.2)',  txt: '#4caf88', pfx: '✓' },
-      warn:  { pill: 'rgba(201,168,76,.2)',  txt: '#e0bc60', pfx: '⚠' },
-      error: { pill: 'rgba(239,83,80,.2)',   txt: '#ef5350', pfx: '✗' },
-      info:  { pill: 'rgba(74,159,212,.2)',  txt: '#4a9fd4', pfx: '·' },
+      ok:      { pill: 'rgba(76,175,136,.2)',  txt: '#4caf88', pfx: '✓' },
+      warning: { pill: 'rgba(201,168,76,.2)',  txt: '#e0bc60', pfx: '⚠' },
+      error:   { pill: 'rgba(239,83,80,.2)',   txt: '#ef5350', pfx: '✗' },
     };
 
     const s = STATUS_MAP[result.status] || STATUS_MAP.ok;
@@ -116,8 +142,8 @@ const BAT_VIEWER_3D = (function () {
       -webkit-backdrop-filter:blur(10px);
     `;
 
-    const pills = (result.items || []).map(item => {
-      const c = ITEM_MAP[item.type] || ITEM_MAP.info;
+    const pills = (result.checks || []).map(item => {
+      const c = ITEM_MAP[item.status] || ITEM_MAP.ok;
       return `<span style="
         display:inline-flex;align-items:center;gap:5px;
         padding:5px 12px;border-radius:20px;
@@ -247,20 +273,73 @@ const BAT_VIEWER_3D = (function () {
      CHARGEMENT DE TEXTURE
      ════════════════════════════════════════════════ */
 
-  /** Rend la page 1 d'un PDFDocumentProxy déjà chargé en CanvasTexture Three.js */
-  async function _pdfDocToTexture(pdfDoc) {
-    const page = await pdfDoc.getPage(1);
-    const vp   = page.getViewport({ scale: 2.0 });
+  /**
+   * Rend la page 1 d'un PDFDocumentProxy en CanvasTexture Three.js,
+   * en rognant automatiquement le fond perdu et les traits de coupe.
+   */
+  async function _pdfDocToTexture(pdfDoc, productType) {
+    const SCALE = 2.0;
+    const MM_PT = 72 / 25.4;  // 1 mm → points PDF
 
-    const offscreen = document.createElement('canvas');
-    offscreen.width  = vp.width;
-    offscreen.height = vp.height;
-    const ctx = offscreen.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    const page    = await pdfDoc.getPage(1);
+    const rawVp   = page.getViewport({ scale: 1 });
+    const pdfWPt  = rawVp.width;   // largeur PDF réelle en points
+    const pdfHPt  = rawVp.height;  // hauteur PDF réelle en points
 
-    const tex = new THREE.CanvasTexture(offscreen);
+    /* ── Dimensions produit fini en points ── */
+    const spec    = PRODUCT_MM[_normalizeType(productType)];
+    let prodWPt   = pdfWPt;  // pas de rognage par défaut
+    let prodHPt   = pdfHPt;
+
+    if (spec) {
+      const [sw, sh] = spec;
+      const wPt = sw * MM_PT;
+      const hPt = sh * MM_PT;
+      /* Portrait : PDF ≥ produit */
+      if (pdfWPt >= wPt - 2 && pdfHPt >= hPt - 2) {
+        prodWPt = wPt;
+        prodHPt = hPt;
+      /* Paysage : PDF ≥ produit retourné */
+      } else if (pdfWPt >= hPt - 2 && pdfHPt >= wPt - 2) {
+        prodWPt = hPt;
+        prodHPt = wPt;
+      }
+    }
+
+    /* ── Calcul du rognage directement en pixels (scale 2) ── */
+    const cropXPx  = Math.round((pdfWPt - prodWPt) / 2 * SCALE);
+    const cropYPx  = Math.round((pdfHPt - prodHPt) / 2 * SCALE);
+    const prodWPx  = Math.round(prodWPt * SCALE);
+    const prodHPx  = Math.round(prodHPt * SCALE);
+
+    console.log('[BAT_VIEWER_3D] rognage fond perdu', {
+      pdf:    `${Math.round(pdfWPt / MM_PT)}×${Math.round(pdfHPt / MM_PT)} mm`,
+      produit: spec ? `${spec[0]}×${spec[1]} mm` : '(inconnu)',
+      cropXPx, cropYPx,
+      finalPx: `${prodWPx}×${prodHPx}`,
+    });
+
+    /* ── Rendu à SCALE sur canvas temporaire ── */
+    const bigVp  = page.getViewport({ scale: SCALE });
+    const tmp    = document.createElement('canvas');
+    tmp.width    = bigVp.width;
+    tmp.height   = bigVp.height;
+    const tmpCtx = tmp.getContext('2d');
+    tmpCtx.fillStyle = '#ffffff';
+    tmpCtx.fillRect(0, 0, tmp.width, tmp.height);
+    await page.render({ canvasContext: tmpCtx, viewport: bigVp }).promise;
+
+    /* ── Copie de la zone centrale (sans fond perdu) ── */
+    const out = document.createElement('canvas');
+    out.width  = prodWPx;
+    out.height = prodHPx;
+    out.getContext('2d').drawImage(
+      tmp,
+      cropXPx, cropYPx, prodWPx, prodHPx,
+      0, 0, prodWPx, prodHPx
+    );
+
+    const tex = new THREE.CanvasTexture(out);
     tex.needsUpdate = true;
     return tex;
   }
