@@ -279,48 +279,47 @@ const BAT_VIEWER_3D = (function () {
    */
   async function _pdfDocToTexture(pdfDoc, productType) {
     const SCALE = 2.0;
-    const MM_PT = 72 / 25.4;   // 1 mm → points PDF
-    const EPS   = 2;            // tolérance floating-point (pts ≈ 0.7 mm)
+    const MM_PT = 72 / 25.4;  // 1 mm → points PDF
 
-    const page  = await pdfDoc.getPage(1);
+    const page    = await pdfDoc.getPage(1);
+    const rawVp   = page.getViewport({ scale: 1 });
+    const pdfWPt  = rawVp.width;   // largeur PDF réelle en points
+    const pdfHPt  = rawVp.height;  // hauteur PDF réelle en points
 
-    /* ── Dimensions réelles du PDF en points (scale = 1) ── */
-    const rawVp = page.getViewport({ scale: 1 });
-    const pdfW  = rawVp.width;
-    const pdfH  = rawVp.height;
+    /* ── Dimensions produit fini en points ── */
+    const spec    = PRODUCT_MM[_normalizeType(productType)];
+    let prodWPt   = pdfWPt;  // pas de rognage par défaut
+    let prodHPt   = pdfHPt;
 
-    /* ── Zone à copier (par défaut = PDF complet) ── */
-    let cropX = 0, cropY = 0, cropW = pdfW, cropH = pdfH;
-
-    const spec = PRODUCT_MM[_normalizeType(productType)];
     if (spec) {
       const [sw, sh] = spec;
-      const prodWPts = sw * MM_PT;
-      const prodHPts = sh * MM_PT;
-
-      /* Excédent en points (positif = fond perdu présent) */
-      const dW_port = pdfW - prodWPts;
-      const dH_port = pdfH - prodHPts;
-      const dW_land = pdfW - prodHPts;
-      const dH_land = pdfH - prodWPts;
-
-      if (dW_port >= -EPS && dH_port >= -EPS) {
-        /* Portrait */
-        cropX = Math.max(0, dW_port / 2);
-        cropY = Math.max(0, dH_port / 2);
-        cropW = Math.min(prodWPts, pdfW);
-        cropH = Math.min(prodHPts, pdfH);
-      } else if (dW_land >= -EPS && dH_land >= -EPS) {
-        /* Paysage */
-        cropX = Math.max(0, dW_land / 2);
-        cropY = Math.max(0, dH_land / 2);
-        cropW = Math.min(prodHPts, pdfW);
-        cropH = Math.min(prodWPts, pdfH);
+      const wPt = sw * MM_PT;
+      const hPt = sh * MM_PT;
+      /* Portrait : PDF ≥ produit */
+      if (pdfWPt >= wPt - 2 && pdfHPt >= hPt - 2) {
+        prodWPt = wPt;
+        prodHPt = hPt;
+      /* Paysage : PDF ≥ produit retourné */
+      } else if (pdfWPt >= hPt - 2 && pdfHPt >= wPt - 2) {
+        prodWPt = hPt;
+        prodHPt = wPt;
       }
-      /* Sinon : PDF plus petit que le spec → pas de rognage */
     }
 
-    /* ── Rendu grande taille sur canvas temporaire ── */
+    /* ── Calcul du rognage directement en pixels (scale 2) ── */
+    const cropXPx  = Math.round((pdfWPt - prodWPt) / 2 * SCALE);
+    const cropYPx  = Math.round((pdfHPt - prodHPt) / 2 * SCALE);
+    const prodWPx  = Math.round(prodWPt * SCALE);
+    const prodHPx  = Math.round(prodHPt * SCALE);
+
+    console.log('[BAT_VIEWER_3D] rognage fond perdu', {
+      pdf:    `${Math.round(pdfWPt / MM_PT)}×${Math.round(pdfHPt / MM_PT)} mm`,
+      produit: spec ? `${spec[0]}×${spec[1]} mm` : '(inconnu)',
+      cropXPx, cropYPx,
+      finalPx: `${prodWPx}×${prodHPx}`,
+    });
+
+    /* ── Rendu à SCALE sur canvas temporaire ── */
     const bigVp  = page.getViewport({ scale: SCALE });
     const tmp    = document.createElement('canvas');
     tmp.width    = bigVp.width;
@@ -330,19 +329,17 @@ const BAT_VIEWER_3D = (function () {
     tmpCtx.fillRect(0, 0, tmp.width, tmp.height);
     await page.render({ canvasContext: tmpCtx, viewport: bigVp }).promise;
 
-    /* ── Copie de la zone rognée sur le canvas final ── */
-    const finalW = Math.round(cropW * SCALE);
-    const finalH = Math.round(cropH * SCALE);
-    const final  = document.createElement('canvas');
-    final.width  = finalW;
-    final.height = finalH;
-    final.getContext('2d').drawImage(
+    /* ── Copie de la zone centrale (sans fond perdu) ── */
+    const out = document.createElement('canvas');
+    out.width  = prodWPx;
+    out.height = prodHPx;
+    out.getContext('2d').drawImage(
       tmp,
-      Math.round(cropX * SCALE), Math.round(cropY * SCALE), finalW, finalH,
-      0, 0, finalW, finalH
+      cropXPx, cropYPx, prodWPx, prodHPx,
+      0, 0, prodWPx, prodHPx
     );
 
-    const tex = new THREE.CanvasTexture(final);
+    const tex = new THREE.CanvasTexture(out);
     tex.needsUpdate = true;
     return tex;
   }
