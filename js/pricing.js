@@ -178,7 +178,10 @@ const SIMPACT_PRICING = (function () {
         {id:"4nb",label:"Couv couleur + Int N&B",  cSides:2,iSides:2, cpcCov:CPC.bro,   cpcInt:CPC.liv_nb},
         {id:"nb", label:"Noir & Blanc intégral",   cSides:2,iSides:2, cpcCov:CPC.ent_nb, cpcInt:CPC.ent_nb},
       ],
-      fins:[],
+      fins:[
+        {id:"pm",label:"Pelliculage Mat",     t:"pc"},
+        {id:"pb",label:"Pelliculage Brillant", t:"pc"},
+      ],
       qty:[25,50,100,250,500,1000], setup:18,
     },
 
@@ -316,7 +319,10 @@ const SIMPACT_PRICING = (function () {
         {id:"spirale",label:"Reliure spirale"},
         {id:"dos",    label:"Dos carré collé"},
       ],
-      fins:[],
+      fins:[
+        {id:"pm",label:"Pelliculage Mat",     t:"ps"},
+        {id:"pb",label:"Pelliculage Brillant", t:"ps"},
+      ],
       qty:[10,25,50,100,250,500], setup:20,
       cpcNb:CPC.liv_nb, cpcCov:CPC.bro,
     },

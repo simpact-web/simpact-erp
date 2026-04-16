@@ -282,8 +282,8 @@ function finsSection(p, n) {
   const q = Q();
   const fmt = p.formats[S.fi];
   const sh = fmt?.sheet || p.sheet || {w:.320, h:.450};
-  const fw = fmt?.piece?.w || fmt?.w || .210;
-  const fh = fmt?.piece?.h || fmt?.h || .297;
+  const fw = fmt?.piece?.w || fmt?.pd?.w || fmt?.w || .210;
+  const fh = fmt?.piece?.h || fmt?.pd?.h || fmt?.h || .297;
   const psn = fmt ? SIMPACT_PRICING.poses(fw, fh, sh.w, sh.h).n : 2;
   const sNet = Math.ceil(q / psn);
   const fp = SIMPACT_PARAMS?.P?.finitions || {};
@@ -422,7 +422,7 @@ function renderOpts() {
         <span style="font-size:12px;color:var(--text-muted)">${S.pages?"= "+(S.pages+4)+" pages total (couv. incluse)":"Entrez le nombre de pages"}</span>
       </div></div>`;
 
-    h += pellSelect(p,"9");
+    h += finsSection(p,"9");
 
   } else if (p.type === "book") {
     // ② Pages intérieures
@@ -442,7 +442,7 @@ function renderOpts() {
     h += sel("5", "Papier couverture",  p.cPapers.map(pp=>pp.label), S.pa2, `S.pa2=parseInt(this.value);renderAll()`);
     h += qtyField(p, "6");
     h += sel("7", "Reliure", p.bindings.map(b=>b.label), S.bi, `S.bi=parseInt(this.value);renderAll()`);
-    h += pellSelect(p, "8");
+    h += finsSection(p,"8");
 
   } else {
     // Produits standard
