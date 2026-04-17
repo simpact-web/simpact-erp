@@ -35,6 +35,22 @@ const BAT_VIEWER_3D = (function () {
   let _controls = null, _mesh = null, _animId = null;
   let _autoRotate = true;
 
+  /* ── État mode livre (feuilleteur) ── */
+  let _mode           = 'box';   // 'box' | 'book'
+  let _pdfDoc         = null;    // PDFDocumentProxy partagé
+  let _productType    = '';
+  let _bookGroup      = null;    // THREE.Group (livre complet)
+  let _leftPlane      = null;    // page gauche statique
+  let _rightPlane     = null;    // page droite statique
+  let _flipPivot      = null;    // group qui tourne pendant le flip
+  let _textureCache   = null;    // Map<pageNum, CanvasTexture>
+  let _leftPageNum    = 1;
+  let _rightPageNum   = 2;
+  let _totalPages     = 0;
+  let _isFlipping     = false;
+  let _pageW          = 2.1;     // dimensions plane en unités Three.js
+  let _pageH          = 3.0;
+
   /* ════════════════════════════════════════════════
      API PUBLIQUE
      ════════════════════════════════════════════════ */
@@ -46,14 +62,16 @@ const BAT_VIEWER_3D = (function () {
    * @param {string|null} expectedPages - nombre de pages attendues (optionnel)
    */
   async function open(fileUrl, productType, productName, expectedPages) {
+    _productType = productType;
     _showOverlay(productName || 'BAT 3D');
 
     try {
       await _loadDeps();
       _initScene();
 
-      const ext = (fileUrl.split('?')[0].split('.').pop() || '').toLowerCase();
-      let texture = null;
+      const ext      = (fileUrl.split('?')[0].split('.').pop() || '').toLowerCase();
+      const normType = _normalizeType(productType);
+      const isBook   = ext === 'pdf' && (normType === 'book' || normType === 'booklet');
 
       if (ext === 'pdf') {
         /* ── Preflight côté serveur (Edge Function) ── */
@@ -65,18 +83,31 @@ const BAT_VIEWER_3D = (function () {
           console.warn('BAT_VIEWER_3D preflight:', pfErr);
         }
 
-        /* ── Chargement local du PDF pour la texture ── */
+        /* ── Chargement du PDF ── */
         _setLoading('Chargement du fichier PDF…');
-        const pdfDoc = await pdfjsLib.getDocument({ url: fileUrl, withCredentials: false }).promise;
+        _pdfDoc = await pdfjsLib.getDocument({ url: fileUrl, withCredentials: false }).promise;
 
-        _setLoading('Génération de la maquette 3D…');
-        texture = await _pdfDocToTexture(pdfDoc, productType);
+        if (isBook && _pdfDoc.numPages >= 2) {
+          _mode = 'book';
+          _autoRotate = false;
+          _setLoading('Préparation du feuilleteur…');
+          await _buildBook(_pdfDoc, productType);
+        } else {
+          _mode = 'box';
+          _autoRotate = true;
+          _setLoading('Génération de la maquette 3D…');
+          const texture = await _pdfDocToTexture(_pdfDoc, productType);
+          _buildMesh(productType, texture);
+        }
 
       } else {
-        texture = await _imageToTexture(fileUrl);
+        _mode = 'box';
+        _autoRotate = true;
+        const texture = await _imageToTexture(fileUrl);
+        _buildMesh(productType, texture);
       }
 
-      _buildMesh(productType, texture);
+      _updateBookUI();
       _startLoop();
 
     } catch (err) {
@@ -87,9 +118,19 @@ const BAT_VIEWER_3D = (function () {
 
   function close() {
     _stopLoop();
+    document.removeEventListener('keydown', _onKeyDown);
     _disposeScene();
+    _pdfDoc = null;
     const overlay = document.getElementById('bat3d-overlay');
     if (overlay) overlay.style.display = 'none';
+  }
+
+  /* Navigation publique (exposée pour les boutons onclick + clavier) */
+  function prevPage()   { if (_mode === 'book') _flipPage(-1); }
+  function nextPage()   { if (_mode === 'book') _flipPage(+1); }
+  async function toggleMode() {
+    if (_isFlipping || !_pdfDoc) return;
+    await _switchMode(_mode === 'book' ? 'box' : 'book');
   }
 
   /* ════════════════════════════════════════════════
@@ -352,13 +393,313 @@ const BAT_VIEWER_3D = (function () {
   }
 
   /* ════════════════════════════════════════════════
+     MODE LIVRE — FEUILLETEUR 3D
+     ════════════════════════════════════════════════ */
+
+  async function _buildBook(pdfDoc, productType) {
+    _totalPages    = pdfDoc.numPages;
+    _leftPageNum   = 1;
+    _rightPageNum  = Math.min(2, _totalPages);
+    _textureCache  = new Map();
+    _isFlipping    = false;
+
+    const spec   = PRODUCT_MM[_normalizeType(productType)] || [210, 297];
+    const aspect = spec[0] / spec[1];
+    _pageH = 3.0;
+    _pageW = _pageH * aspect;
+
+    _bookGroup = new THREE.Group();
+    _scene.add(_bookGroup);
+
+    /* Page gauche — origine centrée, décalée à gauche de la reliure */
+    _leftPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(_pageW, _pageH),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+    );
+    _leftPlane.position.x = -_pageW / 2;
+    _bookGroup.add(_leftPlane);
+
+    /* Page droite */
+    _rightPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(_pageW, _pageH),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+    );
+    _rightPlane.position.x = _pageW / 2;
+    _bookGroup.add(_rightPlane);
+
+    /* Reliure centrale (fine bande sombre) */
+    const spine = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.02, _pageH),
+      new THREE.MeshBasicMaterial({ color: 0x1a1a2a, side: THREE.DoubleSide })
+    );
+    spine.position.z = 0.003;
+    _bookGroup.add(spine);
+
+    /* Ombre portée douce sous le livre */
+    const shadow = new THREE.Mesh(
+      new THREE.PlaneGeometry(_pageW * 2.4, _pageH * 1.2),
+      new THREE.MeshBasicMaterial({
+        color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false,
+      })
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = -_pageH / 2 - 0.08;
+    shadow.position.z = -0.1;
+    _bookGroup.add(shadow);
+
+    /* Inclinaison légère pour effet 3D */
+    _bookGroup.rotation.x = 0.08;
+    _bookGroup.rotation.y = -0.15;
+
+    /* Caméra adaptée au livre ouvert */
+    _camera.position.set(0, 0, Math.max(5, _pageW * 2.2));
+
+    /* Chargement initial */
+    await _updatePageTextures();
+    _preloadPages([_leftPageNum + 2, _rightPageNum + 2]);
+    _setLoading(null);
+  }
+
+  async function _loadPageTexture(pageNum) {
+    if (pageNum < 1 || pageNum > _totalPages || !_pdfDoc) return null;
+    if (_textureCache?.has(pageNum)) return _textureCache.get(pageNum);
+
+    const page = await _pdfDoc.getPage(pageNum);
+    const vp   = page.getViewport({ scale: 1.5 });
+    const cvs  = document.createElement('canvas');
+    cvs.width  = vp.width;
+    cvs.height = vp.height;
+    const ctx  = cvs.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cvs.width, cvs.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.needsUpdate = true;
+    _textureCache?.set(pageNum, tex);
+    return tex;
+  }
+
+  function _preloadPages(nums) {
+    nums.forEach(n => {
+      if (n >= 1 && n <= _totalPages) _loadPageTexture(n).catch(() => {});
+    });
+  }
+
+  async function _updatePageTextures() {
+    if (_leftPlane) {
+      if (_leftPageNum >= 1 && _leftPageNum <= _totalPages) {
+        const tex = await _loadPageTexture(_leftPageNum);
+        if (tex) { _leftPlane.material.map = tex; _leftPlane.material.needsUpdate = true; }
+        _leftPlane.visible = true;
+      } else {
+        _leftPlane.visible = false;
+      }
+    }
+    if (_rightPlane) {
+      if (_rightPageNum >= 1 && _rightPageNum <= _totalPages) {
+        const tex = await _loadPageTexture(_rightPageNum);
+        if (tex) { _rightPlane.material.map = tex; _rightPlane.material.needsUpdate = true; }
+        _rightPlane.visible = true;
+      } else {
+        _rightPlane.visible = false;
+      }
+    }
+  }
+
+  /**
+   * Tourne une page. direction = +1 (suivante) ou -1 (précédente).
+   * Crée un plan pivot sur la reliure, anime rotation.y de 0 à ±π.
+   */
+  async function _flipPage(direction) {
+    if (_isFlipping || _mode !== 'book' || !_bookGroup) return;
+
+    const newLeft  = _leftPageNum  + 2 * direction;
+    const newRight = _rightPageNum + 2 * direction;
+
+    /* Limites */
+    if (direction > 0 && newLeft  > _totalPages) return;
+    if (direction < 0 && newRight < 1)           return;
+
+    _isFlipping = true;
+    _updateBookUI();
+
+    /* Textures du plan qui tourne */
+    let frontTex, backTex;
+    if (direction > 0) {
+      frontTex = await _loadPageTexture(_rightPageNum);
+      backTex  = await _loadPageTexture(newLeft);
+    } else {
+      frontTex = await _loadPageTexture(_leftPageNum);
+      backTex  = await _loadPageTexture(newRight);
+    }
+
+    /* Pivot à la reliure (x=0) */
+    _flipPivot = new THREE.Group();
+    _bookGroup.add(_flipPivot);
+
+    /* La page se déploie côté "sortant" (droite pour forward, gauche pour back) */
+    const side = direction > 0 ? 1 : -1;
+
+    const flipFront = new THREE.Mesh(
+      new THREE.PlaneGeometry(_pageW, _pageH),
+      new THREE.MeshBasicMaterial({ map: frontTex, side: THREE.FrontSide })
+    );
+    flipFront.position.x = side * _pageW / 2;
+    flipFront.position.z = 0.004;
+    _flipPivot.add(flipFront);
+
+    const flipBack = new THREE.Mesh(
+      new THREE.PlaneGeometry(_pageW, _pageH),
+      new THREE.MeshBasicMaterial({ map: backTex, side: THREE.FrontSide })
+    );
+    flipBack.position.x = side * _pageW / 2;
+    flipBack.position.z = -0.004;
+    flipBack.rotation.y = Math.PI;
+    _flipPivot.add(flipBack);
+
+    /* Masquer le plan statique côté flip */
+    if (direction > 0) _rightPlane.visible = false;
+    else               _leftPlane.visible  = false;
+
+    /* Animation : rotation.y de 0 à ±π avec ease-in-out */
+    const DURATION = 700;
+    const endRot   = direction > 0 ? -Math.PI : Math.PI;
+    const t0       = performance.now();
+
+    await new Promise(resolve => {
+      function tick() {
+        const t = Math.min((performance.now() - t0) / DURATION, 1);
+        const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        _flipPivot.rotation.y = THREE.MathUtils.lerp(0, endRot, eased);
+        /* Courbure simulée : léger pli au milieu (axe z) */
+        const curve = Math.sin(eased * Math.PI) * 0.12;
+        _flipPivot.position.z = curve;
+        if (t < 1) requestAnimationFrame(tick);
+        else       resolve();
+      }
+      tick();
+    });
+
+    /* Cleanup pivot */
+    _flipPivot.children.forEach(m => {
+      m.geometry.dispose();
+      m.material.dispose();
+    });
+    _bookGroup.remove(_flipPivot);
+    _flipPivot = null;
+
+    /* Nouveau spread */
+    _leftPageNum  = newLeft;
+    _rightPageNum = newRight;
+    await _updatePageTextures();
+    _preloadPages([
+      _leftPageNum + 2, _rightPageNum + 2,
+      _leftPageNum - 2, _rightPageNum - 2,
+    ]);
+
+    _isFlipping = false;
+    _updateBookUI();
+  }
+
+  function _updateBookUI() {
+    const ctrls = document.getElementById('bat3d-book-controls');
+    const toggleBtn = document.getElementById('bat3d-mode-toggle');
+
+    if (_mode === 'book') {
+      if (ctrls) ctrls.style.display = 'flex';
+      const counter = document.getElementById('bat3d-page-counter');
+      if (counter) counter.textContent = `Page ${_leftPageNum}${_rightPageNum !== _leftPageNum ? '–' + _rightPageNum : ''} / ${_totalPages}`;
+      const prev = document.getElementById('bat3d-page-prev');
+      const next = document.getElementById('bat3d-page-next');
+      if (prev) prev.disabled = _isFlipping || _leftPageNum  <= 1;
+      if (next) next.disabled = _isFlipping || _rightPageNum >= _totalPages;
+      if (toggleBtn) toggleBtn.textContent = 'Vue couverture 3D';
+    } else {
+      if (ctrls) ctrls.style.display = 'none';
+      const normType = _normalizeType(_productType);
+      const canBook  = _pdfDoc && _pdfDoc.numPages >= 2 && (normType === 'book' || normType === 'booklet');
+      if (toggleBtn) {
+        toggleBtn.textContent = 'Feuilleter';
+        toggleBtn.style.display = canBook ? '' : 'none';
+      }
+    }
+  }
+
+  function _disposeBook() {
+    if (_flipPivot) {
+      _flipPivot.children.forEach(m => {
+        m.geometry.dispose();
+        m.material.dispose();
+      });
+      _bookGroup?.remove(_flipPivot);
+      _flipPivot = null;
+    }
+    if (_bookGroup) {
+      _bookGroup.children.forEach(m => {
+        if (m.geometry) m.geometry.dispose();
+        if (m.material) {
+          if (m.material.map) m.material.map.dispose();
+          m.material.dispose();
+        }
+      });
+      _scene?.remove(_bookGroup);
+      _bookGroup = null;
+    }
+    _leftPlane = null;
+    _rightPlane = null;
+    if (_textureCache) {
+      _textureCache.forEach(t => t.dispose());
+      _textureCache.clear();
+      _textureCache = null;
+    }
+  }
+
+  async function _switchMode(newMode) {
+    if (newMode === _mode || _isFlipping || !_pdfDoc) return;
+    _setLoading('Changement de vue…');
+
+    /* Dispose mode courant */
+    if (_mode === 'book') {
+      _disposeBook();
+    } else if (_mesh) {
+      _mesh.geometry.dispose();
+      const mats = Array.isArray(_mesh.material) ? _mesh.material : [_mesh.material];
+      mats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+      _scene.remove(_mesh);
+      _mesh = null;
+    }
+
+    _mode = newMode;
+
+    if (newMode === 'book') {
+      _autoRotate = false;
+      await _buildBook(_pdfDoc, _productType);
+    } else {
+      _autoRotate = true;
+      _camera.position.set(0, 0, 5);
+      const texture = await _pdfDocToTexture(_pdfDoc, _productType);
+      _buildMesh(_productType, texture);
+    }
+
+    _updateBookUI();
+    _setLoading(null);
+  }
+
+  function _onKeyDown(e) {
+    if (_mode !== 'book') return;
+    if      (e.key === 'ArrowLeft')  { e.preventDefault(); _flipPage(-1); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); _flipPage(+1); }
+  }
+
+  /* ════════════════════════════════════════════════
      BOUCLE DE RENDU
      ════════════════════════════════════════════════ */
 
   function _startLoop() {
     function loop() {
       _animId = requestAnimationFrame(loop);
-      if (_autoRotate && _mesh) _mesh.rotation.y += 0.004;
+      if (_autoRotate && _mode === 'box' && _mesh) _mesh.rotation.y += 0.004;
       _controls?.update();
       if (_renderer && _scene && _camera) _renderer.render(_scene, _camera);
     }
@@ -377,9 +718,11 @@ const BAT_VIEWER_3D = (function () {
       mats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
       _mesh = null;
     }
+    _disposeBook();
     if (_renderer) { _renderer.dispose(); _renderer = null; }
     _scene = null; _camera = null; _controls = null;
     _autoRotate = true;
+    _mode = 'box';
   }
 
   function _onResize() {
@@ -440,6 +783,44 @@ const BAT_VIEWER_3D = (function () {
           Initialisation…
         </div>
 
+        <!-- Contrôles feuilleteur (mode livre) -->
+        <div id="bat3d-book-controls"
+          style="display:none;position:absolute;bottom:100px;left:50%;
+                 transform:translateX(-50%);z-index:15;
+                 align-items:center;gap:20px;
+                 padding:10px 16px;border-radius:999px;
+                 background:rgba(10,10,26,.75);border:1px solid rgba(255,255,255,.1);
+                 backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
+          <button id="bat3d-page-prev" onclick="BAT_VIEWER_3D.prevPage()"
+            style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+                   color:#fff;border-radius:50%;width:40px;height:40px;font-size:18px;
+                   cursor:pointer;line-height:1;transition:.15s"
+            title="Page précédente (←)">←</button>
+          <div id="bat3d-page-counter"
+            style="color:#fff;font-family:'DM Mono',monospace;font-size:12px;
+                   letter-spacing:.5px;min-width:130px;text-align:center">Page – / –</div>
+          <button id="bat3d-page-next" onclick="BAT_VIEWER_3D.nextPage()"
+            style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+                   color:#fff;border-radius:50%;width:40px;height:40px;font-size:18px;
+                   cursor:pointer;line-height:1;transition:.15s"
+            title="Page suivante (→)">→</button>
+        </div>
+
+        <!-- Toggle mode boîte / feuilleteur -->
+        <button id="bat3d-mode-toggle" onclick="BAT_VIEWER_3D.toggleMode()"
+          style="display:none;position:absolute;top:16px;left:50%;
+                 transform:translateX(-50%);z-index:15;
+                 padding:8px 18px;border-radius:999px;
+                 background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.4);
+                 color:#c9a84c;font-family:'DM Mono',monospace;font-size:11px;
+                 letter-spacing:1.2px;text-transform:uppercase;cursor:pointer;
+                 backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+                 transition:.2s"
+          onmouseover="this.style.background='rgba(201,168,76,.28)'"
+          onmouseout="this.style.background='rgba(201,168,76,.15)'">
+          Feuilleter
+        </button>
+
         <!-- Bandeau preflight (rempli dynamiquement) -->
         <div id="bat3d-banner" style="display:none"></div>
       `;
@@ -450,9 +831,18 @@ const BAT_VIEWER_3D = (function () {
     document.getElementById('bat3d-title').textContent = title;
     const banner = document.getElementById('bat3d-banner');
     if (banner) banner.style.display = 'none';
+    const ctrls = document.getElementById('bat3d-book-controls');
+    if (ctrls) ctrls.style.display = 'none';
+    const toggleBtn = document.getElementById('bat3d-mode-toggle');
+    if (toggleBtn) toggleBtn.style.display = 'none';
     overlay.style.display = 'block';
     _setLoading('Initialisation…');
     _autoRotate = true;
+    _mode = 'box';
+
+    /* Clavier : flèches ← → pour feuilleter */
+    document.removeEventListener('keydown', _onKeyDown);
+    document.addEventListener('keydown', _onKeyDown);
   }
 
   function _setLoading(msg) {
@@ -480,6 +870,6 @@ const BAT_VIEWER_3D = (function () {
   /* ════════════════════════════════════════════════
      EXPORT
      ════════════════════════════════════════════════ */
-  return { open, close };
+  return { open, close, prevPage, nextPage, toggleMode };
 
 })();
