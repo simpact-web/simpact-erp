@@ -56,6 +56,16 @@
     .pal-tbl tr.pal-on td { background:rgba(201,168,76,0.06); }
     .pal-tbl tr.pal-on td:first-child { color:var(--gold);font-weight:700; }
     .admin-only { display:none; }
+    /* ── Brochure personnalisée — upload & specs ── */
+    .bcp-dropzone { border:2px dashed var(--navy-border);border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:.2s;background:var(--navy-dark);position:relative; }
+    .bcp-dropzone:hover,.bcp-dropzone.drag { border-color:var(--gold);background:rgba(201,168,76,.05); }
+    .bcp-dropzone input[type=file] { position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0; }
+    .bcp-spec-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:0; }
+    .bcp-spec-card { background:var(--navy-dark);border:1px solid var(--navy-border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px; }
+    .bcp-spec-icon { font-size:20px;flex-shrink:0; }
+    .bcp-spec-label { font-size:9px;text-transform:uppercase;letter-spacing:1.4px;color:var(--text-dim);font-family:'DM Mono',monospace;margin-bottom:3px; }
+    .bcp-spec-val { font-size:14px;font-weight:700;color:var(--text-primary); }
+    @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
     /* ── Menus déroulants configurateur ──────────── */
     .cfg-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
     .cfg-row.full { grid-template-columns:1fr; }
@@ -211,6 +221,9 @@ const PRODS = SIMPACT_PRICING.PRODS;
 let S = {pi:0,fi:0,pa:0,co:0,qi:2,qc:null,fins:[],disc:0,showCost:false,pages:null,bi:0,pa2:0,cov:0,pell:null,mi:0};
 let isAdmin = false;
 
+/* ── État brochure personnalisée ── */
+let _custom = { step:1, tmpFileUrl:null, tmpFileName:null, uploading:false, detected:null, qty:100, pell:null };
+
 const P = () => PRODS[S.pi];
 const Q = () => S.qc ?? P().qty[Math.max(0,Math.min(S.qi,P().qty.length-1))];
 
@@ -234,6 +247,7 @@ function renderProds() {
 }
 
 function selProd(i) {
+  _custom = { step:1, tmpFileUrl:null, tmpFileName:null, uploading:false, detected:null, qty:100, pell:null };
   S = {pi:i,fi:0,pa:0,co:0,qi:2,qc:null,fins:[],disc:S.disc,showCost:S.showCost,pages:null,bi:0,pa2:0,cov:0,pell:null,mi:0};
   renderAll();
 }
@@ -382,7 +396,9 @@ function pellSelect(p, n) {
 }
 
 function renderOpts() {
-  const p = P(); let h = '<div class="opts-grid">';
+  const p = P();
+  if (p.id === 'bro-custom') { renderCustomBookletOpts(); return; }
+  let h = '<div class="opts-grid">';
 
   if (p.type === "offset") {
     h += sel("1", "Machine", p.machines.map(m=>m.label), S.mi, `S.mi=parseInt(this.value);S.fi=0;renderAll()`);
@@ -464,8 +480,238 @@ function renderOpts() {
 
 
 
+/* ═══════════════════════════════════════════════════════
+   BROCHURE PERSONNALISÉE — FLUX PDF-FIRST
+   ═══════════════════════════════════════════════════════ */
+
+function renderCustomBookletOpts() {
+  let h = '';
+
+  /* Étape 1 — Déposer le PDF */
+  h += `<div class="cfg-section">
+    <div class="cfg-label"><span class="sn">1</span> Votre fichier PDF</div>`;
+
+  if (!_custom.tmpFileUrl) {
+    h += `<div class="bcp-dropzone" id="bcp-dropzone"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="bcpHandleDrop(event)">
+      <input type="file" accept=".pdf" onchange="bcpHandleFile(this.files[0])">
+      <div style="font-size:32px;margin-bottom:12px;opacity:.45">📄</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">
+        Déposez votre PDF pour obtenir un prix instantané
+      </div>
+      <div style="font-size:11px;color:var(--text-dim)">ou cliquez pour choisir un fichier · max 150 Mo</div>
+    </div>`;
+
+    if (_custom.uploading) {
+      h += `<div style="margin-top:14px">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">⏳ Analyse en cours…</div>
+        <div style="height:4px;border-radius:2px;background:var(--navy-border);overflow:hidden">
+          <div style="height:100%;width:100%;background:var(--gold);animation:pulse 1.2s ease-in-out infinite"></div>
+        </div>
+      </div>`;
+    }
+  } else {
+    h += `<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;
+        background:var(--navy-dark);border:1px solid rgba(61,186,120,.3);border-radius:10px">
+      <span style="font-size:22px">📄</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${_custom.tmpFileName || 'Fichier PDF'}
+        </div>
+        <div style="font-size:11px;color:var(--success)">✓ Fichier analysé avec succès</div>
+      </div>
+      <button onclick="bcpReset()" style="background:rgba(255,255,255,.06);border:1px solid var(--navy-border);
+        color:var(--text-muted);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;flex-shrink:0">
+        Changer
+      </button>
+    </div>`;
+  }
+  h += `</div>`;
+
+  /* Étape 2 — Specs détectées + options */
+  if (_custom.step >= 2 && _custom.detected) {
+    const d = _custom.detected;
+    const colorIcon  = d.colorMode === 'color' ? '🎨' : '⬛';
+    const colorLabel = d.colorMode === 'color' ? 'Quadrichromie' : 'Noir & Blanc';
+
+    h += `<div class="cfg-section">
+      <div class="cfg-label"><span class="sn">2</span> Specs détectées</div>
+      <div class="bcp-spec-grid">
+        <div class="bcp-spec-card">
+          <div class="bcp-spec-icon">📐</div>
+          <div><div class="bcp-spec-label">Format détecté</div>
+            <div class="bcp-spec-val" style="font-size:12px">${d.formatName}</div></div>
+        </div>
+        <div class="bcp-spec-card">
+          <div class="bcp-spec-icon">📖</div>
+          <div><div class="bcp-spec-label">Pages</div>
+            <div class="bcp-spec-val">${d.pages} p.</div></div>
+        </div>
+        <div class="bcp-spec-card">
+          <div class="bcp-spec-icon">${colorIcon}</div>
+          <div><div class="bcp-spec-label">Couleur</div>
+            <div class="bcp-spec-val" style="font-size:12px">${colorLabel}</div></div>
+        </div>
+      </div>
+    </div>`;
+
+    const reliureLabel = d.pages <= 64 ? 'Piqûre (agrafé) · auto' : 'Dos carré collé · auto';
+    h += `<div class="cfg-section">
+      <div class="cfg-label"><span class="sn">3</span> Options</div>
+      <div class="opts-grid">
+        <div class="opt-field">
+          <div class="opt-label"><span class="sn">A</span> Quantité</div>
+          <select class="opt-select" onchange="_custom.qty=parseInt(this.value);if(_custom.step>=3)bcpCalculate()">
+            ${[50,100,250,500,1000].map(q =>
+              `<option value="${q}" ${_custom.qty===q?'selected':''}>${q.toLocaleString('fr-FR')} ex.</option>`
+            ).join('')}
+          </select>
+        </div>
+        <div class="opt-field">
+          <div class="opt-label"><span class="sn">B</span> Finition couverture</div>
+          <select class="opt-select" onchange="_custom.pell=this.value||null;if(_custom.step>=3)bcpCalculate()">
+            <option value="" ${!_custom.pell?'selected':''}>Sans pelliculage</option>
+            <option value="pm" ${_custom.pell==='pm'?'selected':''}>Pelliculage Mat</option>
+            <option value="pb" ${_custom.pell==='pb'?'selected':''}>Pelliculage Brillant</option>
+          </select>
+        </div>
+        <div class="opt-field" style="grid-column:1/-1">
+          <div class="opt-label">Reliure automatique</div>
+          <div style="padding:10px 14px;background:var(--navy-dark);border:1px solid var(--navy-border);
+            border-radius:8px;font-size:12px;color:var(--text-muted)">
+            📎 ${reliureLabel}
+          </div>
+        </div>
+      </div>
+      ${_custom.step < 3
+        ? `<button class="btn btn-primary" style="width:100%;margin-top:16px;padding:13px" onclick="bcpCalculate()">
+            🧮 Calculer le prix
+          </button>`
+        : ''}
+    </div>`;
+  }
+
+  document.getElementById("optPanel").innerHTML = h;
+}
+
+/* ── Upload + détection ── */
+
+function bcpHandleDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag');
+  const file = e.dataTransfer?.files?.[0];
+  if (file) bcpHandleFile(file);
+}
+
+async function bcpHandleFile(file) {
+  if (!file) return;
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    showToast('Veuillez déposer un fichier PDF', 'error'); return;
+  }
+  _custom = { ..._custom, step:1, tmpFileUrl:null, tmpFileName:null, uploading:true, detected:null };
+  renderCustomBookletOpts();
+
+  try {
+    const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `temp/${Date.now()}_${safe}`;
+    const { error } = await supabase.storage.from('commandes').upload(path, file, { upsert: true });
+    if (error) throw error;
+    const { data:{ publicUrl } } = supabase.storage.from('commandes').getPublicUrl(path);
+
+    _custom.tmpFileUrl  = publicUrl;
+    _custom.tmpFileName = file.name;
+
+    const detected = await bcpDetect(publicUrl);
+    _custom.detected = detected;
+    _custom.qty  = 100;
+    _custom.step = 2;
+
+  } catch (err) {
+    console.error('bcp:', err);
+    showToast('Erreur lors de l\'analyse : ' + err.message, 'error');
+    _custom.tmpFileUrl = null;
+    _custom.step = 1;
+  }
+  _custom.uploading = false;
+  renderCustomBookletOpts();
+}
+
+async function bcpDetect(fileUrl) {
+  const resp = await fetch(
+    'https://yqileqgxpihnyaauwmtr.supabase.co/functions/v1/preflight-check',
+    { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ fileUrl, detectOnly: true }) }
+  );
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const data = await resp.json();
+  if (!data.detected) throw new Error('Réponse invalide de l\'Edge Function');
+  return data.detected;
+}
+
+function bcpReset() {
+  _custom = { step:1, tmpFileUrl:null, tmpFileName:null, uploading:false, detected:null, qty:100, pell:null };
+  renderCustomBookletOpts();
+  ['pp-ht','pp-unit','pp-ttc'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent='—'; });
+  document.getElementById('pp-poses').textContent = '—';
+  document.getElementById('pp-sheets').innerHTML  = '';
+  document.getElementById('pp-summary').innerHTML = '';
+  document.getElementById('palTbl').innerHTML     = '';
+}
+
+function bcpCalculate() {
+  const d = _custom.detected;
+  if (!d) return;
+
+  const broCustom = PRODS.find(p => p.id === 'bro-custom');
+  if (!broCustom) return;
+
+  /* Mapping format → index [A4, A5, 16×23] */
+  const fmtSpec = [{w:210,h:297},{w:150,h:210},{w:160,h:230}];
+  let fi = 0, minD = Infinity;
+  fmtSpec.forEach(({w,h}, i) => {
+    const dist = Math.min(
+      Math.hypot(d.widthMm-w, d.heightMm-h),
+      Math.hypot(d.widthMm-h, d.heightMm-w)
+    );
+    if (dist < minD) { minD = dist; fi = i; }
+  });
+
+  /* Mapping couleur : 0=quadri, 2=N&B */
+  const co = d.colorMode === 'bw' ? 2 : 0;
+
+  /* Pages intérieures = total − 4 (couverture), multiple de 4 */
+  const interiorPages = Math.max(4, Math.round(Math.max(d.pages - 4, 4) / 4) * 4);
+
+  /* Reliure auto : ≤64 pages total → piqûre (0), sinon dos carré collé (2) */
+  const bi = d.pages <= 64 ? 0 : 2;
+
+  /* Quantité → index le plus proche */
+  const qi = broCustom.qty.reduce((best, q, i) =>
+    Math.abs(q - _custom.qty) < Math.abs(broCustom.qty[best] - _custom.qty) ? i : best, 0);
+
+  S.pi    = PRODS.indexOf(broCustom);
+  S.fi    = fi;
+  S.co    = co;
+  S.pages = interiorPages;
+  S.bi    = bi;
+  S.pell  = _custom.pell || null;
+  S.qi    = qi;
+  S.qc    = null;
+  S.cov   = 0;
+  S.pa    = 0;
+  S.pa2   = 0;
+
+  _custom.step = 3;
+  renderCustomBookletOpts();
+  renderPrice();
+}
+
 function renderPrice() {
   const p=P(), q=Q();
+  /* Brochure perso : n'afficher le prix qu'après calcul (étape 3) */
+  if (p.id === 'bro-custom' && _custom.step < 3) return;
   if(!q||q<1) return;
   const state=getState();
   const res=SIMPACT_PRICING.compute(p,state);
@@ -628,6 +874,7 @@ async function openOrderModal(){
         <div style="background:var(--navy-dark);border:1px solid var(--navy-border);border-radius:var(--radius-md);padding:14px;margin-bottom:16px">
           ${[
             ["Produit",p.name],["Format",fmt?.label||"—"],
+            ...(p.id==='bro-custom'&&_custom.tmpFileName?[["Fichier PDF",_custom.tmpFileName]]:[]),
             ...(res.isBooklet?[["Reliure",res.bindingLabel||"—"],["Pages",res.pages+"p"]]:[]),
             ...(res.isBook?[["Pages",res.pages+"p N&B"]]:[]),
             ...(res.isOffset?[["Machine",res.machine?.label?.split("(")[0].trim()||"—"],["Impression",res.col?.label||"—"],["Plaques",res.nbPlaques+" plaques CTP"]]:[]),
@@ -681,6 +928,10 @@ async function openOrderModal(){
           note,
         });
         if(!order){ showToast("Erreur lors de la création de la commande","error"); btn.disabled=false; btn.textContent="✓ Créer la commande"; return; }
+        /* Attacher le fichier PDF (brochure personnalisée) */
+        if (p.id === 'bro-custom' && _custom.tmpFileUrl) {
+          await DB.updateOrder(order.id, { file_url: _custom.tmpFileUrl, file_name: _custom.tmpFileName });
+        }
         overlay.remove();
         showToast(`✓ Commande ${order.id} créée pour ${cl?.name}`,"success");
         setTimeout(()=>window.location.href="orders.html",1200);

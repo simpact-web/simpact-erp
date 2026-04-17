@@ -74,12 +74,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let fileUrl: string;
   let productType: string;
   let expectedPages: number | null;
+  let detectOnly: boolean;
 
   try {
     const body = await req.json();
     fileUrl       = body.fileUrl;
     productType   = String(body.productType || "fly").toLowerCase();
     expectedPages = body.expectedPages ? parseInt(String(body.expectedPages), 10) : null;
+    detectOnly    = !!body.detectOnly;
     if (!fileUrl) throw new Error("fileUrl manquant");
   } catch (e) {
     return json({ error: String((e as Error).message) }, 400);
@@ -93,6 +95,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
     rawBytes = new Uint8Array(await resp.arrayBuffer());
   } catch (e) {
     return json({ error: "Impossible de télécharger le fichier : " + (e as Error).message }, 400);
+  }
+
+  /* ── Mode détection automatique (sans vérifications) ── */
+  if (detectOnly) {
+    const meta = await readPdfMeta(rawBytes);
+    if (!meta.ok) return json({ error: meta.error! }, 400);
+    const wMm = Math.round(meta.widthPts!  * PT_MM);
+    const hMm = Math.round(meta.heightPts! * PT_MM);
+    return json({
+      detected: {
+        pages:      meta.numPages!,
+        widthMm:    wMm,
+        heightMm:   hMm,
+        formatName: detectFormatName(wMm, hMm),
+        colorMode:  detectColorMode(rawBytes),
+      },
+    });
   }
 
   const checks: CheckItem[] = [];
@@ -115,6 +134,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   return json(buildResult(checks));
 });
+
+/* ════════════════════════════════════════════════════════════════
+   DÉTECTION AUTOMATIQUE (mode detectOnly)
+   ════════════════════════════════════════════════════════════════ */
+
+const KNOWN_FORMATS: [string, number, number][] = [
+  ["Carte de visite (85×55mm)",  85,  55 ],
+  ["A6 (105×148mm)",            105, 148 ],
+  ["A5 (148×210mm)",            148, 210 ],
+  ["16×23 cm",                  160, 230 ],
+  ["A4 (210×297mm)",            210, 297 ],
+  ["A3 (297×420mm)",            297, 420 ],
+  ["Carré 210mm",               210, 210 ],
+];
+
+function detectFormatName(wMm: number, hMm: number): string {
+  let best = "Personnalisé", minD = 25;
+  for (const [name, sw, sh] of KNOWN_FORMATS) {
+    const d = Math.min(
+      Math.hypot(wMm - sw, hMm - sh),
+      Math.hypot(wMm - sh, hMm - sw),
+    );
+    if (d < minD) { minD = d; best = name; }
+  }
+  return best;
+}
+
+/** Heuristique rapide : cherche des espaces colorimétriques RVB/CMJN dans les 500 premiers Ko */
+function detectColorMode(bytes: Uint8Array): "color" | "bw" {
+  const sample = new TextDecoder("latin-1").decode(
+    bytes.slice(0, Math.min(bytes.length, 500_000))
+  );
+  const hasColor = /\/DeviceCMYK|\/DeviceRGB|\/CalRGB|\/ICCBased/.test(sample);
+  const grayOnly = /\/DeviceGray/.test(sample) && !hasColor;
+  return grayOnly ? "bw" : "color";
+}
 
 /* ════════════════════════════════════════════════════════════════
    VÉRIFICATIONS
