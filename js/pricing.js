@@ -185,6 +185,52 @@ const SIMPACT_PRICING = (function () {
       qty:[25,50,100,250,500,1000], setup:18,
     },
 
+    /* ── BROCHURE PERSONNALISÉE (flux PDF-first) ──── */
+    {
+      id:"bro-custom", name:"Brochure personnalisée", icon:"📄", type:"booklet",
+      formats:[
+        {label:"A4",      piece:{w:.210,h:.297}},
+        {label:"A5",      piece:{w:.150,h:.210}},
+        {label:"16×23 cm",piece:{w:.160,h:.230}, sheet:{w:.330,h:.480}, psOverride:4},
+      ],
+      sheet:{w:.320, h:.450},
+      bindings:[
+        {id:"piqure", label:"Piqûre (agrafé)"},
+        {id:"spirale",label:"Reliure spirale"},
+        {id:"dos",    label:"Dos carré collé"},
+      ],
+      cPapers:[
+        {id:"300m",label:"300g Couché Mat",       g:300, type:"coated"},
+        {id:"300b",label:"300g Couché Brillant",  g:300, type:"coated"},
+        {id:"350m",label:"350g Couché Mat",        g:350, type:"coated"},
+        {id:"350b",label:"350g Couché Brillant",   g:350, type:"coated"},
+        {id:"250m",label:"250g Couché Mat (Éco)",  g:250, type:"coated"},
+      ],
+      iPapers:[
+        {id:"80o", label:"80g Offset",           g:80,  type:"offset"},
+        {id:"90o", label:"90g Couché Mat",        g:90,  type:"coated"},
+        {id:"90b", label:"90g Couché Brillant",   g:90,  type:"coated"},
+        {id:"100o",label:"100g Offset",           g:100, type:"offset"},
+        {id:"115m",label:"115g Couché Mat",       g:115, type:"coated"},
+        {id:"115b",label:"115g Couché Brillant",  g:115, type:"coated"},
+        {id:"135m",label:"135g Couché Mat",       g:135, type:"coated"},
+        {id:"135b",label:"135g Couché Brillant",  g:135, type:"coated"},
+        {id:"170m",label:"170g Couché Mat",       g:170, type:"coated"},
+        {id:"170b",label:"170g Couché Brillant",  g:170, type:"coated"},
+      ],
+      covTypes:[
+        {id:"rv",label:"Couverture R/V",   sides:2},
+        {id:"r", label:"Couverture Recto", sides:1},
+      ],
+      colors:[
+        {id:"44", label:"Quadri complet (4/4)",   cSides:2,iSides:2, cpcCov:CPC.bro,    cpcInt:CPC.bro},
+        {id:"4nb",label:"Couv couleur + Int N&B",  cSides:2,iSides:2, cpcCov:CPC.bro,    cpcInt:CPC.liv_nb},
+        {id:"nb", label:"Noir & Blanc intégral",   cSides:2,iSides:2, cpcCov:CPC.ent_nb, cpcInt:CPC.ent_nb},
+      ],
+      fins:[],
+      qty:[25,50,100,250,500,1000], setup:18,
+    },
+
     /* ── AFFICHES ──────────────────────────────────── */
     {
       id:"aff", name:"Affiches", icon:"⬜", type:"std",
@@ -591,13 +637,12 @@ const SIMPACT_PRICING = (function () {
       ent: { '40':'ent_cl', 'nb':'ent_nb', '1c':'ent_nb' },
       dep: { '44':'dep',    '40':'dep',    'nb':'ent_nb' },
     };
-    const bm = {
-      bro: {
-        '44':  { cpcCov:'bro',    cpcInt:'bro'    },
-        '4nb': { cpcCov:'bro',    cpcInt:'liv_nb' },
-        'nb':  { cpcCov:'ent_nb', cpcInt:'ent_nb' },
-      },
+    const broColors = {
+      '44':  { cpcCov:'bro',    cpcInt:'bro'    },
+      '4nb': { cpcCov:'bro',    cpcInt:'liv_nb' },
+      'nb':  { cpcCov:'ent_nb', cpcInt:'ent_nb' },
     };
+    const bm = { bro: broColors, 'bro-custom': broColors };
     PRODS.forEach(p => {
       if (cm[p.id]) p.colors.forEach(c => {
         if (cm[p.id][c.id] !== undefined) c.cpc = nc[cm[p.id][c.id]];
