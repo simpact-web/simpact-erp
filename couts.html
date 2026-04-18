@@ -158,6 +158,53 @@
     .tag-km   { background:rgba(201,168,76,0.12);  color:var(--gold); border:1px solid rgba(201,168,76,0.25); }
     .tag-lpct { background:rgba(100,160,255,0.12); color:#64a0ff; border:1px solid rgba(100,160,255,0.25); }
     .tag-csp  { background:rgba(200,120,255,0.12); color:#c878ff; border:1px solid rgba(200,120,255,0.25); }
+
+    /* ── MMP barème ──────────────────────────────────── */
+    .mmp-tbl { width:100%; border-collapse:collapse; font-size:12px; font-family:'DM Mono',monospace; }
+    .mmp-tbl th { font-size:9px; text-transform:uppercase; letter-spacing:1.2px; color:var(--text-dim);
+      padding:5px 8px; border-bottom:1px solid var(--navy-border); text-align:right; }
+    .mmp-tbl th:first-child { text-align:left; }
+    .mmp-tbl td { padding:4px 6px; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
+    .mmp-tbl td:first-child { color:var(--gold); font-weight:700; }
+    .mmp-tbl tr:last-child td { border-bottom:none; }
+    .mmp-input { background:var(--navy-dark); border:1px solid var(--navy-border); border-radius:6px;
+      padding:4px 8px; font-size:12px; font-family:'DM Mono',monospace; color:var(--text-primary);
+      width:86px; text-align:right; outline:none; transition:border-color .15s; }
+    .mmp-input:focus { border-color:var(--gold); }
+    .mmp-input.null { color:var(--text-dim); font-style:italic; }
+    .mmp-del { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:14px;
+      padding:2px 6px; border-radius:4px; line-height:1; }
+    .mmp-del:hover { color:var(--danger); background:rgba(255,90,90,0.08); }
+    .mmp-add { display:flex; gap:8px; align-items:center; margin-top:10px; }
+    .mmp-add input { background:var(--navy-dark); border:1px solid var(--navy-border); border-radius:6px;
+      padding:6px 10px; font-size:13px; font-family:'DM Mono',monospace; color:var(--gold);
+      width:100px; outline:none; }
+    .mmp-add input:focus { border-color:var(--gold); }
+    .mmp-add button { background:rgba(201,168,76,0.12); border:1px solid rgba(201,168,76,0.3);
+      color:var(--gold); border-radius:6px; padding:6px 14px; font-size:12px; cursor:pointer; }
+    .mmp-add button:hover { background:rgba(201,168,76,0.22); }
+    .mmp-pantone-list { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+    .mmp-pantone-row { display:flex; align-items:center; gap:8px; }
+    .mmp-pantone-row input[type=text] { flex:1; background:var(--navy-dark); border:1px solid var(--navy-border);
+      border-radius:6px; padding:5px 10px; font-size:12px; color:var(--text-primary); outline:none; }
+    .mmp-pantone-row input[type=text]:focus { border-color:var(--gold); }
+    .mmp-sim-panel { background:var(--navy-dark); border-radius:10px; padding:14px; margin-bottom:12px; }
+    .mmp-sim-row { display:flex; flex-direction:column; gap:5px; margin-bottom:10px; }
+    .mmp-sim-label { font-size:9px; text-transform:uppercase; letter-spacing:1.2px;
+      color:var(--text-dim); font-family:'DM Mono',monospace; }
+    .mmp-sim-sel { width:100%; background:var(--navy-dark); border:1px solid var(--navy-border);
+      border-radius:6px; padding:7px 10px; font-size:12px; color:var(--text-primary);
+      font-family:'DM Mono',monospace; outline:none; cursor:pointer; }
+    .mmp-sim-sel:focus { border-color:var(--gold); }
+    .mmp-result-line { display:flex; justify-content:space-between; font-size:11px;
+      margin-bottom:4px; font-family:'DM Mono',monospace; }
+    .mmp-result-line .k { color:var(--text-muted); }
+    .mmp-result-line .v { color:var(--text-primary); }
+    .mmp-result-total { display:flex; justify-content:space-between; font-size:13px; font-weight:700;
+      border-top:1px solid var(--navy-border); margin-top:8px; padding-top:8px;
+      font-family:'DM Mono',monospace; }
+    .mmp-result-total .k { color:var(--text-secondary); }
+    .mmp-result-total .v { color:var(--gold); }
   </style>
 </head>
 <body>
@@ -430,6 +477,63 @@
           </div>
         </div>
 
+        <!-- 9. BARÈME MMP (impression offset) -->
+        <div class="ca-card">
+          <div class="ca-card-header" onclick="toggleCard(this)">
+            <div class="ca-card-title"><div class="icon">🏭</div> Barème MMP <span style="font-size:9px;font-weight:400;margin-left:6px;color:var(--text-dim)">Impression offset sous-traitée</span></div>
+            <span class="ca-card-arrow">▼</span>
+          </div>
+          <div class="ca-card-body">
+            <p style="font-size:11px;color:var(--text-dim);margin-bottom:14px">
+              Prix finaux HT du sous-traitant MMP (marge incluse). Format papier : 68×98 cm.
+              Formule : <code style="font-family:'DM Mono',monospace;color:var(--gold)">Total HT = tirage × PU + forfait</code>
+              → FODEC 1% + TVA 19% + Timbre 1 DT.
+            </p>
+
+            <div class="ca-sub">Tirages &amp; Prix unitaires (DT/ex.)</div>
+            <div id="mmpTarifsContainer">
+              <div style="font-size:11px;color:var(--text-dim)">⏳ Chargement…</div>
+            </div>
+
+            <div class="mmp-add">
+              <input type="number" id="mmpNewTirage" placeholder="Tirage" min="100" step="100">
+              <button onclick="mmpAddRow()">+ Ajouter un tirage</button>
+            </div>
+
+            <div class="ca-sub" style="margin-top:20px">Forfait mise en route (DT HT)</div>
+            <div class="ca-grid3" style="margin-bottom:4px">
+              <div class="ca-field">
+                <div class="ca-label">Quadri seul</div>
+                <input class="ca-input" type="number" id="mmpForfaitQ" step="0.5" placeholder="25.00" oninput="mmpDirty=true">
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Quadri + 1 Pantone</div>
+                <input class="ca-input" type="number" id="mmpForfaitQ1" step="0.5" placeholder="35.00" oninput="mmpDirty=true">
+              </div>
+              <div class="ca-field">
+                <div class="ca-label">Quadri + 2 Pantones</div>
+                <input class="ca-input" type="number" id="mmpForfaitQ2" step="0.5" placeholder="45.00" oninput="mmpDirty=true">
+              </div>
+            </div>
+
+            <div class="ca-sub" style="margin-top:20px">Pantones actifs (4 max)</div>
+            <div class="mmp-pantone-list" id="mmpPantoneList">
+              <div style="font-size:11px;color:var(--text-dim)">⏳ Chargement…</div>
+            </div>
+            <div class="mmp-add">
+              <input type="text" id="mmpNewPantone" placeholder="Ex : Bleu Reflex">
+              <button onclick="mmpAddPantone()">+ Ajouter</button>
+            </div>
+
+            <div style="margin-top:16px;text-align:right">
+              <button class="btn-save" onclick="saveMMP()" style="font-size:12px;padding:8px 20px">
+                💾 Enregistrer le barème MMP
+              </button>
+            </div>
+            <div class="save-status" id="mmpSaveStatus"></div>
+          </div>
+        </div>
+
         <!-- Actions -->
         <div class="ca-actions">
           <button class="btn-save" onclick="saveParams()">💾 Enregistrer les paramètres</button>
@@ -464,11 +568,21 @@
             <div id="cpcKMPanel"></div>
             <hr class="cpc-divider">
 
-            <!-- Simulateur -->
+            <!-- Simulateur numérique -->
             <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-dim);font-family:'DM Mono',monospace;margin-bottom:8px">
               Simulateur — impact sur les prix
             </div>
             <div id="simPanel"></div>
+
+            <hr class="cpc-divider">
+
+            <!-- Simulateur MMP -->
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-dim);font-family:'DM Mono',monospace;margin-bottom:10px">
+              Simulateur MMP (offset)
+            </div>
+            <div id="mmpSimPanel">
+              <div style="font-size:11px;color:var(--text-dim)">Chargez le barème MMP pour simuler.</div>
+            </div>
           </div>
         </div>
       </div>
@@ -505,6 +619,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderSetup();
   renderMarges();
   recalc();
+  loadMMP();
 
   document.getElementById('lastSavedLabel').textContent = '⏳ Synchronisation Supabase…';
 
@@ -985,6 +1100,316 @@ window.addEventListener('load', () => {
   });
   recalc();
 });
+
+/* ═══════════════════════════════════════════════════════════════
+   BARÈME MMP — GESTION & SIMULATEUR
+   ═══════════════════════════════════════════════════════════════ */
+
+let MMP_TARIFS   = [];   // [{id, tirage, quadri_pu, quadri_1pantone_pu, quadri_2pantones_pu}]
+let MMP_PANTONES = [];   // [{id, nom, actif}]
+let MMP_FORFAITS = { q: 25, q1: 35, q2: 45 };
+let mmpDirty = false;
+
+/* ── Chargement depuis Supabase ── */
+async function loadMMP() {
+  const db = getSupabaseClient();
+  if (!db) return;
+
+  const [{ data: tarifs }, { data: pant }] = await Promise.all([
+    db.from('mmp_tarifs').select('*').order('tirage'),
+    db.from('mmp_pantones').select('*').order('nom'),
+  ]);
+
+  MMP_TARIFS   = tarifs   || [];
+  MMP_PANTONES = pant     || [];
+
+  /* Forfaits : stockés dans une ligne spéciale tirage=0 ou dans mmp_config */
+  const cfgRow = MMP_TARIFS.find(r => r.tirage === 0);
+  if (cfgRow) {
+    MMP_FORFAITS.q  = cfgRow.quadri_pu           ?? 25;
+    MMP_FORFAITS.q1 = cfgRow.quadri_1pantone_pu  ?? 35;
+    MMP_FORFAITS.q2 = cfgRow.quadri_2pantones_pu ?? 45;
+    MMP_TARIFS = MMP_TARIFS.filter(r => r.tirage !== 0);
+  }
+
+  renderMmpTarifs();
+  renderMmpPantones();
+  renderMmpSim();
+  mmpDirty = false;
+}
+
+/* ── Rendu table tarifs ── */
+function renderMmpTarifs() {
+  const c = document.getElementById('mmpTarifsContainer');
+  if (!c) return;
+
+  /* Forfaits */
+  const fq  = document.getElementById('mmpForfaitQ');
+  const fq1 = document.getElementById('mmpForfaitQ1');
+  const fq2 = document.getElementById('mmpForfaitQ2');
+  if (fq)  fq.value  = MMP_FORFAITS.q;
+  if (fq1) fq1.value = MMP_FORFAITS.q1;
+  if (fq2) fq2.value = MMP_FORFAITS.q2;
+
+  if (!MMP_TARIFS.length) {
+    c.innerHTML = '<div style="font-size:11px;color:var(--text-dim)">Aucun tirage — ajoutez-en un ci-dessous.</div>';
+    return;
+  }
+
+  let h = `<table class="mmp-tbl">
+    <thead><tr>
+      <th>Tirage</th>
+      <th>Quadri (DT/ex.)</th>
+      <th>+ 1 Pantone</th>
+      <th>+ 2 Pantones</th>
+      <th></th>
+    </tr></thead><tbody>`;
+
+  MMP_TARIFS.forEach((row, i) => {
+    const v = (col) => row[col] != null ? row[col] : '';
+    const cls = (col) => row[col] == null ? ' null' : '';
+    h += `<tr>
+      <td>${row.tirage.toLocaleString('fr-FR')}</td>
+      <td><input class="mmp-input${cls('quadri_pu')}" type="number" step="0.001" min="0"
+        value="${v('quadri_pu')}" placeholder="—"
+        data-idx="${i}" data-col="quadri_pu" oninput="mmpUpdateCell(this)"></td>
+      <td><input class="mmp-input${cls('quadri_1pantone_pu')}" type="number" step="0.001" min="0"
+        value="${v('quadri_1pantone_pu')}" placeholder="—"
+        data-idx="${i}" data-col="quadri_1pantone_pu" oninput="mmpUpdateCell(this)"></td>
+      <td><input class="mmp-input${cls('quadri_2pantones_pu')}" type="number" step="0.001" min="0"
+        value="${v('quadri_2pantones_pu')}" placeholder="—"
+        data-idx="${i}" data-col="quadri_2pantones_pu" oninput="mmpUpdateCell(this)"></td>
+      <td><button class="mmp-del" title="Supprimer" onclick="mmpDelRow(${i})">×</button></td>
+    </tr>`;
+  });
+
+  h += '</tbody></table>';
+  c.innerHTML = h;
+}
+
+function mmpUpdateCell(el) {
+  const i = parseInt(el.dataset.idx);
+  const col = el.dataset.col;
+  const val = el.value.trim();
+  MMP_TARIFS[i][col] = val === '' ? null : parseFloat(val);
+  el.classList.toggle('null', MMP_TARIFS[i][col] == null);
+  mmpDirty = true;
+  renderMmpSim();
+}
+
+function mmpAddRow() {
+  const input = document.getElementById('mmpNewTirage');
+  const tirage = parseInt(input.value);
+  if (!tirage || tirage < 1) { showToast('Entrez un tirage valide', 'error'); return; }
+  if (MMP_TARIFS.find(r => r.tirage === tirage)) { showToast('Ce tirage existe déjà', 'error'); return; }
+  MMP_TARIFS.push({ tirage, quadri_pu: null, quadri_1pantone_pu: null, quadri_2pantones_pu: null });
+  MMP_TARIFS.sort((a, b) => a.tirage - b.tirage);
+  input.value = '';
+  mmpDirty = true;
+  renderMmpTarifs();
+  renderMmpSim();
+}
+
+function mmpDelRow(i) {
+  MMP_TARIFS.splice(i, 1);
+  mmpDirty = true;
+  renderMmpTarifs();
+  renderMmpSim();
+}
+
+/* ── Rendu liste pantones ── */
+function renderMmpPantones() {
+  const c = document.getElementById('mmpPantoneList');
+  if (!c) return;
+  if (!MMP_PANTONES.length) {
+    c.innerHTML = '<div style="font-size:11px;color:var(--text-dim)">Aucun pantone — ajoutez-en un ci-dessous.</div>';
+    return;
+  }
+  c.innerHTML = MMP_PANTONES.map((p, i) => `
+    <div class="mmp-pantone-row">
+      <input type="text" value="${escHtml(p.nom)}" placeholder="Nom pantone"
+        data-idx="${i}" oninput="mmpUpdatePantone(this)">
+      <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer">
+        <input type="checkbox" ${p.actif ? 'checked' : ''} data-idx="${i}" onchange="mmpTogglePantone(this)">
+        Actif
+      </label>
+      <button class="mmp-del" onclick="mmpDelPantone(${i})">×</button>
+    </div>`).join('');
+}
+
+function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function mmpUpdatePantone(el) {
+  MMP_PANTONES[parseInt(el.dataset.idx)].nom = el.value;
+  mmpDirty = true;
+  renderMmpSim();
+}
+
+function mmpTogglePantone(el) {
+  MMP_PANTONES[parseInt(el.dataset.idx)].actif = el.checked;
+  mmpDirty = true;
+  renderMmpSim();
+}
+
+function mmpAddPantone() {
+  const input = document.getElementById('mmpNewPantone');
+  const nom = input.value.trim();
+  if (!nom) { showToast('Entrez un nom de pantone', 'error'); return; }
+  MMP_PANTONES.push({ nom, actif: true });
+  input.value = '';
+  mmpDirty = true;
+  renderMmpPantones();
+  renderMmpSim();
+}
+
+function mmpDelPantone(i) {
+  MMP_PANTONES.splice(i, 1);
+  mmpDirty = true;
+  renderMmpPantones();
+  renderMmpSim();
+}
+
+/* ── Sauvegarde sur Supabase ── */
+async function saveMMP() {
+  const db = getSupabaseClient();
+  if (!db) { showToast('Client Supabase non disponible', 'error'); return; }
+
+  /* Lire les forfaits */
+  MMP_FORFAITS.q  = parseFloat(document.getElementById('mmpForfaitQ')?.value)  || 25;
+  MMP_FORFAITS.q1 = parseFloat(document.getElementById('mmpForfaitQ1')?.value) || 35;
+  MMP_FORFAITS.q2 = parseFloat(document.getElementById('mmpForfaitQ2')?.value) || 45;
+
+  const statusEl = document.getElementById('mmpSaveStatus');
+  statusEl.textContent = '⏳ Enregistrement…';
+
+  /* Upsert tarifs — ligne tirage=0 pour les forfaits */
+  const rows = [
+    { tirage: 0, quadri_pu: MMP_FORFAITS.q, quadri_1pantone_pu: MMP_FORFAITS.q1, quadri_2pantones_pu: MMP_FORFAITS.q2 },
+    ...MMP_TARIFS,
+  ];
+
+  const { error: e1 } = await db.from('mmp_tarifs').upsert(rows, { onConflict: 'tirage' });
+
+  /* Upsert pantones — supprimer les anciens puis réinsérer */
+  const { error: e2del } = await db.from('mmp_pantones').delete().neq('id', 0);
+  const { error: e2 } = MMP_PANTONES.length
+    ? await db.from('mmp_pantones').insert(MMP_PANTONES.map(p => ({ nom: p.nom, actif: p.actif })))
+    : { error: null };
+
+  if (e1 || e2) {
+    console.error('MMP save:', e1, e2);
+    statusEl.textContent = '⚠ Erreur lors de la sauvegarde';
+    showToast('Erreur MMP : ' + (e1?.message || e2?.message), 'error');
+    return;
+  }
+
+  mmpDirty = false;
+  statusEl.textContent = `✓ Barème MMP enregistré le ${new Date().toLocaleString('fr-FR')}`;
+  showToast('✓ Barème MMP enregistré sur Supabase', 'success');
+  setTimeout(() => { statusEl.textContent = ''; }, 6000);
+
+  /* Recharger pour avoir les IDs Supabase */
+  await loadMMP();
+}
+
+/* ── Simulateur MMP ── */
+function renderMmpSim() {
+  const panel = document.getElementById('mmpSimPanel');
+  if (!panel) return;
+
+  const activePants = MMP_PANTONES.filter(p => p.actif);
+  const configs = [
+    { id: 'q',  label: 'Quadri recto + vernis',       col: 'quadri_pu',           pant: 0 },
+    { id: 'q1', label: 'Quadri + 1 Pantone + vernis',  col: 'quadri_1pantone_pu',  pant: 1 },
+    { id: 'q2', label: 'Quadri + 2 Pantones + vernis', col: 'quadri_2pantones_pu', pant: 2 },
+  ];
+
+  /* Lire l'état courant du simulateur */
+  const curCfg  = document.getElementById('mmpSimCfg')?.value  || 'q';
+  const curTir  = parseInt(document.getElementById('mmpSimTir')?.value || '0') || 0;
+  const curP1   = document.getElementById('mmpSimP1')?.value || '';
+  const curP2   = document.getElementById('mmpSimP2')?.value || '';
+
+  const cfg = configs.find(c => c.id === curCfg) || configs[0];
+
+  /* Tirages disponibles pour cette config */
+  const availTirages = MMP_TARIFS.filter(r => r[cfg.col] != null).map(r => r.tirage);
+
+  /* Résolution du tirage : si curTir absent, prendre le supérieur disponible */
+  let resolvedTirage = availTirages.find(t => t >= curTir) || availTirages[availTirages.length - 1] || null;
+  if (availTirages.includes(curTir)) resolvedTirage = curTir;
+  const row = MMP_TARIFS.find(r => r.tirage === resolvedTirage);
+  const pu  = row ? (row[cfg.col] ?? null) : null;
+  const forfait = MMP_FORFAITS[cfg.id] ?? 0;
+
+  /* Dropdowns pantone */
+  let pantHtml = '';
+  if (cfg.pant >= 1) {
+    pantHtml += `<div class="mmp-sim-row">
+      <div class="mmp-sim-label">Pantone 1</div>
+      <select class="mmp-sim-sel" id="mmpSimP1" onchange="renderMmpSim()">
+        ${activePants.map(p => `<option value="${escHtml(p.nom)}" ${curP1===p.nom?'selected':''}>${escHtml(p.nom)}</option>`).join('')}
+      </select></div>`;
+  }
+  if (cfg.pant >= 2) {
+    const opts2 = activePants.filter(p => p.nom !== (document.getElementById('mmpSimP1')?.value || curP1));
+    pantHtml += `<div class="mmp-sim-row">
+      <div class="mmp-sim-label">Pantone 2</div>
+      <select class="mmp-sim-sel" id="mmpSimP2" onchange="renderMmpSim()">
+        ${opts2.map(p => `<option value="${escHtml(p.nom)}" ${curP2===p.nom?'selected':''}>${escHtml(p.nom)}</option>`).join('')}
+      </select></div>`;
+  }
+
+  /* Calcul */
+  let resultHtml = '';
+  if (resolvedTirage && pu != null) {
+    const ht     = resolvedTirage * pu + forfait;
+    const fodec  = ht * 0.01;
+    const tva    = ht * 0.19;
+    const timbre = 1;
+    const ttc    = ht + fodec + tva + timbre;
+
+    const warn = resolvedTirage !== curTir && curTir > 0
+      ? `<div style="font-size:10px;color:var(--warning);margin-bottom:6px">
+          ↑ Tirage arrondi à ${resolvedTirage.toLocaleString('fr-FR')} ex. (supérieur disponible)</div>`
+      : '';
+
+    resultHtml = `<div class="mmp-sim-panel">${warn}
+      <div class="mmp-result-line"><span class="k">PU × tirage</span><span class="v">${pu.toFixed(4)} × ${resolvedTirage.toLocaleString('fr-FR')} = ${(resolvedTirage*pu).toFixed(3)} DT</span></div>
+      <div class="mmp-result-line"><span class="k">Forfait mise en route</span><span class="v">+ ${forfait.toFixed(2)} DT</span></div>
+      <div class="mmp-result-line"><span class="k">Total HT</span><span class="v">${ht.toFixed(2)} DT</span></div>
+      <div class="mmp-result-line"><span class="k">FODEC 1%</span><span class="v">+ ${fodec.toFixed(2)} DT</span></div>
+      <div class="mmp-result-line"><span class="k">TVA 19%</span><span class="v">+ ${tva.toFixed(2)} DT</span></div>
+      <div class="mmp-result-line"><span class="k">Timbre fiscal</span><span class="v">+ ${timbre.toFixed(2)} DT</span></div>
+      <div class="mmp-result-total"><span class="k">Total TTC</span><span class="v">${ttc.toFixed(2)} DT</span></div>
+      <div class="mmp-result-line" style="margin-top:6px"><span class="k">Prix unitaire TTC</span><span class="v">${(ttc/resolvedTirage).toFixed(4)} DT/ex.</span></div>
+    </div>`;
+  } else if (!MMP_TARIFS.length) {
+    resultHtml = `<div style="font-size:11px;color:var(--text-dim)">Aucun barème chargé.</div>`;
+  } else {
+    resultHtml = `<div style="font-size:11px;color:var(--text-dim)">Aucun prix disponible pour cette configuration.</div>`;
+  }
+
+  panel.innerHTML = `
+    <div class="mmp-sim-row">
+      <div class="mmp-sim-label">Configuration</div>
+      <select class="mmp-sim-sel" id="mmpSimCfg" onchange="renderMmpSim()">
+        ${configs.map(c => `<option value="${c.id}" ${curCfg===c.id?'selected':''}>${c.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="mmp-sim-row">
+      <div class="mmp-sim-label">Tirage</div>
+      <select class="mmp-sim-sel" id="mmpSimTir" onchange="renderMmpSim()">
+        ${availTirages.map(t =>
+          `<option value="${t}" ${resolvedTirage===t?'selected':''}>${t.toLocaleString('fr-FR')} ex.</option>`
+        ).join('')}
+      </select>
+    </div>
+    ${pantHtml}
+    ${resultHtml}
+  `;
+}
+
 </script>
 </body>
 </html>
