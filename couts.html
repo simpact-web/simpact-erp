@@ -183,11 +183,14 @@
     .mmp-add button { background:rgba(201,168,76,0.12); border:1px solid rgba(201,168,76,0.3);
       color:var(--gold); border-radius:6px; padding:6px 14px; font-size:12px; cursor:pointer; }
     .mmp-add button:hover { background:rgba(201,168,76,0.22); }
-    .mmp-pantone-list { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
-    .mmp-pantone-row { display:flex; align-items:center; gap:8px; }
-    .mmp-pantone-row input[type=text] { flex:1; background:var(--navy-dark); border:1px solid var(--navy-border);
-      border-radius:6px; padding:5px 10px; font-size:12px; color:var(--text-primary); outline:none; }
+    .mmp-pantone-list { display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+    .mmp-pantone-row { display:grid; grid-template-columns:1fr 80px 80px auto auto; align-items:center; gap:8px; }
+    .mmp-pantone-row input[type=text] { background:var(--navy-dark); border:1px solid var(--navy-border);
+      border-radius:6px; padding:5px 10px; font-size:12px; color:var(--text-primary); outline:none; width:100%; }
     .mmp-pantone-row input[type=text]:focus { border-color:var(--gold); }
+    .mmp-pantone-col { display:flex; flex-direction:column; gap:3px; }
+    .mmp-pantone-col-label { font-size:8px; text-transform:uppercase; letter-spacing:1px;
+      color:var(--text-dim); font-family:'DM Mono',monospace; }
     .mmp-sim-panel { background:var(--navy-dark); border-radius:10px; padding:14px; margin-bottom:12px; }
     .mmp-sim-row { display:flex; flex-direction:column; gap:5px; margin-bottom:10px; }
     .mmp-sim-label { font-size:9px; text-transform:uppercase; letter-spacing:1.2px;
@@ -1121,7 +1124,10 @@ async function loadMMP() {
   ]);
 
   MMP_TARIFS   = tarifs   || [];
-  MMP_PANTONES = pant     || [];
+  MMP_PANTONES = (pant || []).map(p => ({
+    id: p.id, nom: p.nom, actif: p.actif,
+    prix_kilo: p.prix_kilo ?? null, prix_pu: p.prix_pu ?? null,
+  }));
 
   /* Forfaits : stockés dans une ligne spéciale tirage=0 ou dans mmp_config */
   const cfgRow = MMP_TARIFS.find(r => r.tirage === 0);
@@ -1228,8 +1234,20 @@ function renderMmpPantones() {
   c.innerHTML = MMP_PANTONES.map((p, i) => `
     <div class="mmp-pantone-row">
       <input type="text" value="${escHtml(p.nom)}" placeholder="Nom pantone"
-        data-idx="${i}" oninput="mmpUpdatePantone(this)">
-      <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer">
+        data-idx="${i}" data-field="nom" oninput="mmpUpdatePantoneField(this)">
+      <div class="mmp-pantone-col">
+        <div class="mmp-pantone-col-label">Prix/kg (DT)</div>
+        <input class="mmp-input" type="number" step="0.01" min="0"
+          value="${p.prix_kilo ?? ''}" placeholder="—"
+          data-idx="${i}" data-field="prix_kilo" oninput="mmpUpdatePantoneField(this)">
+      </div>
+      <div class="mmp-pantone-col">
+        <div class="mmp-pantone-col-label">Forfait/u (DT)</div>
+        <input class="mmp-input" type="number" step="0.01" min="0"
+          value="${p.prix_pu ?? ''}" placeholder="—"
+          data-idx="${i}" data-field="prix_pu" oninput="mmpUpdatePantoneField(this)">
+      </div>
+      <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap">
         <input type="checkbox" ${p.actif ? 'checked' : ''} data-idx="${i}" onchange="mmpTogglePantone(this)">
         Actif
       </label>
@@ -1239,8 +1257,15 @@ function renderMmpPantones() {
 
 function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-function mmpUpdatePantone(el) {
-  MMP_PANTONES[parseInt(el.dataset.idx)].nom = el.value;
+function mmpUpdatePantoneField(el) {
+  const i = parseInt(el.dataset.idx);
+  const field = el.dataset.field;
+  if (field === 'nom') {
+    MMP_PANTONES[i].nom = el.value;
+  } else {
+    const v = el.value.trim();
+    MMP_PANTONES[i][field] = v === '' ? null : parseFloat(v);
+  }
   mmpDirty = true;
   renderMmpSim();
 }
@@ -1255,7 +1280,7 @@ function mmpAddPantone() {
   const input = document.getElementById('mmpNewPantone');
   const nom = input.value.trim();
   if (!nom) { showToast('Entrez un nom de pantone', 'error'); return; }
-  MMP_PANTONES.push({ nom, actif: true });
+  MMP_PANTONES.push({ nom, actif: true, prix_kilo: null, prix_pu: null });
   input.value = '';
   mmpDirty = true;
   renderMmpPantones();
@@ -1291,9 +1316,21 @@ async function saveMMP() {
   const { error: e1 } = await db.from('mmp_tarifs').upsert(rows, { onConflict: 'tirage' });
 
   /* Upsert pantones — supprimer les anciens puis réinsérer */
-  const { error: e2del } = await db.from('mmp_pantones').delete().neq('id', 0);
-  const { error: e2 } = MMP_PANTONES.length
-    ? await db.from('mmp_pantones').insert(MMP_PANTONES.map(p => ({ nom: p.nom, actif: p.actif })))
+  /* Upsert pantones avec id si disponible, sinon delete+insert */
+  const pantonesWithId = MMP_PANTONES.filter(p => p.id);
+  const pantonesNew    = MMP_PANTONES.filter(p => !p.id);
+  const toDelete = (await db.from('mmp_pantones').select('id')).data?.map(r => r.id) || [];
+  const keepIds = pantonesWithId.map(p => p.id);
+  const delIds  = toDelete.filter(id => !keepIds.includes(id));
+
+  if (delIds.length) await db.from('mmp_pantones').delete().in('id', delIds);
+
+  const toUpsert = [
+    ...pantonesWithId.map(p => ({ id: p.id, nom: p.nom, actif: p.actif, prix_kilo: p.prix_kilo ?? null, prix_pu: p.prix_pu ?? null })),
+    ...pantonesNew.map(p => ({ nom: p.nom, actif: p.actif, prix_kilo: p.prix_kilo ?? null, prix_pu: p.prix_pu ?? null })),
+  ];
+  const { error: e2 } = toUpsert.length
+    ? await db.from('mmp_pantones').upsert(toUpsert, { onConflict: 'id' })
     : { error: null };
 
   if (e1 || e2) {
