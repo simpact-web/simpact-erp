@@ -138,7 +138,7 @@ const SIMPACT_PRICING = (function () {
 
     /* ── BROCHURES ─────────────────────────────────── */
     {
-      id:"bro", name:"Brochures A4", icon:"⊟", type:"booklet",
+      id:"bro", name:"Brochure", icon:"⊟", type:"booklet",
       formats:[
         {label:"A4",      piece:{w:.210,h:.297}},
         {label:"A5",      piece:{w:.150,h:.210}},
