@@ -631,13 +631,12 @@ const SIMPACT_PRICING = (function () {
       ent: { '40':'ent_cl', 'nb':'ent_nb', '1c':'ent_nb' },
       dep: { '44':'dep',    '40':'dep',    'nb':'ent_nb' },
     };
-    const bm = {
-      bro: {
-        '44':  { cpcCov:'bro',    cpcInt:'bro'    },
-        '4nb': { cpcCov:'bro',    cpcInt:'liv_nb' },
-        'nb':  { cpcCov:'ent_nb', cpcInt:'ent_nb' },
-      },
+    const broColors = {
+      '44':  { cpcCov:'bro',    cpcInt:'bro'    },
+      '4nb': { cpcCov:'bro',    cpcInt:'liv_nb' },
+      'nb':  { cpcCov:'ent_nb', cpcInt:'ent_nb' },
     };
+    const bm = { bro: broColors, 'bro-custom': broColors };
     PRODS.forEach(p => {
       if (cm[p.id]) p.colors.forEach(c => {
         if (cm[p.id][c.id] !== undefined) c.cpc = nc[cm[p.id][c.id]];
