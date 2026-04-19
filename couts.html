@@ -184,7 +184,7 @@
       color:var(--gold); border-radius:6px; padding:6px 14px; font-size:12px; cursor:pointer; }
     .mmp-add button:hover { background:rgba(201,168,76,0.22); }
     .mmp-pantone-list { display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
-    .mmp-pantone-row { display:grid; grid-template-columns:1fr 80px 80px auto auto; align-items:center; gap:8px; }
+    .mmp-pantone-row { display:grid; grid-template-columns:1fr 90px 90px auto auto; align-items:end; gap:8px; }
     .mmp-pantone-row input[type=text] { background:var(--navy-dark); border:1px solid var(--navy-border);
       border-radius:6px; padding:5px 10px; font-size:12px; color:var(--text-primary); outline:none; width:100%; }
     .mmp-pantone-row input[type=text]:focus { border-color:var(--gold); }
@@ -1233,25 +1233,28 @@ function renderMmpPantones() {
   }
   c.innerHTML = MMP_PANTONES.map((p, i) => `
     <div class="mmp-pantone-row">
-      <input type="text" value="${escHtml(p.nom)}" placeholder="Nom pantone"
-        data-idx="${i}" data-field="nom" oninput="mmpUpdatePantoneField(this)">
       <div class="mmp-pantone-col">
-        <div class="mmp-pantone-col-label">Prix/kg (DT)</div>
+        <div class="mmp-pantone-col-label">Nom</div>
+        <input type="text" value="${escHtml(p.nom)}" placeholder="Ex : Bleu Reflex"
+          data-idx="${i}" data-field="nom" oninput="mmpUpdatePantoneField(this)">
+      </div>
+      <div class="mmp-pantone-col">
+        <div class="mmp-pantone-col-label">Prix/kilo (DT)</div>
         <input class="mmp-input" type="number" step="0.01" min="0"
           value="${p.prix_kilo ?? ''}" placeholder="—"
           data-idx="${i}" data-field="prix_kilo" oninput="mmpUpdatePantoneField(this)">
       </div>
       <div class="mmp-pantone-col">
-        <div class="mmp-pantone-col-label">Forfait/u (DT)</div>
+        <div class="mmp-pantone-col-label">Prix forfait (DT)</div>
         <input class="mmp-input" type="number" step="0.01" min="0"
           value="${p.prix_pu ?? ''}" placeholder="—"
           data-idx="${i}" data-field="prix_pu" oninput="mmpUpdatePantoneField(this)">
       </div>
-      <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap">
+      <label style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;padding-bottom:2px">
         <input type="checkbox" ${p.actif ? 'checked' : ''} data-idx="${i}" onchange="mmpTogglePantone(this)">
         Actif
       </label>
-      <button class="mmp-del" onclick="mmpDelPantone(${i})">×</button>
+      <button class="mmp-del" style="margin-bottom:2px" onclick="mmpDelPantone(${i})">×</button>
     </div>`).join('');
 }
 

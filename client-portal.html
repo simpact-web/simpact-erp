@@ -1360,6 +1360,8 @@ function getProducts() { return window._PRODUCTS_FILTERED || SIMPACT_PRICING.PRO
 
 let cfg = { pi:0, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null, pantone1:'', pantone2:'' };
 
+function escCpHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 /* ── Données MMP chargées depuis Supabase ── */
 let MMP_PANTONES_CP = [];  // [{id, nom, actif}]
 let MMP_TARIFS_CP   = [];  // [{tirage, quadri_pu, quadri_1pantone_pu, quadri_2pantones_pu}]
@@ -1490,25 +1492,31 @@ function renderCpChips() {
       h += `<div class="cp-field full" style="color:var(--text-dim);font-size:11px">Barème MMP non disponible — contactez-nous.</div>`;
     }
 
-    // Dropdowns pantone
+    // Dropdowns pantone (actifs uniquement)
     const activePants = MMP_PANTONES_CP;
     if (col?.pant >= 1 && activePants.length) {
+      if (!cfg.pantone1 || !activePants.find(pt => pt.nom === cfg.pantone1)) {
+        cfg.pantone1 = activePants[0].nom;
+      }
       h += `<div class="cp-field full">
         <div class="cp-field-label"><span class="cp-field-num">4</span> Couleur Pantone 1</div>
         <select class="cp-select" onchange="cfg.pantone1=this.options[this.selectedIndex].text;cfg.pantone2='';renderCpChips();updateCpPrice()">
           ${activePants.map(pt =>
-            `<option ${cfg.pantone1 === pt.nom ? 'selected' : ''}>${pt.nom}</option>`
+            `<option value="${escCpHtml(pt.nom)}" ${cfg.pantone1 === pt.nom ? 'selected' : ''}>${escCpHtml(pt.nom)}</option>`
           ).join('')}
         </select>
       </div>`;
     }
     if (col?.pant >= 2 && activePants.length > 1) {
       const p2opts = activePants.filter(pt => pt.nom !== cfg.pantone1);
+      if (!cfg.pantone2 || !p2opts.find(pt => pt.nom === cfg.pantone2)) {
+        cfg.pantone2 = p2opts[0]?.nom || '';
+      }
       h += `<div class="cp-field full">
         <div class="cp-field-label"><span class="cp-field-num">5</span> Couleur Pantone 2</div>
         <select class="cp-select" onchange="cfg.pantone2=this.options[this.selectedIndex].text;updateCpPrice()">
           ${p2opts.map(pt =>
-            `<option ${cfg.pantone2 === pt.nom ? 'selected' : ''}>${pt.nom}</option>`
+            `<option value="${escCpHtml(pt.nom)}" ${cfg.pantone2 === pt.nom ? 'selected' : ''}>${escCpHtml(pt.nom)}</option>`
           ).join('')}
         </select>
       </div>`;
