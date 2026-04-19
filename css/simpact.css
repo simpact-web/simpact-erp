@@ -511,4 +511,10 @@ select.form-control option { background: #ffffff; color: var(--text-primary); }
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
 }
 
+@media (max-width: 767px) {
+  :root { --sidebar-w: 50px; }
+  .nav-item { justify-content: center; padding: 10px 0; }
+  .topbar-brand { padding: 0 8px; justify-content: center; }
+}
+
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
