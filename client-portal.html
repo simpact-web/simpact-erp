@@ -888,6 +888,8 @@ async function applyClientBranding() {
   } catch(e) {
     console.warn('applyClientBranding:', e);
   }
+  /* Charger les données MMP (pantones + tarifs) pour le configurateur */
+  await loadMmpPortal();
 }
 
 // ─── Navigation ─────────────────────────────────────────
@@ -1288,7 +1290,7 @@ function renderWzProductGrid() {
 }
 
 function wzSelectProduct(i) {
-  cfg = {pi:i, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null};
+  cfg = {pi:i, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null, pantone1:'', pantone2:''};
   const sub1 = document.getElementById("wz-sub-1");
   if (sub1) sub1.textContent = getProducts()[i].name;
   wzGo(2);
@@ -1356,7 +1358,32 @@ function renderConfigurator() {
 let PRODUCTS = SIMPACT_PRICING.PRODS;
 function getProducts() { return window._PRODUCTS_FILTERED || SIMPACT_PRICING.PRODS; }
 
-let cfg = { pi:0, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null };
+let cfg = { pi:0, fi:0, pa:0, co:0, qi:2, fins:[], pages:null, bi:0, pa2:0, cov:0, qLibre:null, pantone1:'', pantone2:'' };
+
+function escCpHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ── Données MMP chargées depuis Supabase ── */
+let MMP_PANTONES_CP = [];  // [{id, nom, actif}]
+let MMP_TARIFS_CP   = [];  // [{tirage, quadri_pu, quadri_1pantone_pu, quadri_2pantones_pu}]
+let MMP_FORFAITS_CP = { q: 25, q1: 35, q2: 45 };
+
+async function loadMmpPortal() {
+  const db = getSupabaseClient();
+  if (!db) return;
+  const [{ data: tarifs }, { data: pant }] = await Promise.all([
+    db.from('mmp_tarifs').select('*').order('tirage'),
+    db.from('mmp_pantones').select('id,nom,actif').eq('actif', true).order('nom'),
+  ]);
+  MMP_PANTONES_CP = pant || [];
+  const allTarifs = tarifs || [];
+  const cfg0 = allTarifs.find(r => r.tirage === 0);
+  if (cfg0) {
+    MMP_FORFAITS_CP.q  = cfg0.quadri_pu           ?? 25;
+    MMP_FORFAITS_CP.q1 = cfg0.quadri_1pantone_pu  ?? 35;
+    MMP_FORFAITS_CP.q2 = cfg0.quadri_2pantones_pu ?? 45;
+  }
+  MMP_TARIFS_CP = allTarifs.filter(r => r.tirage !== 0);
+}
 
 function cfgToState(overrideQty) {
   const p = PRODUCTS[cfg.pi];
@@ -1440,6 +1467,60 @@ function renderCpChips() {
           oninput="cfg.pages=this.value?Math.max(4,parseInt(this.value)):null;this.style.borderColor=cfg.pages?'var(--gold)':'var(--navy-border)';updateCpPrice()">
         <span style="font-size:12px;color:var(--text-muted)">${cfg.pages?(cfg.pages+4)+"p total (couv. incluse)":"Entrez le nombre de pages"}</span>
       </div></div>`;
+
+  } else if (p.type === "mmp") {
+    // Impression Offset MMP — tirage + config + pantones
+    const col = p.colors[cfg.co];
+    const colKey = col?.id === 'q' ? 'quadri_pu' : col?.id === 'q1' ? 'quadri_1pantone_pu' : 'quadri_2pantones_pu';
+    const availTirages = MMP_TARIFS_CP.filter(r => r[colKey] != null);
+
+    h += cpSel("2", "Configuration", p.colors.map(c => c.label), cfg.co,
+      `cfg.co=parseInt(this.value);cfg.qi=0;cfg.pantone1='';cfg.pantone2='';renderCpChips();updateCpPrice()`);
+
+    if (availTirages.length) {
+      const tirageOpts = availTirages.map(r => r.tirage);
+      const curTirage = availTirages[Math.min(cfg.qi, availTirages.length - 1)]?.tirage;
+      h += `<div class="cp-field full">
+        <div class="cp-field-label"><span class="cp-field-num">3</span> Tirage</div>
+        <select class="cp-select" onchange="cfg.qi=parseInt(this.value);updateCpPrice()">
+          ${tirageOpts.map((t, i) =>
+            `<option value="${i}" ${cfg.qi === i ? 'selected' : ''}>${t.toLocaleString('fr-FR')} exemplaires</option>`
+          ).join('')}
+        </select>
+      </div>`;
+    } else {
+      h += `<div class="cp-field full" style="color:var(--text-dim);font-size:11px">Barème MMP non disponible — contactez-nous.</div>`;
+    }
+
+    // Dropdowns pantone (actifs uniquement)
+    const activePants = MMP_PANTONES_CP;
+    if (col?.pant >= 1 && activePants.length) {
+      if (!cfg.pantone1 || !activePants.find(pt => pt.nom === cfg.pantone1)) {
+        cfg.pantone1 = activePants[0].nom;
+      }
+      h += `<div class="cp-field full">
+        <div class="cp-field-label"><span class="cp-field-num">4</span> Couleur Pantone 1</div>
+        <select class="cp-select" onchange="cfg.pantone1=this.options[this.selectedIndex].text;cfg.pantone2='';renderCpChips();updateCpPrice()">
+          ${activePants.map(pt =>
+            `<option value="${escCpHtml(pt.nom)}" ${cfg.pantone1 === pt.nom ? 'selected' : ''}>${escCpHtml(pt.nom)}</option>`
+          ).join('')}
+        </select>
+      </div>`;
+    }
+    if (col?.pant >= 2 && activePants.length > 1) {
+      const p2opts = activePants.filter(pt => pt.nom !== cfg.pantone1);
+      if (!cfg.pantone2 || !p2opts.find(pt => pt.nom === cfg.pantone2)) {
+        cfg.pantone2 = p2opts[0]?.nom || '';
+      }
+      h += `<div class="cp-field full">
+        <div class="cp-field-label"><span class="cp-field-num">5</span> Couleur Pantone 2</div>
+        <select class="cp-select" onchange="cfg.pantone2=this.options[this.selectedIndex].text;updateCpPrice()">
+          ${p2opts.map(pt =>
+            `<option value="${escCpHtml(pt.nom)}" ${cfg.pantone2 === pt.nom ? 'selected' : ''}>${escCpHtml(pt.nom)}</option>`
+          ).join('')}
+        </select>
+      </div>`;
+    }
 
   } else {
     // Produits standard
@@ -1529,6 +1610,62 @@ function toggleFin(i) {
 
 function updateCpPrice() {
   const p = PRODUCTS[cfg.pi];
+
+  /* ── Impression Offset MMP : calcul depuis mmp_tarifs ── */
+  if (p.type === 'mmp') {
+    const col = p.colors[cfg.co];
+    const colKey = col?.id === 'q' ? 'quadri_pu' : col?.id === 'q1' ? 'quadri_1pantone_pu' : 'quadri_2pantones_pu';
+    const forfaitKey = col?.id || 'q';
+    const availRows = MMP_TARIFS_CP.filter(r => r[colKey] != null);
+    const row = availRows[Math.min(cfg.qi, availRows.length - 1)];
+
+    if (!row) {
+      document.getElementById("ps-priceHT").textContent = "—";
+      document.getElementById("ps-unit").textContent = "Barème MMP non disponible";
+      document.getElementById("ps-ttc").textContent = "";
+      document.getElementById("ps-summary").innerHTML = "";
+      document.getElementById("ps-paliers").innerHTML = "";
+      return;
+    }
+
+    const pu      = row[colKey];
+    const tirage  = row.tirage;
+    const forfait = MMP_FORFAITS_CP[forfaitKey] ?? 0;
+    const ht      = tirage * pu + forfait;
+    const ttc     = ht + ht * 0.01 + ht * 0.19 + 1;
+
+    document.getElementById("ps-product").textContent = p.name;
+    document.getElementById("ps-specs").textContent   = col?.label || '';
+    document.getElementById("ps-priceHT").textContent = ht.toFixed(2) + " DT";
+    document.getElementById("ps-unit").textContent    = `soit ${(ht/tirage).toFixed(4)} DT / exemplaire`;
+    document.getElementById("ps-ttc").textContent     = `TTC (FODEC + TVA 19% + timbre) : ${ttc.toFixed(2)} DT`;
+
+    const pantRows = [];
+    if (col?.pant >= 1 && cfg.pantone1) pantRows.push(["Pantone 1", cfg.pantone1]);
+    if (col?.pant >= 2 && cfg.pantone2) pantRows.push(["Pantone 2", cfg.pantone2]);
+
+    document.getElementById("ps-summary").innerHTML = [
+      ["Produit", p.name],
+      ["Configuration", col?.label || "—"],
+      ...pantRows,
+      ["Tirage", tirage.toLocaleString('fr-FR') + " ex."],
+      ["Total HT", ht.toFixed(2) + " DT"],
+    ].map(([k,v]) => `<div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px">
+      <span style="color:var(--text-muted)">${k}</span>
+      <span style="color:var(--text-primary)">${v}</span>
+    </div>`).join('');
+
+    document.getElementById("ps-paliers").innerHTML = availRows.map((r, i) => {
+      const rHT = r.tirage * r[colKey] + forfait;
+      const active = cfg.qi === i;
+      return `<tr onclick="cfg.qi=${i};updateCpPrice()" style="cursor:pointer;${active?"background:rgba(201,168,76,0.06)":""}">
+        <td style="padding:4px 8px;color:${active?"var(--gold)":"var(--text-muted)"};font-family:'DM Mono',monospace;font-size:11px">${r.tirage.toLocaleString('fr-FR')} ex.</td>
+        <td style="padding:4px 8px;text-align:right;color:${active?"var(--text-primary)":"var(--text-dim)"};font-family:'DM Mono',monospace;font-size:11px">${rHT.toFixed(2)} DT</td>
+      </tr>`;
+    }).join('');
+    return;
+  }
+
   const state = cfgToState();
   const res = SIMPACT_PRICING.compute(p, state);
   const qty = state.qty;

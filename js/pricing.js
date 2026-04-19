@@ -415,6 +415,19 @@ const SIMPACT_PRICING = (function () {
       ],
       qty:[500,1000,2000,5000,10000], setup:25,
     },
+
+    /* ── IMPRESSION OFFSET MMP (sous-traité) ────────── */
+    {
+      id:"off-mmp", name:"Impression Offset MMP", icon:"🏭", type:"mmp",
+      formats:[{label:"68×98 cm (fourni par MMP)"}],
+      colors:[
+        {id:"q",  label:"Quadri recto + vernis",        pant:0},
+        {id:"q1", label:"Quadri + 1 Pantone + vernis",  pant:1},
+        {id:"q2", label:"Quadri + 2 Pantones + vernis", pant:2},
+      ],
+      papers:[], fins:[],
+      qty:[500,1000,2000,3000,5000,10000],
+    },
   ];
 
   /* ════════════════════════════════════════════════════
